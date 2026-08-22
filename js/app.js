@@ -100,6 +100,7 @@
       '<div class="sub">南 境 据 点  ·  矮人要塞风格 ASCII 塔防沙盒</div>' +
       '<div class="flavor">北蛮的长船正在南下。你是南境的寨主。守住屋舍，别让盐风草被烧成灰。</div>' +
       '<div class="menu">' +
+      (this._hasSave() ? '<button data-act="continue">d  继续征程 — 读取上次海图</button>' : "") +
       '<button data-act="campaign">a  战役模式 — 群岛远征</button>' +
       '<button data-act="sandbox">b  沙盒模式 — 随机构图 / 刷子 / 刷兵</button>' +
       '<button data-act="help">c  手册 — 规则与按键</button>' +
@@ -121,6 +122,7 @@
 
   App.prototype.handleAct = function (act, arg) {
     if (act === "campaign") this.startCampaign();
+    else if (act === "continue") this.load();
     else if (act === "sandbox") this.startSandbox();
     else if (act === "help") this.showHelp();
     else if (act === "title") this.showTitle();
@@ -144,7 +146,33 @@
     this.army = newArmy(this.rng);
     this.campaign = GS.mapgen.campaign(seed, 12);
     this.campCursor = 0;
+    this.save();
     this.showCampaign();
+  };
+
+  App.prototype._hasSave = function () {
+    try { return !!localStorage.getItem("goodsouth-save"); } catch (e) { return false; }
+  };
+
+  App.prototype.save = function () {
+    if (!this.campaign || !this.army) return;
+    try {
+      localStorage.setItem("goodsouth-save", JSON.stringify({ army: this.army, campaign: this.campaign }));
+    } catch (e) { /* ignore quota */ }
+  };
+
+  App.prototype.load = function () {
+    try {
+      var s = JSON.parse(localStorage.getItem("goodsouth-save") || "null");
+      if (!s || !s.campaign || !s.army) return false;
+      this.army = s.army;
+      this.campaign = s.campaign;
+      this.campCursor = this.campaign.current || 0;
+      this.showCampaign();
+      return true;
+    } catch (e) {
+      return false;
+    }
   };
 
   App.prototype.showCampaign = function () {
@@ -253,6 +281,7 @@
       dead: false,
     });
     GS.audio.coin();
+    this.save();
     this.showHire();
   };
 
@@ -280,6 +309,7 @@
         if (n.status === "hidden") n.status = "scouted";
       }
     }
+    this.save();
     var living = this.army.commanders.filter(function (c) { return !c.dead && c.soldiers > 0; }).length;
     $("overlay").classList.remove("hidden");
     $("overlay").innerHTML =
@@ -357,14 +387,15 @@
       "<li>屋舍被拆光则岛陷落。守住所有波次则按残存屋舍得钱币。</li>" +
       "<li>盾兵抗打、弓手要高地与视野、枪兵<b>正面</b>克冲锋。</li>" +
       "<li>右键或 R 旋转朝向。战斗中仍可重新落子（有冷却）。E 弃岛撤退保兵。</li>" +
+      "<li>战役进度自动写入浏览器本地；标题界面可「继续征程」。</li>" +
       "</ul>" +
       "<h3>按键</h3>" +
       "<pre class=\"keys\">" +
       "方向键/HJKL  移动光标          鼠标左键  布置/选中\n" +
       "Tab           切换兵团          鼠标右键  旋转\n" +
       "G             开战              空格      暂停\n" +
-      "1 2 3         一/二/三倍速      K         观察模式\n" +
-      "E             撤退              ?/F1      手册\n" +
+      "1 2 3         一/二/三倍速      K 或 '    观察模式\n" +
+      "E             撤退              -         静音\n" +
       "M             海图              Q         返回\n" +
       "沙盒:  T 循环地形刷  N 刷北蛮  B 放船  C 刷己方  [G] 新地图\n" +
       "</pre>" +
@@ -395,6 +426,7 @@
       if (k === "a" || k === "A" || k === "Enter") this.startCampaign();
       if (k === "b" || k === "B") this.startSandbox();
       if (k === "c" || k === "C") this.showHelp();
+      if (k === "d" || k === "D") this.load();
       return;
     }
     if ($("overlay") && !$("overlay").classList.contains("hidden") && this.mode !== "preview" && this.mode !== "hire" && this.mode !== "result" && this.mode !== "help") {
@@ -490,6 +522,7 @@
       else this.showCampaign();
     }
     if (k === "p" || k === "P") this.cyclePalette();
+    if (k === "-" || k === "_") GS.audio.toggle();
     if (this.mode === "sandbox") this._sandboxKey(k);
   };
 
@@ -620,7 +653,7 @@
     right.innerHTML = this._squadList(b) + this._logHtml(b) + this._legendHtml();
     bot.textContent = this.mode === "sandbox"
       ? "左键布置/刷地  右键旋转  T地形  N北蛮  B船  C己方  V领主  G开战  Shift+G新图  空格暂停  Q标题"
-      : "左键布置  右键/R旋转  Tab切换  G开战  空格暂停  123变速  K观察  E撤退  Q海图";
+      : "左键布置  右键/R旋转  Tab切换  G开战  空格暂停  123变速  K观察  E撤退  -静音  Q海图";
   };
 
   App.prototype._campLeft = function (node) {
