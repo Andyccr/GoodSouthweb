@@ -1,0 +1,10 @@
+{
+  "name": "goodsouthweb",
+  "version": "1.0.0",
+  "description": "GOOD SOUTH — ASCII / Dwarf Fortress style island-defense sandbox inspired by Bad North",
+  "private": true,
+  "scripts": {
+    "test": "node tests/test.js",
+    "start": "python3 -m http.server 8080"
+  }
+}
