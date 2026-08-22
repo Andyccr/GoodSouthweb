@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="GOOD SOUTH — 矮人要塞风格 ASCII 岛屿塔防沙盒，玩法模仿 Bad North" />
   <title>GOOD SOUTH — 南境据点</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
@@ -11,14 +13,33 @@
 </head>
 <body>
   <div id="app">
-    <header id="topbar">GOOD SOUTH  ·  南境据点</header>
+    <header id="topbar">
+      <span class="brand">GOOD SOUTH</span>
+      <span class="chips"></span>
+    </header>
     <div id="main">
       <aside id="left">
         <h3>南境</h3>
         <p>北蛮的长船正在南下。</p>
       </aside>
       <div id="stage">
-        <canvas id="view" width="800" height="480">需要 canvas。</canvas>
+        <div id="sandbox-tools">
+          <span>SANDBOX</span>
+          <label>种子 <input id="seedbox" value="south" size="10" /></label>
+          <label>生态
+            <select id="biomebox">
+              <option value="verdant">沃野</option>
+              <option value="rocky">岩礁</option>
+              <option value="marsh">泽地</option>
+              <option value="snow">霜岛</option>
+              <option value="ash">火山</option>
+            </select>
+          </label>
+          <label>威胁 <input id="diffbox" type="number" min="1" max="8" value="3" style="width:3em" /></label>
+          <button type="button" id="genbtn">生成新岛</button>
+        </div>
+        <div id="phase-banner" class="phase-banner hidden">布置阶段</div>
+        <canvas id="view" width="800" height="480" tabindex="0" aria-label="游戏画面">需要 canvas 支持。</canvas>
       </div>
       <aside id="right">
         <h3>图例</h3>
@@ -28,22 +49,7 @@
 ↑ 枪兵  v 北蛮</pre>
       </aside>
     </div>
-    <footer id="bottom">a 战役   b 沙盒   c 手册</footer>
-  </div>
-  <div id="sandbox-tools">
-    <span>沙盒</span>
-    <label>种子 <input id="seedbox" value="south" size="10" /></label>
-    <label>生态
-      <select id="biomebox">
-        <option value="verdant">沃野</option>
-        <option value="rocky">岩礁</option>
-        <option value="marsh">泽地</option>
-        <option value="snow">霜岛</option>
-        <option value="ash">火山</option>
-      </select>
-    </label>
-    <label>威胁 <input id="diffbox" type="number" min="1" max="8" value="3" style="width:3em" /></label>
-    <button type="button" id="genbtn">生成新岛</button>
+    <footer id="bottom"><div class="hint-line">a 战役 · b 沙盒 · c 手册</div></footer>
   </div>
   <div id="overlay"></div>
   <script src="js/rng.js"></script>
@@ -54,12 +60,8 @@
   <script src="js/sim.js"></script>
   <script src="js/render.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/app.js"></script>
-  <script>
-    GS.boot();
-    document.getElementById("genbtn").addEventListener("click", function () {
-      if (GS.app) GS.app.regenSandbox();
-    });
-  </script>
+  <script>GS.boot();</script>
 </body>
 </html>
