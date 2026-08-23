@@ -108,7 +108,7 @@
     right.innerHTML = this.squadList(b) + this.logHtml(b) + this.legend();
     bot.innerHTML = '<div class="hint-line">' + (game.mode === "sandbox"
       ? "Esc菜单 · 空格暂停 · 拖拽刷地 · T地形 · G开战"
-      : "Esc菜单 · 空格暂停 · F5快存 · F9读档 · 左键布置 · G开战") + "</div>";
+      : "Esc菜单 · 空格暂停 · F5快存 · U号角 · 左键布置 · G开战") + "</div>";
 
     this.battleToolbar(game, b);
   };
@@ -127,7 +127,16 @@
       items.push({ act: "spd", arg: "3", label: "3×", active: b.speed === 3 });
       items.push({ sep: true });
       items.push({ act: "rotate", label: "转向", kbd: "R" });
-      if (game.mode === "battle") items.push({ act: "evac", label: "撤退", kbd: "E", danger: true });
+      if (game.mode === "battle") {
+        items.push({
+          act: "warhorn",
+          label: b.warhornReady ? "号角" : "号角已用",
+          kbd: "U",
+          active: b.warhornT > 0,
+          disabled: !b.warhornReady && b.warhornT <= 0,
+        });
+        items.push({ act: "evac", label: "撤退", kbd: "E", danger: true });
+      }
     }
     if (game.mode === "sandbox") {
       items.push({ sep: true });
@@ -252,7 +261,7 @@
   };
 
   Hud.prototype.legend = function () {
-    return "<h3>图例</h3><pre class='legend'>≈深海 ~浅 .滩 ,草 n丘\n▲崖 #岩 ♣树 ⌂屋 █墙\n☻盾 }弓 ↑枪 v蛮 V力\n黄闪箭头 = 登陆点</pre>";
+    return "<h3>图例</h3><pre class='legend'>≈深海 ~浅 .滩 ,草 n丘\n▲崖 #岩 ♣树 ⌂屋 █墙 ¥烽\n☻盾 }弓 ↑枪 ☺乡勇\nv蛮 V力 x投 ▼盾 Ω领\n黄闪箭头 = 登陆点</pre>";
   };
 
   GS.Hud = Hud;

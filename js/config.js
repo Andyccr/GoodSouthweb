@@ -3,17 +3,37 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "1.2.0",
+    version: "1.3.0",
     saveVersion: 3,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
     settingsKey: "goodsouth-settings",
 
     campaign: {
-      islandCount: 12,
+      islandCount: 14,
       startCoins: 10,
       recruitHealOnVictory: 2,
       coinPerHouse: 1,
+      chartW: 88,
+      chartH: 48,
+    },
+
+    map: {
+      // battle islands (tile counts); scales up with difficulty
+      minW: 46,
+      maxW: 68,
+      minH: 34,
+      maxH: 52,
+      minLandRatio: 0.075,
+      minLandAbs: 90,
+      houseBase: 3,
+      housePerDifficulty: 0.85,
+      houseSpacing: 16,
+      sizes: {
+        small: { minW: 36, maxW: 44, minH: 28, maxH: 34 },
+        medium: { minW: 48, maxW: 58, minH: 36, maxH: 44 },
+        large: { minW: 58, maxW: 72, minH: 42, maxH: 54 },
+      },
     },
 
     hire: {
@@ -24,14 +44,22 @@
 
     battle: {
       moveCooldown: 3.2,
-      deployHint: "布置兵团，面朝黄闪登陆点。",
+      deployHint: "布置兵团，面朝黄闪登陆点。号角 U 可振奋一次。",
       maxSpeed: 3,
       hudIntervalMs: 120,
+      warhornDuration: 6.5,
+      warhornSlow: 0.42,
+      militiaPerHouse: 2,
+      beaconRangeBonus: 1.6,
+      beaconDmgBonus: 1.18,
+      beaconRadius: 4,
+      pathRefresh: 0.55,
     },
 
     sandbox: {
       defaultDifficulty: 3,
       defaultBiome: "verdant",
+      defaultSize: "medium",
       brushes: null,
     },
 
@@ -46,6 +74,7 @@
     return [
       GS.T.GRASS, GS.T.BEACH, GS.T.HILL, GS.T.TREE, GS.T.WALL,
       GS.T.HOUSE, GS.T.SHALLOW, GS.T.ROCK, GS.T.CLIFF, GS.T.PATH, GS.T.MUD,
+      GS.T.BEACON,
     ];
   };
 })(typeof window !== "undefined" ? window : globalThis);
