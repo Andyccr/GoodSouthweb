@@ -68,22 +68,33 @@ E               撤退          P 调色     - 静音
 底栏编号        快速切换兵团
 ```
 
+## 架构
+
+详见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。分层摘要：
+
+- **Core**：`events` 总线 · `config` 数值 · `rng` / `util`
+- **Domain**：`army` · `campaign` · `save` · `waves`
+- **Simulation**：`sim`（Battle）· `mapgen` · `pathfind`
+- **Presentation**：`render` · `ui` · `screens` · `hud` · `audio`
+- **Application**：`game`（模式状态机 + `dispatch`）· `input` · `app`（boot）
+
+所有键盘/鼠标/按钮最终进入 `Game.dispatch(act, arg)`，避免 UI 与模拟互相缠绕。
+
 ## 目录
 
 ```
-index.html          入口
-css/style.css       终端风界面
-js/rng.js           种子 RNG 与分形噪声
-js/tiles.js         16 色图块与兵种数值
-js/names.js         矮寨 / 北蛮名
-js/pathfind.js      A*、洪泛、视线
-js/mapgen.js        随机岛 + 战役海图
-js/sim.js           即时战斗
-js/render.js        Canvas ASCII 绘制（登陆点高亮、阵型预览、朝向箭头）
-js/audio.js         WebAudio 音效
-js/ui.js            顶栏工具条、Toast、Tooltip、兵团快捷条
-js/app.js           模式编排与桌面输入
-tests/test.js       生成器 / 寻路 / 战斗冒烟测试
+index.html
+docs/ARCHITECTURE.md
+css/style.css
+js/
+  events.js config.js util.js rng.js
+  tiles.js names.js
+  pathfind.js mapgen.js
+  army.js campaign.js save.js waves.js
+  sim.js
+  render.js audio.js ui.js screens.js hud.js
+  input.js game.js app.js
+tests/test.js
 ```
 
 ```bash
