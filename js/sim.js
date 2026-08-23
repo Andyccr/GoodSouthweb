@@ -79,7 +79,7 @@
     this._livingEnemies = [];
     this._livingSoldiers = [];
     this.announce("抵达 " + island.name + "。" + island.flavor + "。", C.LCYAN);
-    this.announce("登陆点：" + island.landingDirs.map(function (d) { return GS.DIRS[d].name; }).join("、") + "。布置兵团，按 G 开战。", C.YELLOW);
+    this.announce("登陆点：" + island.landingDirs.map(function (d) { return GS.DIRS[d].name; }).join("、") + "。点空地让兵团就位，开战后天兵会自己接战。", C.YELLOW);
     if (this.beacons.length) {
       this.announce("岛上有 " + this.beacons.length + " 座烽火台——弓手靠近可加强。", C.YELLOW);
     }
@@ -163,12 +163,25 @@
     sq.tx = tx;
     sq.ty = ty;
     if (facing != null) sq.facing = facing;
+    else if (!sq.placed) sq.facing = this._faceNearestLanding(tx, ty);
     sq.placed = true;
     if (!sq.entities.length) this._birthSquad(sq);
     else this._retargetFormation(sq);
     if (this.phase === "fight") sq.moveCd = (GS.CONFIG.battle && GS.CONFIG.battle.moveCooldown) || 3.2;
-    this.announce(sq.name + " 的" + GS.ROLES[sq.role].name + "列阵于 (" + tx + "," + ty + ")，面朝" + GS.DIRS[sq.facing].name + "。", C.LCYAN);
+    this.announce(sq.name + " 在 (" + tx + "," + ty + ") 就位，面朝" + GS.DIRS[sq.facing].name + "。发现北蛮会自行接战。", C.LCYAN);
     return true;
+  };
+
+  Battle.prototype._faceNearestLanding = function (tx, ty) {
+    var spots = this.island.landings || [];
+    if (!spots.length) return 2;
+    var best = spots[0], bd = 1e9;
+    for (var i = 0; i < spots.length; i++) {
+      var dx = spots[i].x - tx, dy = spots[i].y - ty;
+      var d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = spots[i]; }
+    }
+    return best.dir != null ? best.dir : 2;
   };
 
   Battle.prototype.livingSquads = function () {
@@ -666,29 +679,91 @@
     this.projectiles = this.projectiles.filter(function (p) { return !p.dead; });
   };
 
-  Battle.prototype._bestEnemyFor = function (e) {
-    var best = null, bd = e.range + 0.2;
-    var list = this._livingEnemies;
-    for (var i = 0; i < list.length; i++) {
-      var o = list[i];
-      if (!o.alive) continue;
-      var d = dist(e, o);
-      if (d < bd) {
-        bd = d;
-        best = o;
+  Battle.prototype._collectThreats = function () {
+    var out = [];
+    var i, e;
+    for (i = 0; i < this._livingEnemies.length; i++) {
+      e = this._livingEnemies[i];
+      if (e.alive) out.push(e);
+    }
+    for (i = 0; i < this.entities.length; i++) {
+      e = this.entities[i];
+      if (e.alive && e.kind === "ship") out.push(e);
+    }
+    return out;
+  };
+
+  Battle.prototype._housePressure = function (foe) {
+    var house = this.nearestHouse(foe.x, foe.y);
+    if (!house) return 0.15;
+    var d = dist(foe, { x: house.x + 0.5, y: house.y + 0.5 });
+    return 1 / (0.6 + d);
+  };
+
+  /**
+   * Island-wide hunt score. Higher = this soldier should go fight that foe.
+   * pile = how many friendlies already assigned to this foe this tick.
+   */
+  Battle.prototype.huntScore = function (e, foe, pile) {
+    if (!e || !foe || !foe.alive) return -1e9;
+    var W = (GS.CONFIG.battle && GS.CONFIG.battle.hunt) || {};
+    var d = dist(e, foe);
+    var score = 8;
+    var distW = e.role === "archer" ? (W.distArcher || 0.16) : (W.distMelee || 0.42);
+    score -= d * distW;
+    score += this._housePressure(foe) * (W.house || 14);
+    if (foe.maxHp) score += (1 - foe.hp / foe.maxHp) * (W.wounded || 5);
+    if (foe.kind === "ship") {
+      score += (W.ship || 6) + (foe.cargo ? foe.cargo.length * 1.2 : 0);
+    }
+    if (foe.role === "jarl") score += W.jarl || 16;
+    if (foe.role === "brute" || foe.role === "shield") score += W.brute || 4;
+    if (e.role === "pike" && (foe.role === "raider" || foe.role === "berserk" || (foe.speed || 0) > 2.4)) {
+      score += 6;
+    }
+    if (e.role === "infantry" && (foe.role === "brute" || foe.role === "jarl" || foe.role === "shield")) {
+      score += 5;
+    }
+    if (e.role === "archer") {
+      if (foe.kind === "ship" || foe.role === "thrower") score += 4;
+      if (d < 2.2 && foe.range <= 1.8) score -= 3; // rather kite than stand in a raider
+    }
+    if (e.militia) {
+      var home = dist(e, { x: (e.slotX || 0) + 0.5, y: (e.slotY || 0) + 0.5 });
+      score -= home * 0.55;
+      if (d > 10) score -= 20;
+    }
+    score -= (pile || 0) * (W.pile || 9);
+    if (e.hp < e.maxHp * 0.35 && d < 3 && e.role !== "archer") score -= 4;
+    return score;
+  };
+
+  Battle.prototype._pickHuntTarget = function (e, threats, pile) {
+    var best = null, bestS = -1e8;
+    for (var i = 0; i < threats.length; i++) {
+      var s = this.huntScore(e, threats[i], pile[threats[i].id] || 0);
+      if (s > bestS) {
+        bestS = s;
+        best = threats[i];
       }
     }
-    // ships still in entities but not in living enemies list
-    for (i = 0; i < this.entities.length; i++) {
-      o = this.entities[i];
-      if (!o.alive || o.kind !== "ship") continue;
-      d = dist(e, o);
+    return bestS > -20 ? best : null;
+  };
+
+  Battle.prototype._nearestThreat = function (e, threats, maxD) {
+    var best = null, bd = maxD;
+    for (var i = 0; i < threats.length; i++) {
+      var d = dist(e, threats[i]);
       if (d < bd) {
         bd = d;
-        best = o;
+        best = threats[i];
       }
     }
     return best;
+  };
+
+  Battle.prototype._bestEnemyFor = function (e) {
+    return this._nearestThreat(e, this._collectThreats(), e.range + 0.35);
   };
 
   Battle.prototype._bestSoldierFor = function (e) {
@@ -904,41 +979,86 @@
   };
 
   Battle.prototype._tickSoldiers = function (dt) {
-    var refresh = (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.55;
-    for (var i = 0; i < this._livingSoldiers.length; i++) {
-      var e = this._livingSoldiers[i];
+    var refresh = (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.45;
+    var threats = this._collectThreats();
+    var pile = {};
+    var i, e, foe, range, inRange, slot;
+
+    for (i = 0; i < this._livingSoldiers.length; i++) {
+      e = this._livingSoldiers[i];
       if (!e.alive) continue;
       e.cooldown -= dt;
-      var slot = { x: e.slotX + 0.5, y: e.slotY + 0.5 };
-      var range = e.range;
+      slot = { x: e.slotX + 0.5, y: e.slotY + 0.5 };
+      range = e.range;
       if (e.role === "archer" && this._nearBeacon(e)) {
         range += (GS.CONFIG.battle && GS.CONFIG.battle.beaconRangeBonus) || 1.6;
       }
-      var foe = this._bestEnemyFor(e);
-      var inRange = foe && dist(e, foe) <= range + 0.12;
-      if (inRange && e.cooldown <= 0) {
-        if (e.range > 1.8) {
-          var blocked = !GS.path.los(this.losBlocked, e.x | 0, e.y | 0, foe.x | 0, foe.y | 0);
-          if (!blocked) this._shoot(e, foe);
-        } else this._melee(e, foe);
+
+      var close = this._nearestThreat(e, threats, Math.max(range + 0.4, 2.6));
+      foe = this._pickHuntTarget(e, threats, pile);
+      if (close && dist(e, close) <= range + 0.18) foe = close;
+      if (foe) pile[foe.id] = (pile[foe.id] || 0) + 1;
+      e.targetId = foe ? foe.id : 0;
+
+      inRange = foe && dist(e, foe) <= range + 0.15;
+      var losOk = true;
+      if (inRange && e.range > 1.8) {
+        losOk = GS.path.los(this.losBlocked, e.x | 0, e.y | 0, foe.x | 0, foe.y | 0);
       }
-      if (e.militia) {
-        // militia chase nearest foe or hold near house
-        if (foe && dist(e, foe) < 5) this._steer(e, foe.x, foe.y, dt);
-        else if (dist(e, slot) > 0.25) this._steer(e, slot.x, slot.y, dt);
+      if (inRange && losOk && e.cooldown <= 0) {
+        if (e.range > 1.8) this._shoot(e, foe);
+        else this._melee(e, foe);
+      }
+
+      if (e.role === "archer" && close && close.range <= 1.8 && dist(e, close) < 2.15) {
+        this._steer(e, e.x * 2 - close.x, e.y * 2 - close.y, dt);
         continue;
       }
-      if (foe && e.range <= 1.8 && dist(e, foe) < 2.4 && dist(e, foe) > e.range) {
-        this._steer(e, foe.x, foe.y, dt);
-      } else if (dist(e, slot) > 0.2) {
-        e._pathAge = (e._pathAge || 0) + dt;
-        if (!e.path || !e.path.length || e._pathAge > refresh) {
-          e.path = this._pathTo(e, e.slotX | 0, e.slotY | 0);
-          e._pathAge = 0;
-        }
-        if (!this._followPath(e, dt)) this._steer(e, slot.x, slot.y, dt);
+
+      if (foe && (!inRange || (e.range > 1.8 && !losOk))) {
+        this._chase(e, foe, dt, refresh);
+        continue;
+      }
+      if (!foe && dist(e, slot) > 0.28) {
+        this._goHome(e, slot, dt, refresh);
       }
     }
+  };
+
+  Battle.prototype._chase = function (e, foe, dt, refresh) {
+    var tx = foe.x, ty = foe.y;
+    if (e.role === "archer") {
+      var want = Math.max(2.4, (e.range || 6) * 0.72);
+      var d = dist(e, foe) || 1;
+      if (d > 0.2) {
+        tx = foe.x - (foe.x - e.x) / d * want;
+        ty = foe.y - (foe.y - e.y) / d * want;
+      }
+      if (this._nearBeacon(e) && d <= e.range + 1.8) return; // hold the beacon if already useful
+    }
+    if (!this.passable(tx | 0, ty | 0)) {
+      tx = foe.x;
+      ty = foe.y;
+    }
+    e._pathAge = (e._pathAge || 0) + dt;
+    var stale = !e.path || !e.path.length || e._pathAge > refresh + (e.id % 6) * 0.04;
+    var destChanged = e._huntX == null || Math.abs(e._huntX - (tx | 0)) > 1 || Math.abs(e._huntY - (ty | 0)) > 1;
+    if (stale || destChanged) {
+      e.path = this._pathTo(e, tx | 0, ty | 0);
+      e._pathAge = 0;
+      e._huntX = tx | 0;
+      e._huntY = ty | 0;
+    }
+    if (!this._followPath(e, dt)) this._steer(e, tx, ty, dt);
+  };
+
+  Battle.prototype._goHome = function (e, slot, dt, refresh) {
+    e._pathAge = (e._pathAge || 0) + dt;
+    if (!e.path || !e.path.length || e._pathAge > refresh) {
+      e.path = this._pathTo(e, e.slotX | 0, e.slotY | 0);
+      e._pathAge = 0;
+    }
+    if (!this._followPath(e, dt)) this._steer(e, slot.x, slot.y, dt);
   };
 
   Battle.prototype._burnHouse = function (house) {

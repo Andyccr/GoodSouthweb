@@ -234,6 +234,59 @@ var h0 = b2.houses[0];
 b2.spawnMilitia(h0);
 ok(h0.militiaSpawned && b2.entities.some(function (e) { return e.militia && e.alive; }), "militia spawn");
 
+console.log("Autonomous hunt");
+var islandH = GS.mapgen.island(88, { difficulty: 2, size: "small", biome: "verdant" });
+var armyH = GS.Army.create(GS.rng(4));
+armyH.commanders = [{
+  id: "hunt1", name: "测试·追击", cls: "infantry", level: 1, xp: 0,
+  soldiers: 8, maxSoldiers: 10, trait: null, dead: false,
+}];
+var bh = new GS.Battle(islandH, armyH, { sandbox: true, battleSeed: 11 });
+var hx = islandH.houses[0].x, hy = islandH.houses[0].y;
+var placedH = false;
+for (var yy = 0; yy < islandH.h && !placedH; yy++) {
+  for (var xx = 0; xx < islandH.w && !placedH; xx++) {
+    var tcell = islandH.tiles[yy][xx];
+    if (!tcell.walk || tcell.type === GS.T.HOUSE) continue;
+    var ddx = xx - hx, ddy = yy - hy;
+    if (ddx * ddx + ddy * ddy < 64) continue;
+    placedH = bh.placeSquad("hunt1", xx, yy, 2);
+  }
+}
+ok(placedH, "hunt squad placed away from house");
+bh.startFight();
+var farEnemy = null;
+for (var li = 0; li < islandH.landings.length; li++) {
+  var L = islandH.landings[li];
+  if (islandH.tiles[L.y][L.x].walk) {
+    farEnemy = bh.spawnEnemy("raider", L.x, L.y);
+    break;
+  }
+}
+ok(!!farEnemy, "spawned a distant raider");
+function avgDistTo(battle, target) {
+  var s = 0, n = 0;
+  for (var i = 0; i < battle.entities.length; i++) {
+    var e = battle.entities[i];
+    if (e.alive && e.kind === "soldier" && e.squadId) {
+      var dx = e.x - target.x, dy = e.y - target.y;
+      s += Math.sqrt(dx * dx + dy * dy);
+      n++;
+    }
+  }
+  return n ? s / n : 0;
+}
+var d0 = avgDistTo(bh, farEnemy);
+for (var ht = 0; ht < 120; ht++) bh.tick(0.05);
+var d1 = avgDistTo(bh, farEnemy);
+ok(d1 < d0 - 1.5, "soldiers leave home stance to hunt (d0=" + d0.toFixed(1) + " d1=" + d1.toFixed(1) + ")");
+
+var nearE = { x: hx + 0.5, y: hy + 0.5, alive: true, id: 1, hp: 18, maxHp: 18, role: "raider", kind: "enemy", dmg: 6, speed: 2.5 };
+var farE = { x: 1.5, y: 1.5, alive: true, id: 2, hp: 18, maxHp: 18, role: "raider", kind: "enemy", dmg: 6, speed: 2.5 };
+var sol = bh.entities.filter(function (e) { return e.kind === "soldier" && e.alive; })[0];
+ok(sol && bh.huntScore(sol, nearE, 0) > bh.huntScore(sol, farE, 0), "house-threat outweighs a far idle raider");
+ok(bh.huntScore(sol, nearE, 6) < bh.huntScore(sol, nearE, 0), "pile-on penalty spreads assignments");
+
 console.log("Battle serialize");
 var snap = GS.Battle.serialize(battle);
 ok(snap && snap.island && snap.entities.length >= 1, "serialize battle");

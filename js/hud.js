@@ -87,7 +87,7 @@
     if (banner) {
       if (b.phase === "deploy") {
         banner.classList.remove("hidden");
-        banner.textContent = "布置阶段 — 面向黄闪登陆点 · G 开战";
+        banner.textContent = "就位 — 点空地放下兵团，开战后天兵会自己接战 · G 开战";
       } else if (b.phase === "fight" && b.speed === 0) {
         banner.classList.remove("hidden");
         banner.textContent = "暂停";
@@ -108,7 +108,7 @@
     right.innerHTML = this.squadList(b) + this.logHtml(b) + this.legend();
     bot.innerHTML = '<div class="hint-line">' + (game.mode === "sandbox"
       ? "Esc菜单 · 中键拖镜头 · 滚轮缩放 · T地形 · B长船"
-      : "Esc菜单 · 中键拖镜头 · 滚轮缩放 · 左键布置 · U号角") + "</div>";
+      : "Esc菜单 · 点空地就位 · 天兵会自行接战 · U号角") + "</div>";
 
     this.battleToolbar(game, b);
   };
