@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "1.4.0",
+    version: "1.5.0",
     saveVersion: 3,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -45,7 +45,7 @@
 
     battle: {
       moveCooldown: 3.2,
-      deployHint: "布置兵团，面朝黄闪登陆点。滚轮缩放，中键拖镜头。号角 U 可振奋一次。",
+      deployHint: "点一下空地放下兵团即可。开战后天兵会自己找北蛮打。",
       maxSpeed: 3,
       hudIntervalMs: 120,
       zoomMin: 12,
@@ -57,7 +57,18 @@
       beaconRangeBonus: 1.6,
       beaconDmgBonus: 1.18,
       beaconRadius: 4,
-      pathRefresh: 0.55,
+      pathRefresh: 0.45,
+      hunt: {
+        distMelee: 0.42,
+        distArcher: 0.16,
+        pile: 9,
+        house: 14,
+        wounded: 5,
+        ship: 6,
+        jarl: 16,
+        brute: 4,
+        finish: 3,
+      },
     },
 
     sandbox: {
