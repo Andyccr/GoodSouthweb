@@ -191,7 +191,7 @@
       "evac", "pal", "mute", "select-squad", "open-island", "tool-place", "tool-paint",
       "brush-next", "spawn-enemy", "spawn-ship", "spawn-ally", "gen", "place",
       "save-menu", "load-menu", "save-slot", "load-slot", "quicksave", "quickload",
-      "resume-or-title", "confirm-new-campaign",
+      "resume-or-title", "confirm-new-campaign", "warhorn",
     ];
     acts.forEach(function (a) {
       self.ui.on(a, function (arg) { self.dispatch(a, arg); });
@@ -364,6 +364,15 @@
         return;
       case "evac":
         if (this.battle) this.battle.evacuate();
+        return;
+      case "warhorn":
+        if (!this.battle) return;
+        if (this.battle.blowWarhorn()) {
+          this.ui.toast("号角！北蛮减速", "warn");
+          this.hudDirty = true;
+        } else {
+          this.ui.toast(this.battle.warhornReady ? "开战后方可吹号" : "本场号角已用过", "info");
+        }
         return;
       case "pal":
         this.cyclePalette();
@@ -677,14 +686,16 @@
     if ($("seedbox")) $("seedbox").value = this.seedInput;
     this.rng = GS.rng(GS.hashStr("sandbox" + this.seedInput));
     this.army = GS.Army.create(this.rng);
+    var size = ($("sizebox") && $("sizebox").value) || GS.CONFIG.sandbox.defaultSize || "medium";
     this.island = GS.mapgen.island(GS.hashStr(this.seedInput), {
       difficulty: GS.CONFIG.sandbox.defaultDifficulty,
       biome: GS.CONFIG.sandbox.defaultBiome,
+      size: size,
     });
     this.battle = new GS.Battle(this.island, this.army, { sandbox: true });
     this.sandboxTool = "place";
     this.setMode("sandbox");
-    this.ui.toast("沙盒就绪。T 刷地，Z 布置。", "info");
+    this.ui.toast("沙盒就绪 " + this.island.w + "×" + this.island.h + "。T 刷地，Z 布置。", "info");
   };
 
   Game.prototype.regenSandbox = function () {
@@ -693,11 +704,14 @@
     if ($("seedbox")) $("seedbox").value = this.seedInput;
     var biome = $("biomebox") ? $("biomebox").value : GS.CONFIG.sandbox.defaultBiome;
     var diff = $("diffbox") ? +$("diffbox").value : GS.CONFIG.sandbox.defaultDifficulty;
-    this.island = GS.mapgen.island(GS.hashStr(String(this.seedInput)), { difficulty: diff, biome: biome });
+    var size = $("sizebox") ? $("sizebox").value : (GS.CONFIG.sandbox.defaultSize || "medium");
+    this.island = GS.mapgen.island(GS.hashStr(String(this.seedInput)), {
+      difficulty: diff, biome: biome, size: size,
+    });
     this.army = this.army || GS.Army.create(GS.rng(GS.hashStr(this.seedInput)));
     this.battle = new GS.Battle(this.island, this.army, { sandbox: true });
     this.setMode("sandbox");
-    this.ui.toast("新岛：" + this.island.name, "ok");
+    this.ui.toast("新岛：" + this.island.name + "（" + this.island.w + "×" + this.island.h + "）", "ok");
   };
 
   Game.prototype.tryPlace = function () {

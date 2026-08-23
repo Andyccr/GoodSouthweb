@@ -51,12 +51,29 @@
   function landish(t) {
     return t === T.BEACH || t === T.GRASS || t === T.HILL || t === T.RAMP || t === T.TREE ||
       t === T.SHRUB || t === T.PATH || t === T.FLOOR || t === T.MUD || t === T.SNOW ||
-      t === T.ASH || t === T.HOUSE || t === T.ICE || t === T.CROPS || t === T.RUIN;
+      t === T.ASH || t === T.HOUSE || t === T.ICE || t === T.CROPS || t === T.RUIN || t === T.BEACON;
   }
 
   function walkType(t) {
     var d = GS.tileDef(t);
     return !!d.walk;
+  }
+
+  function pickSize(rng, difficulty, opts) {
+    opts = opts || {};
+    var cfg = (GS.CONFIG && GS.CONFIG.map) || {};
+    var preset = opts.size && cfg.sizes && cfg.sizes[opts.size];
+    var minW = (preset && preset.minW) || cfg.minW || 46;
+    var maxW = (preset && preset.maxW) || cfg.maxW || 68;
+    var minH = (preset && preset.minH) || cfg.minH || 34;
+    var maxH = (preset && preset.maxH) || cfg.maxH || 52;
+    var bump = Math.min(8, Math.max(0, (difficulty || 1) - 1) * 2);
+    minW = Math.min(maxW, minW + Math.floor(bump * 0.6));
+    minH = Math.min(maxH, minH + Math.floor(bump * 0.45));
+    return {
+      w: opts.w || rng.int(minW, maxW + 1),
+      h: opts.h || rng.int(minH, maxH + 1),
+    };
   }
 
   function generateIsland(seed, opts) {
@@ -65,24 +82,25 @@
     var biomeId = opts.biome || rng.pick(["verdant", "verdant", "rocky", "marsh", "snow", "ash"]);
     var biome = GS.BIOMES[biomeId] || GS.BIOMES.verdant;
     var difficulty = opts.difficulty || 1;
-    var w = opts.w || rng.int(32, 44);
-    var h = opts.h || rng.int(24, 34);
+    var size = pickSize(rng, difficulty, opts);
+    var w = size.w;
+    var h = size.h;
     var tries = 0;
     var island = null;
-    while (tries++ < 48) {
+    while (tries++ < 56) {
       island = tryGenerate(rng, w, h, biome, biomeId, difficulty, opts);
       if (island) {
-        island.seed = rng.seed;
+        island.seed = typeof seed === "number" ? seed : GS.hashStr(String(seed));
         island.try = tries;
+        island.sizeClass = opts.size || "auto";
         return island;
       }
-      // nudge dimensions slightly on failure
       if (tries % 8 === 0) {
-        w = Math.max(28, Math.min(48, w + rng.int(-2, 3)));
-        h = Math.max(22, Math.min(38, h + rng.int(-2, 3)));
+        w = Math.max(36, Math.min(74, w + rng.int(-3, 4)));
+        h = Math.max(28, Math.min(56, h + rng.int(-2, 3)));
       }
     }
-    return forceIsland(rng, 36, 28, biome, biomeId, difficulty);
+    return forceIsland(rng, Math.max(48, w), Math.max(36, h), biome, biomeId, difficulty);
   }
 
   function tryGenerate(rng, w, h, biome, biomeId, difficulty, opts) {
@@ -144,7 +162,9 @@
     if (!components.length) return null;
     components.sort(function (a, b) { return b.length - a.length; });
     var main = components[0];
-    if (main.length < 48) return null;
+    var cfg = GS.CONFIG.map || {};
+    var minLand = Math.max(cfg.minLandAbs || 90, ((w * h) * (cfg.minLandRatio || 0.075)) | 0);
+    if (main.length < minLand) return null;
     var keep = {};
     for (i = 0; i < main.length; i++) keep[main[i].x + "," + main[i].y] = 1;
     // keep a couple of rocky islets
@@ -173,7 +193,11 @@
     // paths later after houses
 
     // houses
-    var houses = placeHouses(tiles, w, h, rng, opts.houses || rng.int(3, 3 + Math.min(4, 1 + difficulty)));
+    var cfgH = GS.CONFIG.map || {};
+    var houseTarget = opts.houses != null ? opts.houses
+      : Math.round((cfgH.houseBase || 3) + difficulty * (cfgH.housePerDifficulty || 0.85) + (w * h) / 2200);
+    houseTarget = Math.max(2, Math.min(10, houseTarget));
+    var houses = placeHouses(tiles, w, h, rng, houseTarget, cfgH.houseSpacing || 16);
     if (houses.length < 2) return null;
 
     carvePaths(tiles, w, h, houses, rng);
@@ -202,6 +226,8 @@
       sprinkleWalls(tiles, w, h, rng, houses);
     }
 
+    var beacons = placeBeacons(tiles, w, h, rng, houses, difficulty);
+
     var name = opts.name || GS.names.island(rng);
     var landCount = 0;
     for (y = 0; y < h; y++) for (x = 0; x < w; x++) if (tiles[y][x].walk) landCount++;
@@ -211,6 +237,7 @@
       h: h,
       tiles: tiles,
       houses: houses,
+      beacons: beacons,
       landings: landings.spots,
       landingDirs: landings.dirs,
       biome: biomeId,
@@ -323,7 +350,8 @@
     }
   }
 
-  function placeHouses(tiles, w, h, rng, count) {
+  function placeHouses(tiles, w, h, rng, count, spacing) {
+    spacing = spacing || 16;
     var cands = [];
     for (var y = 2; y < h - 2; y++) {
       for (var x = 2; x < w - 2; x++) {
@@ -348,7 +376,7 @@
       for (var j = 0; j < houses.length; j++) {
         var dx = houses[j].x - c.x;
         var dy = houses[j].y - c.y;
-        if (dx * dx + dy * dy < 9) far = false;
+        if (dx * dx + dy * dy < spacing) far = false;
       }
       if (!far) continue;
       var id = houses.length;
@@ -368,6 +396,38 @@
       });
     }
     return houses;
+  }
+
+  function placeBeacons(tiles, w, h, rng, houses, difficulty) {
+    var n = 1 + (difficulty >= 4 ? 1 : 0) + (w * h > 2200 ? 1 : 0);
+    var beacons = [];
+    var cands = [];
+    for (var y = 2; y < h - 2; y++) {
+      for (var x = 2; x < w - 2; x++) {
+        var t = tiles[y][x].type;
+        if (t !== T.HILL && t !== T.RAMP) continue;
+        var nearHouse = false;
+        for (var i = 0; i < houses.length; i++) {
+          var dx = houses[i].x - x, dy = houses[i].y - y;
+          if (dx * dx + dy * dy < 8) nearHouse = true;
+        }
+        if (nearHouse) continue;
+        cands.push({ x: x, y: y });
+      }
+    }
+    rng.shuffle(cands);
+    for (i = 0; i < cands.length && beacons.length < n; i++) {
+      var c = cands[i];
+      var ok = true;
+      for (var j = 0; j < beacons.length; j++) {
+        var ddx = beacons[j].x - c.x, ddy = beacons[j].y - c.y;
+        if (ddx * ddx + ddy * ddy < 36) ok = false;
+      }
+      if (!ok) continue;
+      tiles[c.y][c.x] = makeTile(T.BEACON, 3);
+      beacons.push({ x: c.x, y: c.y });
+    }
+    return beacons;
   }
 
   function carvePaths(tiles, w, h, houses, rng) {
@@ -480,15 +540,16 @@
     }
     ringBeaches(tiles, w, h, biome);
     placeRamps(tiles, w, h);
-    var houses = placeHouses(tiles, w, h, rng, 3);
+    var houses = placeHouses(tiles, w, h, rng, 3, 12);
     if (!houses.length) {
       tiles[(h / 2) | 0][(w / 2) | 0] = makeTile(T.HOUSE, 2);
       houses = [{ id: 0, x: (w / 2) | 0, y: (h / 2) | 0, name: "厅堂", hp: 100, maxHp: 100, coins: 1, alive: true, villagers: 4 }];
       tiles[(h / 2) | 0][(w / 2) | 0].houseId = 0;
     }
     var landings = findLandings(tiles, w, h);
+    var beacons = placeBeacons(tiles, w, h, rng, houses, difficulty);
     return {
-      w: w, h: h, tiles: tiles, houses: houses,
+      w: w, h: h, tiles: tiles, houses: houses, beacons: beacons,
       landings: landings.spots, landingDirs: landings.dirs.length ? landings.dirs : [2],
       biome: biomeId, biomeName: biome.name, flavor: biome.flavor,
       name: GS.names.island(rng), difficulty: difficulty, landCount: w * h, forced: true,
@@ -496,19 +557,21 @@
   }
 
   function generateCampaign(seed, n) {
-    n = n || 12;
+    n = n || (GS.CONFIG.campaign && GS.CONFIG.campaign.islandCount) || 14;
     var rng = GS.rng(typeof seed === "number" ? seed : GS.hashStr(String(seed || "south")));
-    var W = 72, H = 40;
+    var W = (GS.CONFIG.campaign && GS.CONFIG.campaign.chartW) || 88;
+    var H = (GS.CONFIG.campaign && GS.CONFIG.campaign.chartH) || 48;
     var islands = [];
     var attempts = 0;
-    while (islands.length < n && attempts++ < 400) {
+    var minDist2 = 42;
+    while (islands.length < n && attempts++ < 600) {
       var x = rng.int(4, W - 4);
       var y = rng.int(3, H - 3);
       var ok = true;
       for (var i = 0; i < islands.length; i++) {
         var dx = islands[i].mx - x;
         var dy = islands[i].my - y;
-        if (dx * dx + dy * dy < 36) ok = false;
+        if (dx * dx + dy * dy < minDist2) ok = false;
       }
       if (!ok) continue;
       var westness = 1 - x / W;
@@ -601,5 +664,6 @@
     fingerprint: fingerprint,
     makeTile: makeTile,
     landish: landish,
+    pickSize: pickSize,
   };
 })(typeof window !== "undefined" ? window : globalThis);

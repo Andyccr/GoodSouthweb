@@ -15,12 +15,15 @@
     var dirs = island.landingDirs && island.landingDirs.length ? island.landingDirs.slice() : [2];
     var waves = [];
     var n = 3 + Math.min(5, difficulty);
+    // larger islands: one extra wave
+    if (island.w * island.h >= 2400) n += 1;
     var t = 6;
     var roster = rosterFor(difficulty);
     for (var i = 0; i < n; i++) {
       var dir = dirs[i % dirs.length];
       if (rng.chance(0.35)) dir = rng.pick(dirs);
       var count = 5 + i * 2 + difficulty + rng.int(0, 3);
+      if (island.landCount > 400) count += 1 + ((island.landCount - 400) / 220) | 0;
       var units = [];
       for (var k = 0; k < count; k++) {
         var role = "raider";
@@ -31,13 +34,28 @@
         units.push(role);
       }
       if (i === n - 1 && difficulty >= 7) units.push("jarl");
-      waves.push({
+
+      var wave = {
         id: i,
         t: t,
         dir: dir,
         units: units,
         launched: false,
-      });
+        extraDir: null,
+        extraUnits: null,
+      };
+
+      // high threat: split assault from a second landing
+      if (difficulty >= 5 && dirs.length > 1 && rng.chance(0.45 + difficulty * 0.04)) {
+        var others = dirs.filter(function (d) { return d !== dir; });
+        if (others.length) {
+          wave.extraDir = rng.pick(others);
+          var split = Math.max(2, (units.length / 3) | 0);
+          wave.extraUnits = units.splice(units.length - split, split);
+        }
+      }
+
+      waves.push(wave);
       t += 14 + Math.max(0, 8 - difficulty) + rng.int(0, 5);
     }
     return waves;
