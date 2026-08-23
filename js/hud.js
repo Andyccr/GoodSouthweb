@@ -61,8 +61,10 @@
       "</span>";
     left.innerHTML = this.campLeft(game, node);
     right.innerHTML = this.roster(game.army) + this.islandList(game) + this.legend();
-    bot.innerHTML = '<div class="hint-line">WASD/方向键选岛 · Enter/点击登陆 · N 招募 · Q 标题</div>';
+    bot.innerHTML = '<div class="hint-line">WASD选岛 · Enter登陆 · Esc菜单 · F5保存 · N招募 · Q标题</div>';
     ui.setToolbar([
+      { act: "pause-menu", label: "菜单", kbd: "Esc" },
+      { act: "save-menu", label: "保存", kbd: "F5" },
       { act: "hire", label: "招募", kbd: "N" },
       { act: "pal", label: "调色", kbd: "P" },
       { act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" },
@@ -105,8 +107,8 @@
     left.innerHTML = this.battleLeft(game, b);
     right.innerHTML = this.squadList(b) + this.logHtml(b) + this.legend();
     bot.innerHTML = '<div class="hint-line">' + (game.mode === "sandbox"
-      ? "拖拽刷地 · 右键/滚轮转向 · T地形 Z布置 · G开战"
-      : "悬停预览 · 左键布置 · 1–9选兵 · [ ]变速 · 空格暂停 · G开战") + "</div>";
+      ? "Esc菜单 · 空格暂停 · 拖拽刷地 · T地形 · G开战"
+      : "Esc菜单 · 空格暂停 · F5快存 · F9读档 · 左键布置 · G开战") + "</div>";
 
     this.battleToolbar(game, b);
   };
@@ -138,8 +140,9 @@
       items.push({ act: "gen", label: "新岛" });
     }
     items.push({ sep: true });
+    if (game.army && game.campaign) items.push({ act: "quicksave", label: "快存", kbd: "F5" });
     items.push({ act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" });
-    items.push({ act: game.mode === "sandbox" ? "title" : "back-camp", label: game.mode === "sandbox" ? "标题" : "海图", kbd: "Q" });
+    items.push({ act: "pause-menu", label: "菜单", kbd: "Esc" });
     ui.setToolbar(items);
 
     var cmds = [];
