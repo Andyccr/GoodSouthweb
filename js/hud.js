@@ -107,8 +107,8 @@
     left.innerHTML = this.battleLeft(game, b);
     right.innerHTML = this.squadList(b) + this.logHtml(b) + this.legend();
     bot.innerHTML = '<div class="hint-line">' + (game.mode === "sandbox"
-      ? "Esc菜单 · 空格暂停 · 拖拽刷地 · T地形 · G开战"
-      : "Esc菜单 · 空格暂停 · F5快存 · U号角 · 左键布置 · G开战") + "</div>";
+      ? "Esc菜单 · 中键拖镜头 · 滚轮缩放 · T地形 · B长船"
+      : "Esc菜单 · 中键拖镜头 · 滚轮缩放 · 左键布置 · U号角") + "</div>";
 
     this.battleToolbar(game, b);
   };
@@ -155,7 +155,7 @@
     ui.setToolbar(items);
 
     var cmds = [];
-    var sqs = b.squads.filter(function (s) { return s.soldiers > 0; });
+    var sqs = b.livingSquads();
     for (var i = 0; i < Math.min(sqs.length, 9); i++) {
       cmds.push({
         act: "select-squad",
@@ -228,8 +228,9 @@
 
   Hud.prototype.squadList = function (b) {
     var html = "<h3>兵团</h3>";
-    for (var i = 0; i < b.squads.length; i++) {
-      var s = b.squads[i];
+    var list = b.livingSquads ? b.livingSquads() : b.squads;
+    for (var i = 0; i < list.length; i++) {
+      var s = list[i];
       var role = GS.ROLES[s.role];
       var idx = i < 9 ? String(i + 1) : "·";
       html += '<div class="squad-item' + (s.id === b.selected ? " sel" : "") +

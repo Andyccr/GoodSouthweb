@@ -148,23 +148,41 @@
   };
 
   Battle.prototype.placeSquad = function (squadId, tx, ty, facing) {
+    this.placeError = null;
     var sq = this.getSquad(squadId);
-    if (!sq) return false;
+    if (!sq) { this.placeError = "nosquad"; return false; }
     tx = tx | 0;
     ty = ty | 0;
     var tile = tileAt(this.island, tx, ty);
-    if (!tile || !tile.walk) return false;
-    if (tile.type === T.HOUSE) return false;
-    if (this.phase === "fight" && sq.moveCd > 0) return false;
+    if (!tile || !tile.walk) { this.placeError = "terrain"; return false; }
+    if (tile.type === T.HOUSE) { this.placeError = "house"; return false; }
+    if (sq.placed && sq.tx === tx && sq.ty === ty && (facing == null || facing === sq.facing)) {
+      return true;
+    }
+    if (this.phase === "fight" && sq.moveCd > 0) { this.placeError = "cooldown"; return false; }
     sq.tx = tx;
     sq.ty = ty;
     if (facing != null) sq.facing = facing;
     sq.placed = true;
     if (!sq.entities.length) this._birthSquad(sq);
     else this._retargetFormation(sq);
-    if (this.phase === "fight") sq.moveCd = 3.2;
+    if (this.phase === "fight") sq.moveCd = (GS.CONFIG.battle && GS.CONFIG.battle.moveCooldown) || 3.2;
     this.announce(sq.name + " 的" + GS.ROLES[sq.role].name + "列阵于 (" + tx + "," + ty + ")，面朝" + GS.DIRS[sq.facing].name + "。", C.LCYAN);
     return true;
+  };
+
+  Battle.prototype.livingSquads = function () {
+    return this.squads.filter(function (s) { return s.soldiers > 0; });
+  };
+
+  Battle.prototype.squadAt = function (tx, ty) {
+    tx = tx | 0; ty = ty | 0;
+    for (var i = 0; i < this.entities.length; i++) {
+      var e = this.entities[i];
+      if (!e.alive || e.kind !== "soldier" || !e.squadId) continue;
+      if ((e.x | 0) === tx && (e.y | 0) === ty) return e.squadId;
+    }
+    return null;
   };
 
   Battle.prototype.rotateSquad = function (squadId, dir) {
@@ -369,16 +387,15 @@
     if (!spots.length) spots = this.island.landings;
     if (!spots.length) return null;
     var beach = this.rng.pick(spots);
-    // spawn from map edge along dir inverted
-    var sx, sy;
-    if (dir === 0) { sx = beach.x; sy = 0; }
-    else if (dir === 1) { sx = this.w - 1; sy = beach.y; }
-    else if (dir === 2) { sx = beach.x; sy = this.h - 1; }
-    else { sx = 0; sy = beach.y; }
-    // walk water toward beach
-    if (!this.island.tiles[sy][sx].ship) {
-      sx = beach.x;
-      sy = beach.y;
+    var spawn = GS.mapgen.seaSpawn(this.island, beach, dir);
+    if (!spawn) {
+      // last resort: any deep-water cell on that edge
+      var x, y;
+      if (dir === 0) { x = beach.x; y = 1; }
+      else if (dir === 1) { x = this.w - 2; y = beach.y; }
+      else if (dir === 2) { x = beach.x; y = this.h - 2; }
+      else { x = 1; y = beach.y; }
+      spawn = { x: x, y: y };
     }
     var cargo = units || [];
     if (!cargo.length) {
@@ -391,22 +408,23 @@
       role: "ship",
       ch: dir === 1 ? ">" : dir === 3 ? "<" : dir === 0 ? "^" : "v",
       fg: C.BROWN,
-      x: sx + 0.5,
-      y: sy + 0.5,
+      x: spawn.x + 0.5,
+      y: spawn.y + 0.5,
       hp: 40,
       maxHp: 40,
-      speed: 1.55,
+      speed: 1.22,
       dir: dir,
       beachX: beach.x,
       beachY: beach.y,
       cargo: cargo.slice(),
       landing: false,
-      cooldown: 0,
+      cooldown: 0.35,
       alive: true,
       name: "北境长船",
+      path: null,
     });
     this.ships.push(ship.id);
-    this.announce("一艘长船自" + d.name + "方驶来！", C.LRED);
+    this.announce("一艘长船自" + d.name + "方海平线驶来！", C.LRED);
     if (GS.audio) GS.audio.ship();
     return ship;
   };
@@ -547,39 +565,83 @@
       if (e.kind !== "ship" || !e.alive) continue;
       var tx = e.beachX + 0.5, ty = e.beachY + 0.5;
       var d = dist(e, { x: tx, y: ty });
-      if (d > 0.6) {
-        var vx = (tx - e.x) / d;
-        var vy = (ty - e.y) / d;
-        var sp = e.speed * dt;
-        // stay on water until close
-        var nx = e.x + vx * sp, ny = e.y + vy * sp;
-        var tile = tileAt(this.island, nx, ny);
-        if (tile && (tile.ship || tile.walk)) {
-          e.x = nx;
-          e.y = ny;
+      var adj = Math.max(Math.abs((e.x | 0) - e.beachX), Math.abs((e.y | 0) - e.beachY)) <= 1;
+      var onBeach = d < 1.45 || adj;
+      if (!onBeach) {
+        // sail only on water; path around rocks/reefs if needed
+        if (!e.path || !e.path.length) {
+          var dest = this._shipApproach(e.beachX, e.beachY);
+          e.path = GS.path.astar(this.shipPass, function () { return 1; }, this.w, this.h,
+            e.x | 0, e.y | 0, dest.x, dest.y, { diag: true, limit: this.w * this.h * 4 });
+        }
+        if (e.path && e.path.length) {
+          var n = e.path[0];
+          var gx = n.x + 0.5, gy = n.y + 0.5;
+          if (dist(e, { x: gx, y: gy }) < 0.28) {
+            e.path.shift();
+          } else {
+            this._steerShip(e, gx, gy, dt);
+          }
         } else {
-          e.x += vx * sp * 0.3;
-          e.y += vy * sp * 0.3;
+          this._steerShip(e, tx, ty, dt);
         }
       } else {
         e.landing = true;
+        e.path = null;
         e.cooldown -= dt;
         if (e.cooldown <= 0 && e.cargo.length) {
-          e.cooldown = 0.45;
+          e.cooldown = 0.42;
           var role = e.cargo.shift();
-          var ex = e.beachX, ey = e.beachY;
-          var n4 = GS.path.N4;
-          for (var k = 0; k < 4; k++) {
-            var px = e.beachX + n4[k][0], py = e.beachY + n4[k][1];
-            if (this.passable(px, py)) { ex = px; ey = py; break; }
-          }
-          this.spawnEnemy(role, ex, ey);
+          var land = this._disembarkTile(e.beachX, e.beachY);
+          this.spawnEnemy(role, land.x, land.y);
         }
         if (!e.cargo.length) {
           e.alive = false;
           e.ch = "~";
+          this.corpses.push({ x: e.x, y: e.y, ch: "≈", fg: C.BROWN, life: 8, name: "搁浅的龙骨" });
         }
       }
+    }
+  };
+
+  Battle.prototype._shipApproach = function (bx, by) {
+    // water cell next to the beach so the hull never teleports onto sand
+    var n4 = GS.path.N4;
+    for (var k = 0; k < 4; k++) {
+      var px = bx + n4[k][0], py = by + n4[k][1];
+      if (this.shipPass(px, py)) return { x: px, y: py };
+    }
+    return { x: bx, y: by };
+  };
+
+  Battle.prototype._disembarkTile = function (bx, by) {
+    if (this.passable(bx, by)) return { x: bx, y: by };
+    var n4 = GS.path.N4;
+    for (var k = 0; k < 4; k++) {
+      var px = bx + n4[k][0], py = by + n4[k][1];
+      if (this.passable(px, py)) return { x: px, y: py };
+    }
+    return { x: bx, y: by };
+  };
+
+  Battle.prototype._steerShip = function (e, tx, ty, dt) {
+    var dx = tx - e.x, dy = ty - e.y;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    dx /= len; dy /= len;
+    var sp = e.speed * dt;
+    var nx = e.x + dx * sp;
+    var ny = e.y + dy * sp;
+    var tile = tileAt(this.island, nx, ny);
+    if (tile && tile.ship) {
+      e.x = nx;
+      e.y = ny;
+      if (Math.abs(dx) > Math.abs(dy)) e.dir = dx > 0 ? 1 : 3;
+      else e.dir = dy > 0 ? 2 : 0;
+      e.ch = e.dir === 1 ? ">" : e.dir === 3 ? "<" : e.dir === 0 ? "^" : "v";
+    } else if (this.shipPass(nx | 0, e.y | 0)) {
+      e.x = nx;
+    } else if (this.shipPass(e.x | 0, ny | 0)) {
+      e.y = ny;
     }
   };
 
@@ -918,6 +980,12 @@
     }
     for (i = 0; i < this.squads.length; i++) {
       this.squads[i].soldiers = aliveSoldiers[this.squads[i].id] || 0;
+    }
+    if (this.selected && !this.getSquad(this.selected)) this.selected = null;
+    var sel = this.getSquad(this.selected);
+    if (!sel || sel.soldiers <= 0) {
+      var next = this.livingSquads()[0];
+      this.selected = next ? next.id : null;
     }
   };
 
