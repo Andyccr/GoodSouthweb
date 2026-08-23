@@ -64,13 +64,33 @@
     var game = this.game;
     var k = e.key;
 
+    // Global save / pause hotkeys
+    if (k === "F5") { e.preventDefault(); game.dispatch("quicksave"); return; }
+    if (k === "F9") { e.preventDefault(); game.dispatch("quickload"); return; }
     if (k === "F1" || k === "?") { e.preventDefault(); game.dispatch("help"); return; }
+
+    // Pause menu has priority
+    if (game.menuOpen) {
+      if (k === "Escape") {
+        e.preventDefault();
+        if (game.mode === "title") {
+          game.closeMenu(true);
+          game.setMode("title");
+        } else if (game.menuKind === "save" || game.menuKind === "load" || game.menuKind === "help") {
+          game.openPauseMenu();
+        } else {
+          game.dispatch("resume");
+        }
+      }
+      return;
+    }
 
     if (game.mode === "title") {
       if (k === "a" || k === "A" || k === "Enter") game.dispatch("campaign");
       if (k === "b" || k === "B") game.dispatch("sandbox");
       if (k === "c" || k === "C") game.dispatch("help");
       if (k === "d" || k === "D") game.dispatch("continue");
+      if (k === "l" || k === "L") game.dispatch("load-menu");
       return;
     }
 
@@ -90,7 +110,7 @@
       return;
     }
     if (game.mode === "help") {
-      if (k === "Escape" || k === "q" || k === "Q") game.dispatch("title");
+      if (k === "Escape" || k === "q" || k === "Q") game.dispatch("resume-or-title");
       return;
     }
     if (game.mode === "result") {
@@ -117,9 +137,11 @@
     }
     if (k === "Enter" || k === "g" || k === "G") game.dispatch("open-island", String(game.campCursor));
     if (k === "n" || k === "N") game.dispatch("hire");
-    if (k === "q" || k === "Escape") game.dispatch("title");
+    if (k === "q") game.dispatch("title");
+    if (k === "Escape") { e.preventDefault(); game.dispatch("pause-menu"); }
     if (k === "p" || k === "P") game.dispatch("pal");
     if (k === "-" || k === "_") game.dispatch("mute");
+    if (k === "F5") game.dispatch("quicksave");
   };
 
   Input.prototype._battleKey = function (e) {
@@ -162,7 +184,11 @@
     if (k === "[") game.dispatch("spd-down");
     if (k === "e" || k === "E") game.dispatch("evac");
     if ((k === "m" || k === "M") && game.mode === "battle") game.dispatch("back-camp");
-    if (k === "q" || k === "Escape") game.dispatch(game.mode === "sandbox" ? "title" : "back-camp");
+    if (k === "Escape") { e.preventDefault(); game.dispatch("pause-menu"); return; }
+    if (k === "q" || k === "Q") {
+      game.dispatch("pause-menu");
+      return;
+    }
     if (k === "p" || k === "P") game.dispatch("pal");
     if (k === "-" || k === "_") game.dispatch("mute");
 
