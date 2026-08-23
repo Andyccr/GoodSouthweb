@@ -19,34 +19,6 @@
     return island.tiles[y][x];
   }
 
-  function makeWaves(island, rng, difficulty) {
-    var dirs = island.landingDirs.length ? island.landingDirs.slice() : [2];
-    var waves = [];
-    var n = 3 + Math.min(5, difficulty);
-    var t = 6;
-    var roster = ["raider"];
-    if (difficulty >= 2) roster.push("thrower");
-    if (difficulty >= 3) roster.push("shield");
-    if (difficulty >= 4) roster.push("brute");
-    if (difficulty >= 6) roster.push("berserk");
-    for (var i = 0; i < n; i++) {
-      var dir = dirs[i % dirs.length];
-      if (rng.chance(0.35)) dir = rng.pick(dirs);
-      var count = 5 + i * 2 + difficulty + rng.int(0, 3);
-      var units = [];
-      for (var k = 0; k < count; k++) {
-        var role = "raider";
-        if (i > 0) role = rng.pick(roster);
-        if (i === n - 1 && k > count - 3 && difficulty >= 3) role = rng.chance(0.5) ? "brute" : role;
-        units.push(role);
-      }
-      if (i === n - 1 && difficulty >= 7) units.push("jarl");
-      waves.push({ t: t, dir: dir, units: units, launched: false });
-      t += 14 + Math.max(0, 8 - difficulty) + rng.int(0, 5);
-    }
-    return waves;
-  }
-
   function formationSlots(tx, ty, facing, n, role) {
     var dir = GS.DIRS[facing];
     var px = -dir.dy, py = dir.dx; // perpendicular
@@ -96,7 +68,7 @@
         coins: h.coins, alive: true, villagers: h.villagers, burning: 0,
       };
     });
-    this.waves = this.sandbox ? [] : makeWaves(island, this.rng, island.difficulty || 1);
+    this.waves = this.sandbox ? [] : GS.Waves.make(island, this.rng, island.difficulty || 1);
     this.ships = [];
     this.announce("抵达 " + island.name + "。" + island.flavor + "。", C.LCYAN);
     this.announce("登陆点：" + island.landingDirs.map(function (d) { return GS.DIRS[d].name; }).join("、") + "。布置兵团，按 G 开战。", C.YELLOW);
@@ -451,14 +423,12 @@
   };
 
   Battle.prototype._launchWaves = function () {
-    for (var i = 0; i < this.waves.length; i++) {
-      var w = this.waves[i];
-      if (!w.launched && this.t >= w.t) {
-        w.launched = true;
-        this.spawnShip(w.dir, w.units);
-        this.announce("第 " + (i + 1) + "/" + this.waves.length + " 波自" + GS.DIRS[w.dir].name + "方杀到！", C.YELLOW);
-      }
-    }
+    var self = this;
+    GS.Waves.tickLaunch(this.waves, this.t, function (w, i) {
+      self.spawnShip(w.dir, w.units);
+      self.announce("第 " + (i + 1) + "/" + self.waves.length + " 波自" + GS.DIRS[w.dir].name + "方杀到！", C.YELLOW);
+      if (GS.bus && GS.EV) GS.bus.emit(GS.EV.BATTLE_WAVE, { wave: w, index: i, battle: self });
+    });
   };
 
   Battle.prototype._tickShips = function (dt) {
@@ -820,6 +790,7 @@
   };
 
   Battle.prototype._end = function (kind, msg) {
+    if (this.phase === "over" && this.outcome) return; // idempotent
     this.phase = "over";
     this.speed = 0;
     this.outcome = {
@@ -838,6 +809,7 @@
       this.announce(msg, C.LRED);
       if (GS.audio) GS.audio.lose();
     }
+    if (GS.bus && GS.EV) GS.bus.emit(GS.EV.BATTLE_OVER, { battle: this, outcome: this.outcome });
   };
 
   Battle.prototype.evacuate = function () {
@@ -922,6 +894,5 @@
   };
 
   GS.Battle = Battle;
-  GS.makeWaves = makeWaves;
   GS.formationSlots = formationSlots;
 })(typeof window !== "undefined" ? window : globalThis);
