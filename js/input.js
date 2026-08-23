@@ -5,7 +5,7 @@
 
   function Input(game) {
     this.game = game;
-    this.pointer = { x: 0, y: 0, down: false, button: 0 };
+    this.pointer = { x: 0, y: 0, down: false, button: 0, pan: false, lastX: 0, lastY: 0 };
     this.keys = {};
   }
 
@@ -21,9 +21,10 @@
     if (view) {
       view.addEventListener("pointerdown", function (e) { self.onPointerDown(e); });
       view.addEventListener("pointermove", function (e) { self.onPointerMove(e); });
-      view.addEventListener("pointerup", function () { self.pointer.down = false; });
+      view.addEventListener("pointerup", function () { self.pointer.down = false; self.pointer.pan = false; });
       view.addEventListener("pointerleave", function () {
         self.pointer.down = false;
+        self.pointer.pan = false;
         game.hover = { x: -1, y: -1 };
         game.ui.hideTooltip();
       });
@@ -31,7 +32,8 @@
       view.addEventListener("wheel", function (e) {
         if (game.mode !== "battle" && game.mode !== "sandbox") return;
         e.preventDefault();
-        game.dispatch("rotate-wheel", e.deltaY > 0 ? 1 : -1);
+        if (e.shiftKey) game.dispatch("rotate-wheel", e.deltaY > 0 ? 1 : -1);
+        else game.dispatch("zoom", e.deltaY > 0 ? -1 : 1);
       }, { passive: false });
     }
 
@@ -164,6 +166,7 @@
       b.cursor.y = Math.max(0, Math.min(b.h - 1, b.cursor.y + dy));
       game.hover = { x: b.cursor.x, y: b.cursor.y };
       if (b.look) game.lookText = b.lookAt(b.cursor.x, b.cursor.y);
+      if (game.renderer && game.renderer._followLock) game.renderer._followLock = 0;
       game.hudDirty = true;
       return;
     }
@@ -221,7 +224,15 @@
     if (view) view.focus();
     this.pointer.down = true;
     this.pointer.button = e.button;
+    this.pointer.lastX = e.clientX;
+    this.pointer.lastY = e.clientY;
     var tile = this._tile(e);
+
+    if ((game.mode === "battle" || game.mode === "sandbox") && (e.button === 1 || (e.button === 0 && e.altKey))) {
+      e.preventDefault();
+      this.pointer.pan = true;
+      return;
+    }
     if (!tile) return;
 
     if (game.mode === "campaign") {
@@ -235,18 +246,12 @@
     game.hover = { x: tile.x, y: tile.y };
 
     if (e.button === 2) { game.dispatch("rotate"); return; }
-    if (e.button === 1) { e.preventDefault(); game.dispatch("look-at", tile); return; }
     if (e.button !== 0) return;
 
-    for (var i = 0; i < b.entities.length; i++) {
-      var en = b.entities[i];
-      if (en.alive && en.kind === "soldier" && (en.x | 0) === tile.x && (en.y | 0) === tile.y) {
-        if (en.squadId !== b.selected) {
-          game.dispatch("select-squad", en.squadId);
-          return;
-        }
-        break;
-      }
+    var sid = b.squadAt(tile.x, tile.y);
+    if (sid) {
+      if (sid !== b.selected) game.dispatch("select-squad", sid);
+      return;
     }
     game.dispatch("place");
   };
@@ -255,6 +260,15 @@
     var game = this.game;
     this.pointer.x = e.clientX;
     this.pointer.y = e.clientY;
+    if (this.pointer.pan && game.battle && (game.mode === "battle" || game.mode === "sandbox")) {
+      var r = game.renderer;
+      var dx = (this.pointer.lastX - e.clientX) / (r.tw || 16);
+      var dy = (this.pointer.lastY - e.clientY) / (r.th || 16);
+      r.pan(dx, dy, game.battle.w, game.battle.h);
+      this.pointer.lastX = e.clientX;
+      this.pointer.lastY = e.clientY;
+      return;
+    }
     var tile = this._tile(e);
     if (!tile) {
       game.hover = { x: -1, y: -1 };

@@ -190,6 +190,7 @@
       "back-camp", "next", "retry", "start", "pause", "pause-menu", "resume", "spd", "rotate", "look",
       "evac", "pal", "mute", "select-squad", "open-island", "tool-place", "tool-paint",
       "brush-next", "spawn-enemy", "spawn-ship", "spawn-ally", "gen", "place",
+      "zoom",
       "save-menu", "load-menu", "save-slot", "load-slot", "quicksave", "quickload",
       "resume-or-title", "confirm-new-campaign", "warhorn",
     ];
@@ -343,9 +344,14 @@
         return;
       case "rotate-wheel":
         if (!this.battle) return;
-        var sq = this.battle.getSquad(this.battle.selected);
-        if (!sq) return;
-        this.battle.rotateSquad(this.battle.selected, (sq.facing + (arg > 0 ? 1 : 3)) & 3);
+        var sqw = this.battle.getSquad(this.battle.selected);
+        if (!sqw) return;
+        this.battle.rotateSquad(this.battle.selected, (sqw.facing + (arg > 0 ? 1 : 3)) & 3);
+        this.hudDirty = true;
+        return;
+      case "zoom":
+        if (!this.battle) return;
+        this.renderer.setZoom(this.renderer.zoom + (arg > 0 ? 1 : -1), this.battle.w, this.battle.h, this.battle.cursor.x, this.battle.cursor.y);
         this.hudDirty = true;
         return;
       case "look":
@@ -388,13 +394,13 @@
         return;
       }
       case "select-squad":
-        if (this.battle) this.battle.selected = arg;
+        if (this.battle && arg) this.battle.selected = arg;
         this.hudDirty = true;
         if ($("view")) $("view").focus();
         return;
       case "select-squad-index": {
         if (!this.battle) return;
-        var sqs = this.battle.squads.filter(function (s) { return s.soldiers > 0; });
+        var sqs = this.battle.livingSquads();
         var n = +arg;
         if (sqs[n]) {
           this.battle.selected = sqs[n].id;
@@ -405,7 +411,7 @@
       }
       case "next-squad": {
         if (!this.battle) return;
-        var list = this.battle.squads.filter(function (s) { return s.soldiers > 0; });
+        var list = this.battle.livingSquads();
         if (!list.length) return;
         var i = 0;
         for (; i < list.length; i++) if (list[i].id === this.battle.selected) break;
@@ -434,7 +440,7 @@
         return;
       }
       case "spawn-enemy":
-        if (this.battle) this.battle.spawnEnemy("raider", this.battle.cursor.x, this.battle.cursor.y);
+        if (this.battle) this.battle.spawnShip(null, ["raider", "raider", "raider"]);
         this.hudDirty = true;
         return;
       case "spawn-ship":
@@ -448,11 +454,11 @@
         this.hudDirty = true;
         return;
       case "spawn-jarl":
-        if (this.battle) this.battle.spawnEnemy("jarl", this.battle.cursor.x, this.battle.cursor.y);
+        if (this.battle) this.battle.spawnShip(null, ["jarl", "raider", "raider"]);
         this.hudDirty = true;
         return;
       case "spawn-thrower":
-        if (this.battle) this.battle.spawnEnemy("thrower", this.battle.cursor.x, this.battle.cursor.y);
+        if (this.battle) this.battle.spawnShip(null, ["thrower", "thrower", "raider"]);
         this.hudDirty = true;
         return;
       case "gen": return this.regenSandbox();
@@ -616,6 +622,10 @@
     this.battle = new GS.Battle(this.island, this.army, { sandbox: false });
     this.sandboxTool = "place";
     this.setMode("battle");
+    if (this.renderer && this.island) {
+      this.renderer.layoutView(this.island.w, this.island.h);
+      this.renderer.centerOn(this.island.w / 2, this.island.h / 2, this.island.w, this.island.h);
+    }
     this.ui.toast(GS.CONFIG.battle.deployHint, "info");
     this.autosave("登岛");
   };
@@ -695,7 +705,11 @@
     this.battle = new GS.Battle(this.island, this.army, { sandbox: true });
     this.sandboxTool = "place";
     this.setMode("sandbox");
-    this.ui.toast("沙盒就绪 " + this.island.w + "×" + this.island.h + "。T 刷地，Z 布置。", "info");
+    if (this.renderer && this.island) {
+      this.renderer.layoutView(this.island.w, this.island.h);
+      this.renderer.centerOn(this.island.w / 2, this.island.h / 2, this.island.w, this.island.h);
+    }
+    this.ui.toast("沙盒就绪 " + this.island.w + "×" + this.island.h + "。滚轮缩放，中键拖镜头。", "info");
   };
 
   Game.prototype.regenSandbox = function () {
@@ -711,6 +725,10 @@
     this.army = this.army || GS.Army.create(GS.rng(GS.hashStr(this.seedInput)));
     this.battle = new GS.Battle(this.island, this.army, { sandbox: true });
     this.setMode("sandbox");
+    if (this.renderer && this.island) {
+      this.renderer.layoutView(this.island.w, this.island.h);
+      this.renderer.centerOn(this.island.w / 2, this.island.h / 2, this.island.w, this.island.h);
+    }
     this.ui.toast("新岛：" + this.island.name + "（" + this.island.w + "×" + this.island.h + "）", "ok");
   };
 
@@ -731,8 +749,17 @@
       this.hudDirty = true;
       return true;
     }
+    if (!b.selected) {
+      this.ui.toast("先点选一个兵团（1–9 或点击士兵）。", "warn");
+      return false;
+    }
     var ok = b.placeSquad(b.selected, b.cursor.x, b.cursor.y);
-    if (!ok) this.ui.toast("无法落在此处。", "bad");
+    if (!ok) {
+      var why = b.placeError;
+      if (why === "cooldown") this.ui.toast("换阵冷却中。", "warn");
+      else if (why === "house") this.ui.toast("屋舍上无法列阵。", "bad");
+      else this.ui.toast("无法落在此处。", "bad");
+    }
     this.hudDirty = true;
     return ok;
   };

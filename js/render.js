@@ -10,6 +10,10 @@
     this.th = 18;
     this.ox = 0;
     this.oy = 0;
+    this.camX = 0;
+    this.camY = 0;
+    this.useCam = false;
+    this.zoom = (GS.CONFIG.battle && GS.CONFIG.battle.zoomDefault) || 16;
     this.shake = 0;
     this.time = 0;
     this.palette = "df";
@@ -22,6 +26,7 @@
     this._terrainCtx = null;
     this._waterCells = [];
     this._houseMap = {};
+    this._followLock = 0;
   }
 
   Renderer.prototype.setPalette = function (p) {
@@ -50,36 +55,115 @@
   };
 
   Renderer.prototype.resize = function (cols, rows) {
+    this.useCam = false;
+    this.camX = 0;
+    this.camY = 0;
     var wrap = this.canvas.parentElement;
     var cw = wrap.clientWidth || 800;
     var ch = wrap.clientHeight || 600;
-    var key = cols + "x" + rows + ":" + cw + "x" + ch + ":" + this.palette;
+    var key = "fit:" + cols + "x" + rows + ":" + cw + "x" + ch + ":" + this.palette;
     if (key === this._resizeKey && this.cols === cols && this.rows === rows) return false;
     this._resizeKey = key;
 
     var tw = Math.max(9, Math.floor(cw / cols));
     var th = Math.max(11, Math.floor(ch / rows));
     var cell = Math.min(tw, Math.floor(th * 0.9));
-    // slightly smaller cells on huge maps so the whole island fits
     var maxCell = cols * rows > 2800 ? 16 : 22;
     cell = Math.max(8, Math.min(maxCell, cell));
     this.tw = cell;
     this.th = Math.min(th, Math.max(10, Math.round(cell * 1.15)));
     var w = cols * this.tw;
     var h = rows * this.th;
-    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    this._setCanvasSize(w, h);
+    this.cols = cols;
+    this.rows = rows;
+    this.viewCols = cols;
+    this.viewRows = rows;
+    this._font = "600 " + Math.max(9, this.th - 3) + "px 'IBM Plex Mono', 'Source Code Pro', 'DejaVu Sans Mono', 'Consolas', ui-monospace, monospace";
+    this._terrainKey = "";
+    return true;
+  };
+
+  Renderer.prototype.layoutView = function (mapW, mapH) {
+    this.useCam = true;
+    var wrap = this.canvas.parentElement;
+    var cw = Math.max(320, wrap.clientWidth || 800);
+    var ch = Math.max(240, wrap.clientHeight || 600);
+    var z = this.zoom | 0;
+    this.tw = z;
+    this.th = Math.max(z, Math.round(z * 1.12));
+    var key = "view:" + cw + "x" + ch + ":" + this.tw + "x" + this.th + ":" + this.palette + ":" + mapW + "x" + mapH;
+    if (key !== this._resizeKey) {
+      this._resizeKey = key;
+      this._setCanvasSize(cw, ch);
+      this._font = "600 " + Math.max(9, this.th - 3) + "px 'IBM Plex Mono', 'Source Code Pro', 'DejaVu Sans Mono', 'Consolas', ui-monospace, monospace";
+      this._terrainKey = "";
+    }
+    this.cols = mapW;
+    this.rows = mapH;
+    this.viewCols = Math.max(8, Math.ceil(this.cssW / this.tw) + 1);
+    this.viewRows = Math.max(6, Math.ceil(this.cssH / this.th) + 1);
+    this.clampCam(mapW, mapH);
+  };
+
+  Renderer.prototype._setCanvasSize = function (w, h) {
+    var dpr = Math.min(2, (typeof window !== "undefined" && window.devicePixelRatio) || 1);
     this.canvas.width = Math.max(1, w * dpr);
     this.canvas.height = Math.max(1, h * dpr);
     this.canvas.style.width = w + "px";
     this.canvas.style.height = h + "px";
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.cols = cols;
-    this.rows = rows;
     this.cssW = w;
     this.cssH = h;
-    this._font = "600 " + Math.max(9, this.th - 3) + "px 'IBM Plex Mono', 'Source Code Pro', 'DejaVu Sans Mono', 'Consolas', ui-monospace, monospace";
-    this._terrainKey = "";
-    return true;
+  };
+
+  Renderer.prototype.clampCam = function (mapW, mapH) {
+    var maxX = Math.max(0, mapW - this.cssW / this.tw);
+    var maxY = Math.max(0, mapH - this.cssH / this.th);
+    if (this.camX < 0) this.camX = 0;
+    if (this.camY < 0) this.camY = 0;
+    if (this.camX > maxX) this.camX = maxX;
+    if (this.camY > maxY) this.camY = maxY;
+  };
+
+  Renderer.prototype.centerOn = function (tx, ty, mapW, mapH) {
+    this.camX = tx - (this.cssW / this.tw) / 2;
+    this.camY = ty - (this.cssH / this.th) / 2;
+    this.clampCam(mapW, mapH);
+  };
+
+  Renderer.prototype.followTile = function (tx, ty, mapW, mapH) {
+    if (this._followLock > 0) return;
+    var marginX = Math.min(6, (this.cssW / this.tw) * 0.22);
+    var marginY = Math.min(5, (this.cssH / this.th) * 0.22);
+    var vx0 = this.camX, vy0 = this.camY;
+    var vx1 = this.camX + this.cssW / this.tw;
+    var vy1 = this.camY + this.cssH / this.th;
+    if (tx < vx0 + marginX) this.camX = tx - marginX;
+    if (ty < vy0 + marginY) this.camY = ty - marginY;
+    if (tx > vx1 - marginX) this.camX = tx - (this.cssW / this.tw) + marginX;
+    if (ty > vy1 - marginY) this.camY = ty - (this.cssH / this.th) + marginY;
+    this.clampCam(mapW, mapH);
+  };
+
+  Renderer.prototype.pan = function (dxTiles, dyTiles, mapW, mapH) {
+    this.camX += dxTiles;
+    this.camY += dyTiles;
+    this._followLock = 120;
+    this.clampCam(mapW, mapH);
+  };
+
+  Renderer.prototype.setZoom = function (z, mapW, mapH, focusX, focusY) {
+    var cfg = GS.CONFIG.battle || {};
+    var min = cfg.zoomMin || 12, max = cfg.zoomMax || 24;
+    z = Math.max(min, Math.min(max, z | 0));
+    if (z === this.zoom) return;
+    var fx = focusX != null ? focusX : this.camX + (this.cssW / this.tw) / 2;
+    var fy = focusY != null ? focusY : this.camY + (this.cssH / this.th) / 2;
+    this.zoom = z;
+    this._resizeKey = "";
+    this.layoutView(mapW, mapH);
+    this.centerOn(fx, fy, mapW, mapH);
   };
 
   Renderer.prototype.clear = function (bg) {
@@ -96,12 +180,13 @@
 
   Renderer.prototype.cell = function (x, y, ch, fg, bg) {
     var ctx = this.ctx;
-    var px = x * this.tw + this.ox;
-    var py = y * this.th + this.oy;
+    var px = (x - (this.useCam ? this.camX : 0)) * this.tw + this.ox;
+    var py = (y - (this.useCam ? this.camY : 0)) * this.th + this.oy;
     if (this.shake > 0) {
       px += (Math.random() - 0.5) * this.shake;
       py += (Math.random() - 0.5) * this.shake;
     }
+    if (px + this.tw < 0 || py + this.th < 0 || px > this.cssW || py > this.cssH) return;
     if (bg) {
       ctx.fillStyle = this.tint(bg);
       ctx.fillRect(px, py, this.tw, this.th);
@@ -119,13 +204,13 @@
 
     if (!this._terrainCanvas) this._terrainCanvas = document.createElement("canvas");
     var tc = this._terrainCanvas;
-    tc.width = this.cssW;
-    tc.height = this.cssH;
+    tc.width = Math.max(1, w * this.tw);
+    tc.height = Math.max(1, h * this.th);
     var tctx = tc.getContext("2d");
     this._terrainCtx = tctx;
     tctx.setTransform(1, 0, 0, 1, 0, 0);
     tctx.fillStyle = this.tint("#000000");
-    tctx.fillRect(0, 0, this.cssW, this.cssH);
+    tctx.fillRect(0, 0, tc.width, tc.height);
     tctx.font = this._font;
     tctx.textAlign = "center";
     tctx.textBaseline = "middle";
@@ -139,7 +224,6 @@
         var typ = tile.type;
         if (typ === GS.T.DEEP || typ === GS.T.SHALLOW || typ === GS.T.REEF || typ === GS.T.LAVA) {
           this._waterCells.push(x, y, typ);
-          // base water bg only; glyph animated each frame
           tctx.fillStyle = this.tint(tile.bg);
           tctx.fillRect(x * tw, y * th, tw, th);
           continue;
@@ -155,20 +239,29 @@
   Renderer.prototype.drawBattle = function (battle, hover, opts) {
     opts = opts || {};
     var island = battle.island;
-    this.resize(island.w, island.h);
+    this.layoutView(island.w, island.h);
+    if (this._followLock > 0) this._followLock--;
+    this.followTile(battle.cursor.x, battle.cursor.y, island.w, island.h);
     this.time += 0.016;
     this.shake *= 0.85;
     var t = this.time;
     var x, y, i;
 
     this._rebuildTerrain(island, battle.terrainGen || 0);
-    this.ctx.drawImage(this._terrainCanvas, 0, 0);
+    var srcX = this.camX * this.tw;
+    var srcY = this.camY * this.th;
+    this.ctx.drawImage(this._terrainCanvas, srcX, srcY, this.cssW, this.cssH, 0, 0, this.cssW, this.cssH);
     this._applyFont();
 
-    // animated water glyphs
+    var x0 = Math.max(0, (this.camX | 0) - 1);
+    var y0 = Math.max(0, (this.camY | 0) - 1);
+    var x1 = Math.min(island.w, ((this.camX + this.cssW / this.tw) | 0) + 2);
+    var y1 = Math.min(island.h, ((this.camY + this.cssH / this.th) | 0) + 2);
+
     var wc = this._waterCells;
     for (i = 0; i < wc.length; i += 3) {
       x = wc[i]; y = wc[i + 1];
+      if (x < x0 || y < y0 || x >= x1 || y >= y1) continue;
       var typ = wc[i + 2];
       var wave = ((x + y + (t * (typ === GS.T.LAVA ? 8 : 3))) | 0) % 4;
       var ch = wave === 0 ? "≈" : wave === 1 ? "~" : wave === 2 ? "∼" : "≈";
@@ -176,10 +269,10 @@
       this.cell(x, y, ch, tile.fg, null);
     }
 
-    // landing highlights under tiles during deploy
     if (this.showLandings && battle.phase === "deploy") {
       for (i = 0; i < island.landings.length; i++) {
         var L = island.landings[i];
+        if (L.x < x0 || L.y < y0 || L.x >= x1 || L.y >= y1) continue;
         var bg = "#3a2a00";
         var lch = island.tiles[L.y][L.x].ch;
         var lfg = island.tiles[L.y][L.x].fg;
@@ -191,7 +284,6 @@
       }
     }
 
-    // burning / ruined houses overlay
     for (i = 0; i < battle.houses.length; i++) {
       var h = battle.houses[i];
       if (h.alive) continue;
@@ -207,7 +299,6 @@
     var ents = battle._livingSoldiers && battle._livingEnemies
       ? battle._livingSoldiers.concat(battle._livingEnemies)
       : battle.entities.filter(function (e) { return e.alive && (e.kind === "soldier" || e.kind === "enemy"); });
-    // include ships
     for (i = 0; i < battle.entities.length; i++) {
       if (battle.entities[i].alive && battle.entities[i].kind === "ship") ents.push(battle.entities[i]);
     }
@@ -220,10 +311,16 @@
       if (e.militia) bg2 = bg2 || "#2a2210";
       if (e.hp < e.maxHp * 0.35) bg2 = "#330000";
       if (hover && (hover.x | 0) === ex && (hover.y | 0) === ey) bg2 = "#224466";
+      if (e.kind === "ship") {
+        var sd = GS.DIRS[e.dir || 2];
+        this.cell(ex - sd.dx, ey - sd.dy, "≈", C.BROWN, "#001133");
+        this.cell(ex, ey, e.ch, C.YELLOW, "#3a2a10");
+        this.cell(ex + sd.dx, ey + sd.dy, e.ch === ">" || e.ch === "<" ? "▬" : "│", C.BROWN, "#2a1a08");
+        continue;
+      }
       this.cell(ex, ey, e.ch, e.fg, bg2);
     }
 
-    // facing arrow for selected squad centroid
     var sq = battle.getSquad(battle.selected);
     if (sq && sq.placed) {
       var fx = sq.tx + GS.DIRS[sq.facing].dx;
@@ -246,7 +343,6 @@
       this.ctx.globalAlpha = 1;
     }
 
-    // warhorn flash
     if (battle.warhornT > 0) {
       this.ctx.globalAlpha = Math.min(0.18, battle.warhornT * 0.04);
       this.ctx.fillStyle = this.tint("#ffff55");
@@ -295,8 +391,8 @@
 
   Renderer.prototype._cursor = function (x, y, color) {
     var ctx = this.ctx;
-    var px = x * this.tw + this.ox;
-    var py = y * this.th + this.oy;
+    var px = (x - (this.useCam ? this.camX : 0)) * this.tw + this.ox;
+    var py = (y - (this.useCam ? this.camY : 0)) * this.th + this.oy;
     ctx.strokeStyle = this.tint(color);
     ctx.lineWidth = 1.5;
     ctx.strokeRect(px + 0.5, py + 0.5, this.tw - 1, this.th - 1);
@@ -376,7 +472,9 @@
     var r = this.canvas.getBoundingClientRect();
     var x = clientX - r.left;
     var y = clientY - r.top;
-    return { x: Math.floor(x / this.tw), y: Math.floor(y / this.th) };
+    var tx = x / this.tw + (this.useCam ? this.camX : 0);
+    var ty = y / this.th + (this.useCam ? this.camY : 0);
+    return { x: Math.floor(tx), y: Math.floor(ty) };
   };
 
   Renderer.prototype.tileAtPointer = function (clientX, clientY, w, h) {

@@ -137,7 +137,9 @@ for (var seed = 1; seed <= 20; seed++) {
   if (!isle) continue;
   ok(isle.houses.length >= 2, seed + " houses " + isle.houses.length);
   ok(isle.landings.length >= 1, seed + " landings " + isle.landings.length);
-  ok(isle.w >= 36 && isle.h >= 28, seed + " expanded size " + isle.w + "x" + isle.h);
+  ok(isle.w >= 60 && isle.h >= 44, seed + " expanded size " + isle.w + "x" + isle.h);
+  var seaEdge = isle.tiles[0][isle.w >> 1].ship && isle.tiles[isle.h - 1][isle.w >> 1].ship;
+  ok(seaEdge, seed + " map edge is sea");
   var pass = function (x, y) { return isle.tiles[y][x].walk; };
   var cfn = function (x, y) { return isle.tiles[y][x].cost; };
   var reachable = 0;
@@ -157,7 +159,7 @@ var unique = Object.keys(fps).length;
 ok(unique >= 16, "diverse maps: " + unique + " unique fingerprints / 20");
 
 var big = GS.mapgen.island(4242, { difficulty: 5, size: "large" });
-ok(big && big.w >= 54 && big.h >= 40, "large preset " + (big && big.w) + "x" + (big && big.h));
+ok(big && big.w >= 90 && big.h >= 70, "large preset " + (big && big.w) + "x" + (big && big.h));
 ok(GS.T.BEACON != null && GS.ROLES.militia, "beacon tile + militia role");
 
 console.log("Campaign graph");
@@ -196,11 +198,27 @@ for (var y = 0; y < island.h && !placed; y++) {
   }
 }
 ok(placed, "placed infantry squad");
+ok(battle.placeSquad("c1", battle.squads[0].tx, battle.squads[0].ty) === true, "re-place same tile is no-op");
 ok(battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive; }).length === 10, "10 soldiers born");
+var anySol = battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive; })[0];
+ok(anySol && battle.squadAt(anySol.x, anySol.y) === "c1", "squadAt finds living soldier");
 battle.startFight();
 ok(battle.flow, "flow field built on fight start");
 ok(battle.blowWarhorn() === true && battle.warhornReady === false, "warhorn once");
 ok(battle.blowWarhorn() === false, "warhorn spent");
+
+var dir0 = island.landingDirs[0];
+var ship = battle.spawnShip(dir0, ["raider", "raider"]);
+ok(!!ship, "spawned longship");
+var st = island.tiles[ship.y | 0][ship.x | 0];
+ok(st && st.ship, "ship spawns on water, tile ship=" + (st && st.ship) + " type=" + (st && st.type));
+ok((ship.x | 0) !== ship.beachX || (ship.y | 0) !== ship.beachY, "ship not already on beach");
+for (var sail = 0; sail < 1200 && ship.alive && !ship.landing; sail++) battle.tick(0.05);
+ok(ship.landing || !ship.alive, "ship reached the beach (landing=" + ship.landing + " alive=" + ship.alive + " t=" + battle.t.toFixed(1) + ")");
+for (var unload = 0; unload < 80 && ship.alive; unload++) battle.tick(0.05);
+var landed = battle.entities.filter(function (e) { return e.kind === "enemy"; }).length;
+ok(landed >= 1, "raiders left the ship, landed=" + landed);
+
 battle.spawnEnemy("raider", island.houses[0].x, island.houses[0].y);
 for (var t = 0; t < 400; t++) battle.tick(0.05);
 var still = battle.entities.filter(function (e) { return e.alive && (e.kind === "soldier" || e.kind === "enemy"); }).length;
