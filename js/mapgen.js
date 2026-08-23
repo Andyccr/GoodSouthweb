@@ -63,13 +63,13 @@
     opts = opts || {};
     var cfg = (GS.CONFIG && GS.CONFIG.map) || {};
     var preset = opts.size && cfg.sizes && cfg.sizes[opts.size];
-    var minW = (preset && preset.minW) || cfg.minW || 46;
-    var maxW = (preset && preset.maxW) || cfg.maxW || 68;
-    var minH = (preset && preset.minH) || cfg.minH || 34;
-    var maxH = (preset && preset.maxH) || cfg.maxH || 52;
-    var bump = Math.min(8, Math.max(0, (difficulty || 1) - 1) * 2);
-    minW = Math.min(maxW, minW + Math.floor(bump * 0.6));
-    minH = Math.min(maxH, minH + Math.floor(bump * 0.45));
+    var minW = (preset && preset.minW) || cfg.minW || 80;
+    var maxW = (preset && preset.maxW) || cfg.maxW || 108;
+    var minH = (preset && preset.minH) || cfg.minH || 60;
+    var maxH = (preset && preset.maxH) || cfg.maxH || 84;
+    var bump = Math.min(12, Math.max(0, (difficulty || 1) - 1) * 3);
+    minW = Math.min(maxW, minW + Math.floor(bump * 0.7));
+    minH = Math.min(maxH, minH + Math.floor(bump * 0.5));
     return {
       w: opts.w || rng.int(minW, maxW + 1),
       h: opts.h || rng.int(minH, maxH + 1),
@@ -96,22 +96,25 @@
         return island;
       }
       if (tries % 8 === 0) {
-        w = Math.max(36, Math.min(74, w + rng.int(-3, 4)));
-        h = Math.max(28, Math.min(56, h + rng.int(-2, 3)));
+        w = Math.max(64, Math.min(128, w + rng.int(-4, 5)));
+        h = Math.max(48, Math.min(96, h + rng.int(-3, 4)));
       }
     }
-    return forceIsland(rng, Math.max(48, w), Math.max(36, h), biome, biomeId, difficulty);
+    return forceIsland(rng, Math.max(80, w), Math.max(60, h), biome, biomeId, difficulty);
   }
 
   function tryGenerate(rng, w, h, biome, biomeId, difficulty, opts) {
-    var nBlobs = rng.chance(0.38) ? 2 : 1;
+    var margin = ((GS.CONFIG.map && GS.CONFIG.map.seaMargin) || 7);
+    var nBlobs = rng.chance(0.42) ? 2 : 1;
     var blobs = [];
+    var innerW = Math.max(12, w - margin * 2);
+    var innerH = Math.max(10, h - margin * 2);
     for (var b = 0; b < nBlobs; b++) {
       blobs.push({
-        x: w * (0.35 + rng.float(0.3)) + (b ? rng.float(-4, 4) : 0),
-        y: h * (0.35 + rng.float(0.3)) + (b ? rng.float(-3, 3) : 0),
-        rx: w * rng.float(0.22, 0.36),
-        ry: h * rng.float(0.22, 0.36),
+        x: margin + innerW * (0.32 + rng.float(0.36)) + (b ? rng.float(-6, 6) : 0),
+        y: margin + innerH * (0.32 + rng.float(0.36)) + (b ? rng.float(-5, 5) : 0),
+        rx: innerW * rng.float(0.28, 0.44),
+        ry: innerH * rng.float(0.28, 0.44),
       });
     }
     var ns = rng.int(1, 8000);
@@ -136,7 +139,10 @@
         var m = maskAt(x, y);
         var n = GS.fbm(x * 0.13, y * 0.13, ns, 5);
         v = m * 0.72 + n * 0.42 - 0.12;
-        if (x < 2 || y < 2 || x > w - 3 || y > h - 3) v -= 0.25;
+        if (x < margin || y < margin || x >= w - margin || y >= h - margin) {
+          var edge = Math.min(x, y, w - 1 - x, h - 1 - y);
+          v -= (margin - edge) * 0.18 + 0.35;
+        }
         t = classifyHeight(v, biome);
         if (biomeId === "marsh" && t === T.GRASS && rng.chance(0.45)) t = T.MUD;
         if (biomeId === "snow" && t === T.GRASS) t = T.SNOW;
@@ -180,6 +186,8 @@
         }
       }
     }
+
+    ringSea(tiles, w, h, margin);
 
     // beaches: land adjacent to water becomes beach (except cliffs)
     ringBeaches(tiles, w, h, biome);
@@ -247,6 +255,46 @@
       difficulty: difficulty,
       landCount: landCount,
     };
+  }
+
+  function ringSea(tiles, w, h, margin) {
+    margin = margin || 6;
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var edge = Math.min(x, y, w - 1 - x, h - 1 - y);
+        if (edge < margin) {
+          tiles[y][x] = makeTile(edge < 2 ? T.DEEP : T.SHALLOW, 0);
+        }
+      }
+    }
+  }
+
+  /**
+   * Walk from a beach landing outward (along its open-sea dir) to a deep-water spawn cell.
+   */
+  function seaSpawn(island, beach, dir) {
+    if (!beach) return null;
+    var d = GS.DIRS[dir] || GS.DIRS[2];
+    var x = beach.x | 0, y = beach.y | 0;
+    var last = null;
+    for (var i = 0; i < 96; i++) {
+      x += d.dx;
+      y += d.dy;
+      if (x < 0 || y < 0 || x >= island.w || y >= island.h) break;
+      if (island.tiles[y][x].ship) last = { x: x, y: y };
+    }
+    if (last) return last;
+    // fallback: map edge in that direction, snapped to nearest water
+    if (dir === 0) { x = beach.x; y = 0; }
+    else if (dir === 1) { x = island.w - 1; y = beach.y; }
+    else if (dir === 2) { x = beach.x; y = island.h - 1; }
+    else { x = 0; y = beach.y; }
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x >= island.w) x = island.w - 1;
+    if (y >= island.h) y = island.h - 1;
+    if (island.tiles[y][x].ship) return { x: x, y: y };
+    return last;
   }
 
   function fillSmallWater(tiles, w, h, rng) {
@@ -538,6 +586,7 @@
         tiles[y][x] = makeTile(t, GS.tileDef(t).height || 0);
       }
     }
+    ringSea(tiles, w, h, (GS.CONFIG.map && GS.CONFIG.map.seaMargin) || 7);
     ringBeaches(tiles, w, h, biome);
     placeRamps(tiles, w, h);
     var houses = placeHouses(tiles, w, h, rng, 3, 12);
@@ -665,5 +714,7 @@
     makeTile: makeTile,
     landish: landish,
     pickSize: pickSize,
+    seaSpawn: seaSpawn,
+    ringSea: ringSea,
   };
 })(typeof window !== "undefined" ? window : globalThis);

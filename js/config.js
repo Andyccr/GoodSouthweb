@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "1.3.0",
+    version: "1.4.0",
     saveVersion: 3,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -19,20 +19,21 @@
     },
 
     map: {
-      // battle islands (tile counts); scales up with difficulty
-      minW: 46,
-      maxW: 68,
-      minH: 34,
-      maxH: 52,
-      minLandRatio: 0.075,
-      minLandAbs: 90,
-      houseBase: 3,
-      housePerDifficulty: 0.85,
-      houseSpacing: 16,
+      // battle islands (tile counts); a thick sea ring is forced around land
+      minW: 80,
+      maxW: 108,
+      minH: 60,
+      maxH: 84,
+      seaMargin: 7,
+      minLandRatio: 0.10,
+      minLandAbs: 220,
+      houseBase: 4,
+      housePerDifficulty: 0.9,
+      houseSpacing: 22,
       sizes: {
-        small: { minW: 36, maxW: 44, minH: 28, maxH: 34 },
-        medium: { minW: 48, maxW: 58, minH: 36, maxH: 44 },
-        large: { minW: 58, maxW: 72, minH: 42, maxH: 54 },
+        small: { minW: 64, maxW: 76, minH: 48, maxH: 58 },
+        medium: { minW: 80, maxW: 96, minH: 60, maxH: 74 },
+        large: { minW: 100, maxW: 124, minH: 74, maxH: 92 },
       },
     },
 
@@ -44,9 +45,12 @@
 
     battle: {
       moveCooldown: 3.2,
-      deployHint: "布置兵团，面朝黄闪登陆点。号角 U 可振奋一次。",
+      deployHint: "布置兵团，面朝黄闪登陆点。滚轮缩放，中键拖镜头。号角 U 可振奋一次。",
       maxSpeed: 3,
       hudIntervalMs: 120,
+      zoomMin: 12,
+      zoomMax: 24,
+      zoomDefault: 16,
       warhornDuration: 6.5,
       warhornSlow: 0.42,
       militiaPerHouse: 2,
@@ -59,7 +63,7 @@
     sandbox: {
       defaultDifficulty: 3,
       defaultBiome: "verdant",
-      defaultSize: "medium",
+      defaultSize: "large",
       brushes: null,
     },
 
