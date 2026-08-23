@@ -893,6 +893,126 @@
     this._cachePass();
   };
 
+  /** Serialize battle for mid-fight save (JSON-safe) */
+  Battle.serialize = function (battle) {
+    var island = battle.island;
+    var tiles = [];
+    for (var y = 0; y < island.h; y++) {
+      tiles[y] = [];
+      for (var x = 0; x < island.w; x++) {
+        var t = island.tiles[y][x];
+        tiles[y][x] = { type: t.type, height: t.height, houseId: t.houseId };
+      }
+    }
+    return {
+      island: {
+        w: island.w, h: island.h, name: island.name, biome: island.biome,
+        biomeName: island.biomeName, flavor: island.flavor, difficulty: island.difficulty,
+        seed: island.seed, landings: island.landings, landingDirs: island.landingDirs,
+        houses: island.houses, tiles: tiles, landCount: island.landCount,
+      },
+      t: battle.t,
+      phase: battle.phase,
+      speed: battle.speed,
+      selected: battle.selected,
+      cursor: battle.cursor,
+      look: battle.look,
+      sandbox: battle.sandbox,
+      waves: battle.waves,
+      houses: battle.houses,
+      squads: battle.squads.map(function (s) {
+        return {
+          id: s.id, name: s.name, role: s.role, level: s.level, trait: s.trait,
+          soldiers: s.soldiers, maxSoldiers: s.maxSoldiers, facing: s.facing,
+          tx: s.tx, ty: s.ty, placed: s.placed, moveCd: s.moveCd, xp: s.xp || 0,
+        };
+      }),
+      entities: battle.entities.filter(function (e) { return e.alive; }).map(function (e) {
+        return {
+          kind: e.kind, team: e.team, role: e.role, squadId: e.squadId, name: e.name,
+          ch: e.ch, fg: e.fg, x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, dmg: e.dmg,
+          range: e.range, speed: e.speed, cd: e.cd, acc: e.acc, resist: e.resist || 0,
+          wrath: !!e.wrath, front: e.front || 1, facing: e.facing || 0, cooldown: e.cooldown || 0,
+          slotX: e.slotX, slotY: e.slotY, commander: !!e.commander,
+          dir: e.dir, beachX: e.beachX, beachY: e.beachY, cargo: e.cargo, landing: e.landing,
+        };
+      }),
+      corpses: (battle.corpses || []).slice(-40),
+      log: (battle.log || []).slice(-40),
+      armyRef: true,
+    };
+  };
+
+  /** Restore a Battle from snapshot; mutates army reference used by battle */
+  Battle.deserialize = function (snap, army) {
+    if (!snap || !snap.island) return null;
+    var island = snap.island;
+    // rebuild tile objects
+    for (var y = 0; y < island.h; y++) {
+      for (var x = 0; x < island.w; x++) {
+        var raw = island.tiles[y][x];
+        var tile = GS.mapgen.makeTile(raw.type, raw.height);
+        tile.houseId = raw.houseId != null ? raw.houseId : -1;
+        island.tiles[y][x] = tile;
+      }
+    }
+    var battle = new Battle(island, army, {
+      sandbox: !!snap.sandbox,
+      battleSeed: (island.seed || 1) ^ 0xabc,
+    });
+    // clear auto-spawned squad entities from constructor
+    battle.entities = [];
+    battle.squads = [];
+    battle.projectiles = [];
+    battle.floaters = [];
+    battle.ships = [];
+
+    battle.t = snap.t || 0;
+    battle.phase = snap.phase || "deploy";
+    battle.speed = snap.phase === "fight" ? (snap.speed || 0) : 0;
+    battle.selected = snap.selected;
+    battle.cursor = snap.cursor || { x: 0, y: 0 };
+    battle.look = !!snap.look;
+    battle.waves = snap.waves || [];
+    battle.houses = snap.houses || island.houses;
+    battle.log = snap.log || [];
+    battle.corpses = snap.corpses || [];
+
+    var idMap = {};
+    for (var i = 0; i < (snap.squads || []).length; i++) {
+      var s = snap.squads[i];
+      battle.squads.push({
+        id: s.id, name: s.name, role: s.role, level: s.level || 1, trait: s.trait,
+        soldiers: s.soldiers, maxSoldiers: s.maxSoldiers, facing: s.facing || 2,
+        tx: s.tx, ty: s.ty, placed: !!s.placed, entities: [], moveCd: s.moveCd || 0, xp: s.xp || 0,
+      });
+    }
+    if (!battle.selected && battle.squads.length) battle.selected = battle.squads[0].id;
+
+    for (i = 0; i < (snap.entities || []).length; i++) {
+      var e = snap.entities[i];
+      var ent = battle.addEntity({
+        kind: e.kind, team: e.team, role: e.role, squadId: e.squadId, name: e.name,
+        ch: e.ch, fg: e.fg, x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, dmg: e.dmg,
+        range: e.range, speed: e.speed, cd: e.cd, acc: e.acc, resist: e.resist || 0,
+        wrath: !!e.wrath, front: e.front || 1, facing: e.facing || 0, cooldown: e.cooldown || 0,
+        slotX: e.slotX, slotY: e.slotY, commander: !!e.commander,
+        path: null, targetId: 0, houseId: -1, alive: true,
+        dir: e.dir, beachX: e.beachX, beachY: e.beachY,
+        cargo: e.cargo ? e.cargo.slice() : undefined, landing: !!e.landing,
+      });
+      idMap[e.id] = ent.id;
+      if (e.kind === "soldier" && e.squadId) {
+        var sq = battle.getSquad(e.squadId);
+        if (sq) sq.entities.push(ent.id);
+      }
+      if (e.kind === "ship") battle.ships.push(ent.id);
+    }
+    battle._cachePass();
+    battle._reap();
+    return battle;
+  };
+
   GS.Battle = Battle;
   GS.formationSlots = formationSlots;
 })(typeof window !== "undefined" ? window : globalThis);

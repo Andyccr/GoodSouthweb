@@ -59,7 +59,9 @@
 
 ## 存档
 
-`save.js`：`v2` schema（`saveVersion`），兼容旧键 `goodsouth-save`。
+`save.js`：`v3` schema，槽位 `auto|1|2|3`，可选战斗快照；`settingsKey` 存调色/静音。兼容旧键与 v2。
+
+战斗快照由 `Battle.serialize` / `Battle.deserialize` 生成，读档后可继续同一场。
 
 ## 扩展指南
 

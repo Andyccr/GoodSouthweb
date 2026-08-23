@@ -567,7 +567,64 @@ label input, label select { width: 100%; margin-top: 3px; }
   padding: 4px 12px;
 }
 
-.phase-banner.hidden { display: none; }
+.menu.row { flex-direction: row; flex-wrap: wrap; }
+
+.pause-panel, .save-panel, .confirm-panel { max-width: 520px; }
+
+.slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.slot-btn {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  background: #0a1428;
+  border: 1px solid #2a3a60;
+  color: var(--fg);
+}
+
+.slot-btn:hover:not(:disabled) {
+  border-color: var(--cyan);
+  background: #102040;
+}
+
+.slot-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.slot-name {
+  color: var(--hi);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.slot-meta {
+  color: #8a9ab8;
+  font-size: 11px;
+}
+
+.slot-empty {
+  color: var(--dim);
+  font-size: 12px;
+}
+
+button.danger-outline {
+  border-color: #8a3040;
+  color: var(--red);
+  background: #1a0810;
+}
+
+.phase-banner.paused {
+  border-color: #8a6a20;
+  color: var(--hi);
+}
 
 @media (max-width: 1100px) {
   #main { grid-template-columns: 220px minmax(0, 1fr) 230px; }

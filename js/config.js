@@ -3,10 +3,11 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "1.1.0",
-    saveVersion: 2,
+    version: "1.2.0",
+    saveVersion: 3,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
+    settingsKey: "goodsouth-settings",
 
     campaign: {
       islandCount: 12,
@@ -31,7 +32,7 @@
     sandbox: {
       defaultDifficulty: 3,
       defaultBiome: "verdant",
-      brushes: null, // filled after tiles load via GS.configBrushes()
+      brushes: null,
     },
 
     ui: {
