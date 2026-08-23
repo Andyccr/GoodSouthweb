@@ -127,5 +127,83 @@
     return true;
   }
 
-  GS.path = { astar: astar, flood: flood, los: los, N4: N4, N8: N8 };
+  /**
+   * Multi-source Dijkstra flow field: for each walkable cell, next step toward nearest goal.
+   * Returns { w, h, nextX: Int16Array, nextY: Int16Array, dist: Float32Array } or null.
+   * nextX/Y of -1 means stay / unreachable.
+   */
+  function flowField(passable, costFn, w, h, goals) {
+    if (!goals || !goals.length) return null;
+    var n = w * h;
+    var dist = new Float32Array(n);
+    var nextX = new Int16Array(n);
+    var nextY = new Int16Array(n);
+    var i;
+    for (i = 0; i < n; i++) {
+      dist[i] = 1e9;
+      nextX[i] = -1;
+      nextY[i] = -1;
+    }
+    var open = [];
+    for (i = 0; i < goals.length; i++) {
+      var gx = goals[i].x | 0, gy = goals[i].y | 0;
+      if (gx < 0 || gy < 0 || gx >= w || gy >= h) continue;
+      if (!passable(gx, gy)) continue;
+      var gi = gy * w + gx;
+      if (dist[gi] === 0) continue;
+      dist[gi] = 0;
+      nextX[gi] = gx;
+      nextY[gi] = gy;
+      open.push(gi);
+    }
+    if (!open.length) return null;
+
+    var neigh = N8;
+    while (open.length) {
+      var bi = 0;
+      for (i = 1; i < open.length; i++) if (dist[open[i]] < dist[open[bi]]) bi = i;
+      var cur = open.splice(bi, 1)[0];
+      var cx = cur % w, cy = (cur / w) | 0;
+      var cd = dist[cur];
+      for (var k = 0; k < neigh.length; k++) {
+        var nx = cx + neigh[k][0];
+        var ny = cy + neigh[k][1];
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        if (!passable(nx, ny)) continue;
+        var isDiag = neigh[k][0] !== 0 && neigh[k][1] !== 0;
+        var step = (costFn(nx, ny) || 1) * (isDiag ? 1.41 : 1);
+        var ni = ny * w + nx;
+        var nd = cd + step;
+        if (nd + 1e-6 < dist[ni]) {
+          dist[ni] = nd;
+          // step from neighbor toward current (toward goals)
+          nextX[ni] = cx;
+          nextY[ni] = cy;
+          open.push(ni);
+        }
+      }
+    }
+    return { w: w, h: h, nextX: nextX, nextY: nextY, dist: dist };
+  }
+
+  function flowStep(field, x, y) {
+    if (!field) return null;
+    x = x | 0;
+    y = y | 0;
+    if (x < 0 || y < 0 || x >= field.w || y >= field.h) return null;
+    var i = y * field.w + x;
+    var nx = field.nextX[i], ny = field.nextY[i];
+    if (nx < 0) return null;
+    return { x: nx, y: ny, dist: field.dist[i] };
+  }
+
+  GS.path = {
+    astar: astar,
+    flood: flood,
+    los: los,
+    flowField: flowField,
+    flowStep: flowStep,
+    N4: N4,
+    N8: N8,
+  };
 })(typeof window !== "undefined" ? window : globalThis);

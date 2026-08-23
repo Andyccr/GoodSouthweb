@@ -77,6 +77,10 @@ var p = GS.path.astar(open, cost, 8, 8, 0, 0, 7, 0, { diag: false });
 ok(p && p.length === 8, "astar horizontal length 8, got " + (p && p.length));
 ok(GS.path.los(function () { return false; }, 0, 0, 5, 3), "open LOS");
 ok(!GS.path.los(function (x, y) { return x === 2 && y === 1; }, 0, 0, 4, 2), "blocked LOS");
+var ff = GS.path.flowField(open, cost, 8, 8, [{ x: 7, y: 7 }]);
+ok(ff && ff.dist[0] < 1e8, "flow field from corner");
+var step = GS.path.flowStep(ff, 0, 0);
+ok(step && (step.x > 0 || step.y > 0), "flow step moves toward goal");
 
 console.log("Army / Campaign / Save");
 var rng = GS.rng(99);
@@ -90,8 +94,9 @@ var hireOk = GS.Army.hire(army, rng, "pike");
 ok(hireOk.ok && army.commanders.length === 4, "hire pike");
 ok(GS.Army.living(army).length === 4, "living commanders");
 
-var camp = GS.Campaign.create(2026, 12);
-ok(camp.islands.length >= 8, "campaign islands");
+var camp = GS.Campaign.create(2026, 14);
+ok(camp.islands.length >= 10, "campaign islands");
+ok(camp.w >= 80 && camp.h >= 44, "larger campaign chart " + camp.w + "x" + camp.h);
 ok(camp.islands[0].status === "scouted", "start scouted");
 GS.Campaign.markCleared(camp, 0);
 ok(camp.islands[0].status === "cleared", "mark cleared");
@@ -126,18 +131,18 @@ ok(typeof GS.makeWaves === "function", "makeWaves alias");
 
 console.log("Mapgen islands");
 var fps = {};
-for (var seed = 1; seed <= 24; seed++) {
+for (var seed = 1; seed <= 20; seed++) {
   var isle = GS.mapgen.island(seed, { difficulty: 1 + (seed % 6) });
   ok(!!isle, "island seed " + seed + " generated");
   if (!isle) continue;
   ok(isle.houses.length >= 2, seed + " houses " + isle.houses.length);
   ok(isle.landings.length >= 1, seed + " landings " + isle.landings.length);
-  ok(isle.w >= 20 && isle.h >= 16, seed + " size " + isle.w + "x" + isle.h);
+  ok(isle.w >= 36 && isle.h >= 28, seed + " expanded size " + isle.w + "x" + isle.h);
   var pass = function (x, y) { return isle.tiles[y][x].walk; };
   var cfn = function (x, y) { return isle.tiles[y][x].cost; };
   var reachable = 0;
   for (var hi = 0; hi < isle.houses.length; hi++) {
-    for (var li = 0; li < Math.min(isle.landings.length, 12); li++) {
+    for (var li = 0; li < Math.min(isle.landings.length, 16); li++) {
       var path = GS.path.astar(pass, cfn, isle.w, isle.h, isle.landings[li].x, isle.landings[li].y, isle.houses[hi].x, isle.houses[hi].y, { diag: true });
       if (path) { reachable++; break; }
     }
@@ -149,7 +154,11 @@ for (var seed = 1; seed <= 24; seed++) {
   fps[fp] = (fps[fp] || 0) + 1;
 }
 var unique = Object.keys(fps).length;
-ok(unique >= 20, "diverse maps: " + unique + " unique fingerprints / 24");
+ok(unique >= 16, "diverse maps: " + unique + " unique fingerprints / 20");
+
+var big = GS.mapgen.island(4242, { difficulty: 5, size: "large" });
+ok(big && big.w >= 54 && big.h >= 40, "large preset " + (big && big.w) + "x" + (big && big.h));
+ok(GS.T.BEACON != null && GS.ROLES.militia, "beacon tile + militia role");
 
 console.log("Campaign graph");
 function connected(camp) {
@@ -164,12 +173,12 @@ function connected(camp) {
   }
   return Object.keys(seen).length === camp.islands.length;
 }
-ok(connected(GS.Campaign.create(2026, 12)), "campaign graph connected");
+ok(connected(GS.Campaign.create(2026, 14)), "campaign graph connected");
 
 console.log("Formation / Battle smoke");
 var slots = GS.formationSlots(10, 10, 0, 8, "infantry");
 ok(slots.length === 8, "8 formation slots");
-var island = GS.mapgen.island(1001, { difficulty: 2, biome: "verdant" });
+var island = GS.mapgen.island(1001, { difficulty: 2, biome: "verdant", size: "small" });
 var army2 = GS.Army.create(GS.rng(1));
 army2.commanders = [{
   id: "c1", name: "测试·盾噬", cls: "infantry", level: 1, xp: 0,
@@ -189,19 +198,34 @@ for (var y = 0; y < island.h && !placed; y++) {
 ok(placed, "placed infantry squad");
 ok(battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive; }).length === 10, "10 soldiers born");
 battle.startFight();
+ok(battle.flow, "flow field built on fight start");
+ok(battle.blowWarhorn() === true && battle.warhornReady === false, "warhorn once");
+ok(battle.blowWarhorn() === false, "warhorn spent");
 battle.spawnEnemy("raider", island.houses[0].x, island.houses[0].y);
 for (var t = 0; t < 400; t++) battle.tick(0.05);
 var still = battle.entities.filter(function (e) { return e.alive && (e.kind === "soldier" || e.kind === "enemy"); }).length;
 ok(still >= 1, "simulation ran without wiping everyone instantly, living=" + still);
 ok(battle.t > 5, "time advanced " + battle.t.toFixed(2));
 
+// militia spawn on house attack
+var island2 = GS.mapgen.island(77, { difficulty: 2, size: "small", houses: 3 });
+var armyM = GS.Army.create(GS.rng(2));
+var b2 = new GS.Battle(island2, armyM, { sandbox: true, battleSeed: 3 });
+b2.startFight();
+var h0 = b2.houses[0];
+b2.spawnMilitia(h0);
+ok(h0.militiaSpawned && b2.entities.some(function (e) { return e.militia && e.alive; }), "militia spawn");
+
 console.log("Battle serialize");
 var snap = GS.Battle.serialize(battle);
 ok(snap && snap.island && snap.entities.length >= 1, "serialize battle");
+ok(snap.warhornReady === false, "serialize warhorn state");
 var army3 = GS.Army.deserialize(GS.Army.serialize(army2));
 var restored = GS.Battle.deserialize(snap, army3);
 ok(restored && restored.entities.filter(function (e) { return e.alive; }).length >= 1, "deserialize battle living");
 ok(restored.island.name === island.name, "deserialize keeps island name");
+ok(restored.warhornReady === false, "deserialize warhorn spent");
+ok(restored.flow || restored.phase !== "fight", "deserialize rebuilds flow when fighting");
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

@@ -50,7 +50,7 @@
 
     var gen = $("genbtn");
     if (gen) gen.addEventListener("click", function () { game.dispatch("gen"); });
-    ["seedbox", "biomebox", "diffbox"].forEach(function (id) {
+    ["seedbox", "biomebox", "diffbox", "sizebox"].forEach(function (id) {
       var n = $(id);
       if (!n) return;
       n.addEventListener("keydown", function (e) { e.stopPropagation(); });
@@ -183,6 +183,7 @@
     if (k === "]") game.dispatch("spd-up");
     if (k === "[") game.dispatch("spd-down");
     if (k === "e" || k === "E") game.dispatch("evac");
+    if (k === "u" || k === "U") { game.dispatch("warhorn"); return; }
     if ((k === "m" || k === "M") && game.mode === "battle") game.dispatch("back-camp");
     if (k === "Escape") { e.preventDefault(); game.dispatch("pause-menu"); return; }
     if (k === "q" || k === "Q") {

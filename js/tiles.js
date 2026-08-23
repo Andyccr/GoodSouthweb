@@ -46,6 +46,7 @@
     REEF: 19,
     ICE: 20,
     CROPS: 21,
+    BEACON: 22,
   };
 
   GS.TILE = {};
@@ -137,6 +138,10 @@
     id: GS.T.CROPS, ch: "τ", fg: C.YELLOW, bg: "#2a4a00", walk: true, cost: 1.1, height: 2,
     name: "农田", look: "即将收获的麦田。",
   };
+  GS.TILE[GS.T.BEACON] = {
+    id: GS.T.BEACON, ch: "¥", fg: C.YELLOW, bg: "#254015", walk: true, cost: 1.05, height: 3, beacon: true,
+    name: "烽火台", look: "高处的烽火台。附近的弓手射程与杀伤提升。",
+  };
 
   GS.BIOMES = {
     verdant: { name: "沃野", grass: GS.T.GRASS, extra: GS.T.CROPS, water: GS.T.DEEP, beach: GS.T.BEACH, flavor: "青翠的南境田岛" },
@@ -186,6 +191,11 @@
     jarl: {
       id: "jarl", name: "北境领主", ch: "Ω", fg: C.YELLOW, enemy: true,
       hp: 88, dmg: 15, range: 1.25, speed: 2.05, cd: 0.6, acc: 0.8,
+    },
+    militia: {
+      id: "militia", name: "乡勇", ch: "☺", fg: C.BROWN, commander: "☺",
+      hp: 12, dmg: 4.5, range: 1.05, speed: 2.1, cd: 0.55, acc: 0.68,
+      desc: "仓促武装的村民。能拖住北蛮片刻。",
     },
   };
 

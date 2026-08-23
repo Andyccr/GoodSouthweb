@@ -159,12 +159,19 @@
       "<li>战斗中存档会保存岛屿战局，读档后可继续同一场。</li>" +
       "<li>切换浏览器标签会自动暂停战斗。</li>" +
       "</ul>" +
+      "<h3>战地技巧</h3>" +
+      "<ul>" +
+      "<li><b>U 号角</b>：每场一次，短时减缓全部北蛮。</li>" +
+      "<li><b>烽火台 ¥</b>：弓手靠近可提升射程与伤害。</li>" +
+      "<li>屋舍遇袭时会冲出<strong>乡勇</strong>拖延敌人。</li>" +
+      "<li>高威胁岛屿会出现<strong>双向登陆</strong>分兵。</li>" +
+      "</ul>" +
       "<h3>桌面操作</h3>" +
       "<pre class=\"keys\">" +
       "鼠标左键        布置 / 选中 / 刷地\n" +
       "鼠标右键/滚轮   旋转朝向\n" +
       "WASD / 方向键   移动光标　　1–9 选兵团\n" +
-      "[  ]            变速　　G 开战　　E 撤退\n" +
+      "[  ]            变速　　G 开战　　E 撤退　　U 号角\n" +
       "</pre>" +
       '<div class="menu"><button data-act="resume-or-title"><kbd>Q</kbd> 返回</button></div></div>'
     );
@@ -178,7 +185,9 @@
       '<div class="flavor">' + island.flavor + "  ·  " + GS.BIOMES[island.biome].name +
       "  ·  威胁 " + "▲".repeat(island.difficulty) + "</div>" +
       "<pre class=\"mini\">" + GS.util.asciiMini(island) + "</pre>" +
-      "<p>屋舍 " + island.houses.length + " 座。登陆方向：<b>" + landings + "</b>。</p>" +
+      "<p>屋舍 " + island.houses.length + " 座 · 版图 " + island.w + "×" + island.h +
+      (island.beacons && island.beacons.length ? " · 烽火台 " + island.beacons.length : "") +
+      "。登陆方向：<b>" + landings + "</b>。</p>" +
       "<p>民居：" + island.houses.map(function (h) { return h.name; }).join("、") + "。</p>" +
       '<div class="menu">' +
       '<button data-act="fight"><kbd>G</kbd> 登陆布置兵团</button>' +
