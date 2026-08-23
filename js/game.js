@@ -28,9 +28,18 @@
     this.last = 0;
     this._logWatch = 0;
 
+    // pause / menu
+    this.menuOpen = false;
+    this.menuKind = null; // pause | save | load | help-from-pause
+    this._resumeSpeed = 1;
+    this._pausedByBlur = false;
+    this._returnAfterLoad = null;
+
+    this._applySettings(GS.Save.loadSettings());
     this._wireUi();
     this._wireBus();
     this.input.bind();
+    this._bindLifecycle();
     this.setMode("title");
 
     var self = this;
@@ -44,6 +53,7 @@
 
   Game.prototype.setMode = function (mode, data) {
     var prev = this.mode;
+    this.closeMenu(true);
     this.mode = mode;
     GS.bus.emit(GS.EV.MODE_CHANGE, { from: prev, to: mode, data: data });
     this.hudDirty = true;
@@ -75,15 +85,113 @@
     }
   };
 
+  Game.prototype._applySettings = function (s) {
+    if (!s) return;
+    this.palette = s.palette || "df";
+    this.renderer.setPalette(this.palette);
+    if (GS.audio && GS.audio.setMuted) GS.audio.setMuted(!!s.muted);
+  };
+
+  Game.prototype._persistSettings = function () {
+    GS.Save.saveSettings({
+      palette: this.palette,
+      muted: GS.audio.muted(),
+    });
+  };
+
+  Game.prototype._bindLifecycle = function () {
+    var self = this;
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {
+        if ((self.mode === "battle" || self.mode === "sandbox") && self.battle && self.battle.phase === "fight" && self.battle.speed > 0 && !self.menuOpen) {
+          self._resumeSpeed = self.battle.speed;
+          self.battle.setSpeed(0);
+          self._pausedByBlur = true;
+          self.hudDirty = true;
+        }
+      } else if (self._pausedByBlur && self.battle && !self.menuOpen) {
+        self._pausedByBlur = false;
+        // stay paused; open menu so player consciously resumes
+        self.openPauseMenu();
+      }
+    });
+  };
+
+  /* ---------- pause menu ---------- */
+
+  Game.prototype.openPauseMenu = function () {
+    if (this.mode === "title" || this.mode === "result" || this.mode === "preview" || this.mode === "hire" || this.mode === "help") {
+      return;
+    }
+    if (this.battle && this.battle.phase === "fight" && this.battle.speed > 0) {
+      this._resumeSpeed = this.battle.speed;
+      this.battle.setSpeed(0);
+    } else if (this.battle && this.battle.phase === "deploy") {
+      this._resumeSpeed = 0;
+    } else if (this.battle) {
+      this._resumeSpeed = this.battle.speed || 1;
+    }
+    this.menuOpen = true;
+    this.menuKind = "pause";
+    this.screens.pause({
+      inBattle: this.mode === "battle" || this.mode === "sandbox",
+      canSave: !!(this.army && this.campaign) || this.mode === "sandbox",
+      mode: this.mode,
+    });
+    this.hudDirty = true;
+  };
+
+  Game.prototype.closeMenu = function (silent) {
+    if (!this.menuOpen && !silent) return;
+    this.menuOpen = false;
+    this.menuKind = null;
+    if (!silent && (this.mode === "campaign" || this.mode === "battle" || this.mode === "sandbox")) {
+      this.screens.hide();
+      if ($("view")) $("view").focus();
+    }
+  };
+
+  Game.prototype.resume = function () {
+    this.closeMenu();
+    if (this.battle && this.battle.phase === "fight") {
+      this.battle.setSpeed(this._resumeSpeed > 0 ? this._resumeSpeed : 1);
+    }
+    this._pausedByBlur = false;
+    this.hudDirty = true;
+  };
+
+  Game.prototype.toggleSoftPause = function () {
+    if (!this.battle) return;
+    if (this.menuOpen) {
+      this.resume();
+      return;
+    }
+    if (this.battle.phase === "deploy") {
+      this.openPauseMenu();
+      return;
+    }
+    if (this.battle.speed > 0) {
+      this._resumeSpeed = this.battle.speed;
+      this.battle.setSpeed(0);
+      this.ui.toast("已暂停（Esc 打开菜单）", "info");
+    } else {
+      this.battle.setSpeed(this._resumeSpeed > 0 ? this._resumeSpeed : 1);
+      this.ui.toast("继续 ×" + this.battle.speed, "ok");
+    }
+    this.hudDirty = true;
+  };
+
   /* ---------- wiring ---------- */
 
   Game.prototype._wireUi = function () {
     var self = this;
     var acts = [
       "campaign", "continue", "sandbox", "help", "title", "fight", "hire", "buy",
-      "back-camp", "next", "retry", "start", "pause", "spd", "rotate", "look",
+      "back-camp", "next", "retry", "start", "pause", "pause-menu", "resume", "spd", "rotate", "look",
       "evac", "pal", "mute", "select-squad", "open-island", "tool-place", "tool-paint",
       "brush-next", "spawn-enemy", "spawn-ship", "spawn-ally", "gen", "place",
+      "save-menu", "load-menu", "save-slot", "load-slot", "quicksave", "quickload",
+      "resume-or-title", "confirm-new-campaign",
     ];
     acts.forEach(function (a) {
       self.ui.on(a, function (arg) { self.dispatch(a, arg); });
@@ -115,7 +223,7 @@
     var dt = Math.min(0.05, (t - this.last) / 1000);
     this.last = t;
 
-    if (this.battle && (this.mode === "battle" || this.mode === "sandbox")) {
+    if (this.battle && (this.mode === "battle" || this.mode === "sandbox") && !this.menuOpen) {
       var before = this.battle.log.length;
       this.battle.tick(dt);
       if (this.battle.log.length > before) {
@@ -123,7 +231,6 @@
         GS.bus.emit(GS.EV.BATTLE_ANNOUNCE, last);
       }
       if (this.battle.phase === "over" && this.mode === "battle" && this.battle.outcome) {
-        // sim emits end; ensure UI once
         if (!this._resultShown) this._onBattleOver();
       }
     }
@@ -150,11 +257,21 @@
 
     switch (act) {
       case "title": return this.setMode("title");
-      case "help": return this.setMode("help");
+      case "help":
+        if (this.menuOpen || this.mode === "campaign" || this.mode === "battle" || this.mode === "sandbox") {
+          this.menuOpen = true;
+          this.menuKind = "help";
+          this.screens.help();
+          return;
+        }
+        return this.setMode("help");
       case "campaign": return this.startCampaign();
-      case "continue": return this.load();
+      case "confirm-new-campaign": return this._startCampaignNow();
+      case "continue": return this.loadLatest();
       case "sandbox": return this.startSandbox();
-      case "back-camp": return this.setMode("campaign");
+      case "back-camp":
+        this.closeMenu();
+        return this.setMode("campaign");
       case "hire": return this.setMode("hire");
       case "buy": return this.buy(arg);
       case "open-island": return this.openIsland(+arg);
@@ -162,19 +279,58 @@
       case "next": return this.afterResult();
       case "retry": return this.retryIsland();
       case "start": return this._startFight();
-      case "pause":
-        if (this.battle) this.battle.setSpeed(this.battle.speed ? 0 : 1);
-        this.hudDirty = true;
+      case "pause": return this.toggleSoftPause();
+      case "pause-menu": return this.openPauseMenu();
+      case "resume": return this.resume();
+      case "resume-or-title":
+        if (this.mode === "title" || this.mode === "help") return this.setMode("title");
+        if (this.menuOpen) return this.resume();
+        return this.setMode("title");
+      case "save-menu":
+        if (!(this.army && this.campaign) && this.mode !== "sandbox") {
+          this.ui.toast("当前没有可保存的战役。", "warn");
+          return;
+        }
+        this.menuOpen = true;
+        this.menuKind = "save";
+        // sandbox without campaign: create ephemeral campaign shell? skip — only campaign
+        if (!this.campaign) {
+          this.ui.toast("沙盒请用战役存档位：先开始战役。", "warn");
+          this.openPauseMenu();
+          return;
+        }
+        if (this.battle && this.battle.phase === "fight" && this.battle.speed > 0) {
+          this._resumeSpeed = this.battle.speed;
+          this.battle.setSpeed(0);
+        }
+        this.screens.saveMenu();
         return;
+      case "load-menu":
+        this.menuOpen = true;
+        this.menuKind = "load";
+        this._returnAfterLoad = this.mode;
+        if (this.battle && this.battle.speed > 0) {
+          this._resumeSpeed = this.battle.speed;
+          this.battle.setSpeed(0);
+        }
+        this.screens.loadMenu();
+        return;
+      case "save-slot": return this.saveToSlot(arg);
+      case "load-slot": return this.loadFromSlot(arg);
+      case "quicksave": return this.quicksave();
+      case "quickload": return this.quickload();
       case "spd":
+        if (this.menuOpen) return;
         if (this.battle) this.battle.setSpeed(+arg);
         this.hudDirty = true;
         return;
       case "spd-up":
+        if (this.menuOpen) return;
         if (this.battle) this.battle.setSpeed(Math.min(GS.CONFIG.battle.maxSpeed, (this.battle.speed || 1) + 1));
         this.hudDirty = true;
         return;
       case "spd-down":
+        if (this.menuOpen) return;
         if (this.battle) {
           if (this.battle.phase === "deploy") this.battle.startFight();
           this.battle.setSpeed(Math.max(0, (this.battle.speed || 1) - 1));
@@ -209,11 +365,17 @@
       case "evac":
         if (this.battle) this.battle.evacuate();
         return;
-      case "pal": return this.cyclePalette();
+      case "pal":
+        this.cyclePalette();
+        this._persistSettings();
+        if (this.menuKind === "pause") this.openPauseMenu();
+        return;
       case "mute": {
         var m = GS.audio.toggle();
+        this._persistSettings();
         this.ui.toast(m ? "已静音" : "音效开启", "info");
         this.hudDirty = true;
+        if (this.menuKind === "pause") this.openPauseMenu();
         return;
       }
       case "select-squad":
@@ -293,30 +455,139 @@
   /* ---------- campaign flow ---------- */
 
   Game.prototype.startCampaign = function () {
+    if (GS.Save.hasAny()) {
+      this.menuOpen = true;
+      this.menuKind = "confirm";
+      this.screens.confirm({
+        title: "开始新战役？",
+        msg: "已有存档。新战役不会立刻覆盖手动档，但自动档会在推进时更新。确定开始？",
+        yes: "开始新战役",
+        yesAct: "confirm-new-campaign",
+        no: "取消",
+        noAct: this.mode === "title" ? "title" : "resume",
+      });
+      return;
+    }
+    this._startCampaignNow();
+  };
+
+  Game.prototype._startCampaignNow = function () {
     var seed = (Math.random() * 0x7fffffff) | 0;
     this.rng = GS.rng(seed);
     this.army = GS.Army.create(this.rng);
     this.campaign = GS.Campaign.create(seed);
     this.campCursor = 0;
     this._resultShown = false;
-    GS.Save.write(this.army, this.campaign);
+    this.autosave("新战役");
     this.ui.toast("远征开始。西侧家园已侦察。", "ok");
     this.setMode("campaign");
   };
 
-  Game.prototype.load = function () {
-    var data = GS.Save.read();
-    if (!data) {
+  Game.prototype.autosave = function (label) {
+    if (!this.army || !this.campaign) return false;
+    var opts = { label: label || "自动" };
+    if ((this.mode === "battle" || this.mode === "sandbox") && this.battle && this.battle.phase !== "over") {
+      opts.battle = GS.Save.captureBattle(this);
+    }
+    return GS.Save.writeSlot("auto", this.army, this.campaign, opts);
+  };
+
+  Game.prototype.saveToSlot = function (slot) {
+    if (!this.army || !this.campaign) {
+      this.ui.toast("没有可保存的战役。", "warn");
+      return false;
+    }
+    var opts = { label: slot === "auto" ? "自动" : ("手动 " + slot) };
+    if ((this.mode === "battle" || this.mode === "sandbox") && this.battle && this.battle.phase !== "over") {
+      opts.battle = GS.Save.captureBattle(this);
+    }
+    var ok = GS.Save.writeSlot(String(slot), this.army, this.campaign, opts);
+    if (ok) {
+      this.ui.toast("已保存到" + (slot === "auto" ? "自动档" : ("存档位 " + slot)), "ok");
+      this.openPauseMenu();
+    } else {
+      this.ui.toast("保存失败（存储空间？）", "bad");
+    }
+    return ok;
+  };
+
+  Game.prototype.quicksave = function () {
+    if (!this.army || !this.campaign) {
+      this.ui.toast("当前无法快速存档。", "warn");
+      return;
+    }
+    var opts = { label: "快速" };
+    if ((this.mode === "battle" || this.mode === "sandbox") && this.battle && this.battle.phase !== "over") {
+      opts.battle = GS.Save.captureBattle(this);
+    }
+    if (GS.Save.writeSlot("auto", this.army, this.campaign, opts)) {
+      this.ui.toast("快速存档完成（自动档）", "ok");
+    } else this.ui.toast("快速存档失败", "bad");
+  };
+
+  Game.prototype.loadLatest = function () {
+    var latest = GS.Save.latest();
+    if (!latest) {
       this.ui.toast("没有可用存档。", "warn");
+      return false;
+    }
+    return this.loadFromSlot(latest.slot);
+  };
+
+  Game.prototype.quickload = function () {
+    var latest = GS.Save.latest();
+    if (!latest) {
+      this.ui.toast("没有可用存档。", "warn");
+      return false;
+    }
+    return this.loadFromSlot(latest.slot);
+  };
+
+  Game.prototype.loadFromSlot = function (slot) {
+    var data = GS.Save.readSlot(String(slot));
+    if (!data) {
+      this.ui.toast("存档为空。", "warn");
       return false;
     }
     this.army = data.army;
     this.campaign = data.campaign;
     this.campCursor = this.campaign.current || 0;
+    this._resultShown = false;
+    this.closeMenu(true);
+
+    if (data.battle && data.battle.snapshot) {
+      var restored = GS.Battle.deserialize(data.battle.snapshot, this.army);
+      if (restored) {
+        this.battle = restored;
+        this.island = restored.island;
+        this.sandboxTool = data.battle.sandboxTool || "place";
+        this.sandboxBrush = data.battle.sandboxBrush != null ? data.battle.sandboxBrush : this.sandboxBrush;
+        this.seedInput = data.battle.seedInput || this.seedInput;
+        var mode = data.battle.mode || "battle";
+        this.mode = mode;
+        this.menuOpen = false;
+        this.screens.hide();
+        this.ui.toast("已读取战斗存档 · " + this.island.name, "ok");
+        // keep paused so player can orient
+        if (this.battle.phase === "fight") {
+          this._resumeSpeed = 1;
+          this.battle.setSpeed(0);
+          this.openPauseMenu();
+        }
+        this.hudDirty = true;
+        if ($("view")) $("view").focus();
+        return true;
+      }
+    }
+
+    this.battle = null;
     this.ui.toast("已读取征程。", "ok");
     this.setMode("campaign");
     return true;
   };
+
+  // legacy name
+  Game.prototype.load = function () { return this.loadLatest(); };
 
   Game.prototype.openIsland = function (id) {
     var node = GS.Campaign.getNode(this.campaign, id);
@@ -337,6 +608,7 @@
     this.sandboxTool = "place";
     this.setMode("battle");
     this.ui.toast(GS.CONFIG.battle.deployHint, "info");
+    this.autosave("登岛");
   };
 
   Game.prototype.buy = function (cls) {
@@ -347,7 +619,7 @@
       return;
     }
     if (GS.audio) GS.audio.coin();
-    GS.Save.write(this.army, this.campaign);
+    this.autosave("招募");
     this.ui.toast("新队长入列。", "ok");
     this.setMode("hire");
   };
@@ -374,7 +646,7 @@
       // retreat — keep scouted
       GS.Army.applyBattleOutcome(this.army, o);
     }
-    GS.Save.write(this.army, this.campaign);
+    GS.Save.writeSlot("auto", this.army, this.campaign, { label: "战后" });
     this.setMode("result", o);
   };
 

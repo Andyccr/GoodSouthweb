@@ -37,6 +37,7 @@
     unlock: function () { ac(); },
     toggle: function () { muted = !muted; return muted; },
     muted: function () { return muted; },
+    setMuted: function (v) { muted = !!v; return muted; },
     horn: function () { beep(140, 0.45, "sawtooth", 0.1, 90); setTimeout(function () { beep(180, 0.35, "sawtooth", 0.08); }, 120); },
     ship: function () { beep(90, 0.4, "triangle", 0.08, 60); },
     bow: function () { beep(640, 0.06, "square", 0.05, 320); },

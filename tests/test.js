@@ -52,7 +52,7 @@ GS.bus.emit("test:ping", { n: 3 });
 ok(hit === 5, "event bus accumulates");
 
 console.log("Config / Util");
-ok(GS.CONFIG.saveVersion >= 2, "save schema v2");
+ok(GS.CONFIG.saveVersion >= 3, "save schema v3+");
 ok(GS.util.clamp(5, 0, 3) === 3, "clamp");
 ok(GS.util.escapeHtml("<a>") === "&lt;a&gt;", "escapeHtml");
 
@@ -97,15 +97,25 @@ GS.Campaign.markCleared(camp, 0);
 ok(camp.islands[0].status === "cleared", "mark cleared");
 ok(camp.islands[0].edges.some(function (id) { return camp.islands[id].status === "scouted"; }), "neighbors revealed");
 
-ok(GS.Save.write(army, camp), "save write");
-ok(GS.Save.has(), "save has");
-var loaded = GS.Save.read();
-ok(loaded && loaded.army.coins === army.coins && loaded.campaign.islands[0].status === "cleared", "save roundtrip");
+ok(GS.Save.writeSlot("1", army, camp, { label: "test" }), "save slot 1");
+ok(GS.Save.writeSlot("auto", army, camp, { label: "auto" }), "save auto");
+ok(GS.Save.hasAny(), "save hasAny");
+var loaded = GS.Save.readSlot("1");
+ok(loaded && loaded.army.coins === army.coins && loaded.campaign.islands[0].status === "cleared", "slot 1 roundtrip");
+var listed = GS.Save.listSlots();
+ok(listed.length === 4 && listed.some(function (s) { return s.slot === "1" && !s.empty; }), "listSlots");
+var latest = GS.Save.latest();
+ok(latest && latest.summary && latest.summary.cleared >= 1, "latest summary");
+
+GS.Save.saveSettings({ palette: "amber", muted: true });
+var st = GS.Save.loadSettings();
+ok(st.palette === "amber" && st.muted === true, "settings persist");
 
 // legacy migrate
 store["goodsouth-save"] = JSON.stringify({ army: army, campaign: camp });
 delete store[GS.CONFIG.saveKey];
-var legacy = GS.Save.read();
+delete store[GS.CONFIG.saveKey + ":slot:auto"];
+var legacy = GS.Save.readSlot("auto");
 ok(legacy && legacy.army.commanders.length === army.commanders.length, "legacy save migrate");
 
 console.log("Waves");
@@ -184,6 +194,14 @@ for (var t = 0; t < 400; t++) battle.tick(0.05);
 var still = battle.entities.filter(function (e) { return e.alive && (e.kind === "soldier" || e.kind === "enemy"); }).length;
 ok(still >= 1, "simulation ran without wiping everyone instantly, living=" + still);
 ok(battle.t > 5, "time advanced " + battle.t.toFixed(2));
+
+console.log("Battle serialize");
+var snap = GS.Battle.serialize(battle);
+ok(snap && snap.island && snap.entities.length >= 1, "serialize battle");
+var army3 = GS.Army.deserialize(GS.Army.serialize(army2));
+var restored = GS.Battle.deserialize(snap, army3);
+ok(restored && restored.entities.filter(function (e) { return e.alive; }).length >= 1, "deserialize battle living");
+ok(restored.island.name === island.name, "deserialize keeps island name");
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

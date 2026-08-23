@@ -1,4 +1,4 @@
-/* Good South — overlay screens (title / help / hire / preview / result) */
+/* Good South — overlay screens (title / pause / save / load / help / …) */
 (function (g) {
   var GS = g.GS || (g.GS = {});
   var $ = GS.util.$;
@@ -34,8 +34,36 @@
     });
   };
 
+  Screens.prototype._slotRows = function (mode) {
+    // mode: "save" | "load"
+    var slots = GS.Save.listSlots();
+    return slots.map(function (s) {
+      var sum = s.summary;
+      var body = s.empty
+        ? '<span class="slot-empty">空</span>'
+        : '<span class="slot-meta">' + sum.time +
+          '</span><span class="slot-meta">钱币 ' + sum.coins +
+          ' · 收复 ' + sum.cleared + "/" + sum.islandCount +
+          ' · 队长 ' + sum.living +
+          (sum.inBattle ? ' · <b class="warn">战斗中</b>' : "") +
+          "</span><span class=\"slot-meta\">当前岛 " + GS.util.escapeHtml(sum.currentName) + "</span>";
+      var act = mode === "save" ? "save-slot" : "load-slot";
+      var disabled = mode === "load" && s.empty ? " disabled" : "";
+      return '<button class="slot-btn" data-act="' + act + '" data-arg="' + s.slot + '"' + disabled + ">" +
+        "<div class=\"slot-name\">" + s.name + "</div>" + body + "</button>";
+    }).join("");
+  };
+
   Screens.prototype.title = function () {
-    var hasSave = GS.Save.has();
+    var latest = GS.Save.latest();
+    var cont = "";
+    if (latest && latest.summary) {
+      var s = latest.summary;
+      cont =
+        '<button data-act="continue"><kbd>D</kbd> 继续征程 — ' + latest.name +
+        "　" + s.time + "　收复 " + s.cleared + "　钱币 " + s.coins +
+        (s.inBattle ? "　(战斗中)" : "") + "</button>";
+    }
     this.show(
       '<div class="panel title-panel">' +
       "<pre class=\"ascii-logo\">" +
@@ -49,30 +77,96 @@
       '<div class="sub">南 境 据 点  ·  矮人要塞风格 ASCII 塔防沙盒</div>' +
       '<div class="flavor">北蛮的长船正在南下。你是南境的寨主。守住屋舍，别让盐风草被烧成灰。</div>' +
       '<div class="menu">' +
-      (hasSave ? '<button data-act="continue"><kbd>D</kbd> 继续征程 — 读取上次海图</button>' : "") +
-      '<button data-act="campaign"><kbd>A</kbd> 战役模式 — 群岛远征</button>' +
+      cont +
+      '<button data-act="load-menu"><kbd>L</kbd> 读取存档 — 多槽位</button>' +
+      '<button data-act="campaign"><kbd>A</kbd> 新的战役 — 群岛远征</button>' +
       '<button data-act="sandbox"><kbd>B</kbd> 沙盒模式 — 随机构图 / 刷子 / 刷兵</button>' +
-      '<button data-act="help"><kbd>C</kbd> / <kbd>F1</kbd> 手册 — 规则与按键</button>' +
+      '<button data-act="help"><kbd>C</kbd> / <kbd>F1</kbd> 手册</button>' +
       "</div>" +
-      '<div class="hint">架构：事件总线 · 军制/战役域模型 · 模式状态机 · 渲染/UI 分离。桌面：悬停预览 · WASD · 1–9 选兵</div>' +
+      '<div class="hint">Esc 暂停菜单 · F5 快速存档 · F9 快速读档 · 空格战斗内暂停</div>' +
       "</div>"
+    );
+  };
+
+  Screens.prototype.pause = function (ctx) {
+    ctx = ctx || {};
+    var inBattle = ctx.inBattle;
+    var canSave = !!ctx.canSave;
+    this.show(
+      '<div class="panel pause-panel">' +
+      "<h2>暂停</h2>" +
+      '<p class="flavor">' + (inBattle ? "战斗已冻结。可存档后离开，稍后从同一战局继续。" : "海图暂停。") + "</p>" +
+      '<div class="menu">' +
+      '<button data-act="resume"><kbd>Esc</kbd> 继续</button>' +
+      (canSave ? '<button data-act="save-menu"><kbd>F5</kbd> 保存进度</button>' : "") +
+      '<button data-act="load-menu"><kbd>F9</kbd> 读取存档</button>' +
+      '<button data-act="pal">调色板</button>' +
+      '<button data-act="mute">' + (GS.audio.muted() ? "开启音效" : "静音") + "</button>" +
+      (inBattle && ctx.mode === "battle"
+        ? '<button data-act="evac" class="danger-outline">弃岛撤退（保兵）</button>' +
+          '<button data-act="back-camp">返回海图（不存战斗）</button>'
+        : "") +
+      (ctx.mode === "sandbox" ? '<button data-act="title">返回标题</button>' : "") +
+      (ctx.mode === "campaign" ? '<button data-act="title">返回标题</button>' : "") +
+      (inBattle && ctx.mode === "battle" ? "" : "") +
+      '<button data-act="help">手册</button>' +
+      "</div></div>"
+    );
+  };
+
+  Screens.prototype.saveMenu = function () {
+    this.show(
+      '<div class="panel save-panel">' +
+      "<h2>保存进度</h2>" +
+      '<p class="hint">自动档会在关键节点写入；手动档不会被自动覆盖。战斗中存档可恢复战局。</p>' +
+      '<div class="slot-list">' + this._slotRows("save") + "</div>" +
+      '<div class="menu"><button data-act="resume"><kbd>Esc</kbd> 返回</button></div></div>'
+    );
+  };
+
+  Screens.prototype.loadMenu = function () {
+    this.show(
+      '<div class="panel save-panel">' +
+      "<h2>读取存档</h2>" +
+      '<p class="hint">选择一个槽位。若存档含战斗快照，将直接回到该战局。</p>' +
+      '<div class="slot-list">' + this._slotRows("load") + "</div>" +
+      '<div class="menu"><button data-act="resume-or-title"><kbd>Esc</kbd> 返回</button></div></div>'
+    );
+  };
+
+  Screens.prototype.confirm = function (opts) {
+    opts = opts || {};
+    this.show(
+      '<div class="panel confirm-panel">' +
+      "<h2>" + (opts.title || "确认") + "</h2>" +
+      "<p>" + (opts.msg || "") + "</p>" +
+      '<div class="menu row">' +
+      '<button data-act="' + (opts.yesAct || "confirm-yes") + '" data-arg="' + (opts.yesArg || "") + '">' + (opts.yes || "确定") + "</button>" +
+      '<button data-act="' + (opts.noAct || "resume") + '">' + (opts.no || "取消") + "</button>" +
+      "</div></div>"
     );
   };
 
   Screens.prototype.help = function () {
     this.show(
       '<div class="panel help-panel"><h2>南境手册</h2>' +
-      "<h3>系统分层</h3>" +
-      "<p><b>域模型</b> Army / Campaign / Waves　·　<b>模拟</b> Battle　·　<b>表现</b> Renderer / UI　·　<b>编排</b> Game 状态机</p>" +
+      "<h3>保存与暂停</h3>" +
+      "<ul>" +
+      "<li><b>Esc</b> 打开/关闭暂停菜单（战役、战斗、沙盒）。</li>" +
+      "<li><b>空格</b> 战斗中软暂停（仅冻结时间，不开菜单）。</li>" +
+      "<li><b>F5</b> 快速写入自动档；暂停菜单可写入 1–3 号手动档。</li>" +
+      "<li><b>F9</b> 快速读取最近存档；亦可在读档界面选槽。</li>" +
+      "<li>战斗中存档会保存岛屿战局，读档后可继续同一场。</li>" +
+      "<li>切换浏览器标签会自动暂停战斗。</li>" +
+      "</ul>" +
       "<h3>桌面操作</h3>" +
       "<pre class=\"keys\">" +
-      "鼠标左键        布置 / 选中兵团 / 刷地（拖拽）\n" +
+      "鼠标左键        布置 / 选中 / 刷地\n" +
       "鼠标右键/滚轮   旋转朝向\n" +
       "WASD / 方向键   移动光标　　1–9 选兵团\n" +
-      "[  ]            变速　　空格 暂停　　G 开战\n" +
-      "E 撤退　P 调色　- 静音　F1 手册\n" +
+      "[  ]            变速　　G 开战　　E 撤退\n" +
       "</pre>" +
-      '<div class="menu"><button data-act="title"><kbd>Q</kbd> 返回标题</button></div></div>'
+      '<div class="menu"><button data-act="resume-or-title"><kbd>Q</kbd> 返回</button></div></div>'
     );
   };
 
