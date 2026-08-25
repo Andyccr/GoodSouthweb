@@ -220,6 +220,7 @@ ok(GS.Army.create(GS.rng(8)).commanders.length === 4, "default army still 4 afte
 var bFour = new GS.Battle(island, GS.Army.create(GS.rng(8)), { sandbox: true });
 ok(bFour.squads.length === 4, "battle defaults to 4 squads");
 ok(battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive; }).length === 10, "10 soldiers born");
+ok(battle._livingSoldiers.length === 10, "living cache refresh after deploy place");
 var anySol = battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive; })[0];
 ok(anySol && battle.squadAt(anySol.x, anySol.y) === "c1", "squadAt finds living soldier");
 battle.startFight();
