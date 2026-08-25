@@ -390,10 +390,18 @@
         }
         this.hudDirty = true;
         return;
-      case "rotate":
-        if (this.battle) this.battle.rotateSquad(this.battle.selected);
+      case "rotate": {
+        if (!this.battle) return;
+        var rsq = this.battle.getSquad(this.battle.selected);
+        if (!rsq) {
+          this.ui.toast(this.touch ? "先点选一个兵团。" : "先选中兵团再转向。", "warn");
+          return;
+        }
+        this.battle.rotateSquad(rsq.id);
+        this.ui.toast("朝向 " + GS.DIRS[rsq.facing].name + " " + GS.DIRS[rsq.facing].ch, "info");
         this.hudDirty = true;
         return;
+      }
       case "rotate-wheel":
         if (!this.battle) return;
         var sqw = this.battle.getSquad(this.battle.selected);

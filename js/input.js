@@ -341,11 +341,9 @@
         if (game.mode === "battle" || game.mode === "sandbox") game.dispatch("rotate");
         else if (game.mode === "campaign") game.dispatch("open-island", String(game.campCursor));
       }, 420);
-      var tile = this._tile(e);
-      if (tile && (game.mode === "battle" || game.mode === "sandbox")) {
-        game.battle.cursor.x = tile.x;
-        game.battle.cursor.y = tile.y;
-        game.hover = tile;
+      var preview = this._tile(e);
+      if (preview && (game.mode === "battle" || game.mode === "sandbox")) {
+        game.hover = preview;
       }
       return;
     }

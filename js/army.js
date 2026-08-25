@@ -68,7 +68,9 @@
       army.islandsCleared++;
       for (var i = 0; i < army.commanders.length; i++) {
         var c = army.commanders[i];
-        if (!c.dead) c.soldiers = Math.min(c.maxSoldiers, c.soldiers + cfg.recruitHealOnVictory);
+        if (c.dead || c.soldiers <= 0) continue;
+        if (cfg.recruitHealOnVictory === "full") c.soldiers = c.maxSoldiers;
+        else c.soldiers = Math.min(c.maxSoldiers, c.soldiers + (cfg.recruitHealOnVictory || 0));
       }
     }
     GS.bus.emit(GS.EV.ARMY_CHANGED, { army: army, reason: "battle", outcome: outcome });
