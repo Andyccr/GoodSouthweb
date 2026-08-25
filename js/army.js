@@ -25,13 +25,15 @@
   function createArmy(rng, opts) {
     opts = opts || {};
     var cfg = GS.CONFIG.campaign;
+    var starter = cfg.starter || ["infantry", "infantry", "archer", "pike"];
+    var commanders = opts.commanders;
+    if (!commanders) {
+      commanders = [];
+      for (var i = 0; i < starter.length; i++) commanders.push(createCommander(rng, starter[i]));
+    }
     return {
       coins: opts.coins != null ? opts.coins : cfg.startCoins,
-      commanders: opts.commanders || [
-        createCommander(rng, "infantry"),
-        createCommander(rng, "infantry"),
-        createCommander(rng, "archer"),
-      ],
+      commanders: commanders,
       islandsCleared: opts.islandsCleared || 0,
     };
   }

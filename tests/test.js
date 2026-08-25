@@ -81,18 +81,29 @@ var ff = GS.path.flowField(open, cost, 8, 8, [{ x: 7, y: 7 }]);
 ok(ff && ff.dist[0] < 1e8, "flow field from corner");
 var step = GS.path.flowStep(ff, 0, 0);
 ok(step && (step.x > 0 || step.y > 0), "flow step moves toward goal");
+function cornerPass(x, y) {
+  if (x < 0 || y < 0 || x > 2 || y > 2) return false;
+  if ((x === 1 && y === 0) || (x === 0 && y === 1)) return false;
+  return true;
+}
+ok(!GS.path.astar(cornerPass, cost, 3, 3, 0, 0, 1, 1, { diag: true, snap: false }), "astar does not cut blocked corners");
+function openInner(x, y) { return x >= 1 && y >= 1 && x < 8 && y < 8; }
+var snapped = GS.path.astar(openInner, cost, 8, 8, 0, 0, 7, 7, { diag: true });
+ok(snapped && snapped.length >= 2, "astar snaps blocked start/goal");
+ok(GS.path.snap(openInner, 8, 8, 0, 0, 4) && GS.path.snap(openInner, 8, 8, 0, 0, 4).x === 1, "snap finds nearest walkable");
 
 console.log("Army / Campaign / Save");
 var rng = GS.rng(99);
 var army = GS.Army.create(rng);
-ok(army.commanders.length === 3 && army.coins === 10, "starter army");
+ok(army.commanders.length === 4 && army.coins === 10, "starter army");
+ok(army.commanders.filter(function (c) { return c.cls === "pike"; }).length === 1, "starter includes pike");
 army.coins = 0;
 var hireFail = GS.Army.hire(army, rng, "archer");
 ok(hireFail.ok === false && hireFail.reason === "coins", "cannot hire without coins");
 army.coins = 20;
 var hireOk = GS.Army.hire(army, rng, "pike");
-ok(hireOk.ok && army.commanders.length === 4, "hire pike");
-ok(GS.Army.living(army).length === 4, "living commanders");
+ok(hireOk.ok && army.commanders.length === 5, "hire pike");
+ok(GS.Army.living(army).length === 5, "living commanders");
 
 var camp = GS.Campaign.create(2026, 14);
 ok(camp.islands.length >= 10, "campaign islands");
@@ -137,6 +148,8 @@ for (var seed = 1; seed <= 20; seed++) {
   if (!isle) continue;
   ok(isle.houses.length >= 2, seed + " houses " + isle.houses.length);
   ok(isle.landings.length >= 1, seed + " landings " + isle.landings.length);
+  ok(!!isle.shape, seed + " has island shape " + isle.shape);
+  ok(isle.landingDirs.length >= 1, seed + " landing dirs " + isle.landingDirs.length);
   ok(isle.w >= 60 && isle.h >= 44, seed + " expanded size " + isle.w + "x" + isle.h);
   var seaEdge = isle.tiles[0][isle.w >> 1].ship && isle.tiles[isle.h - 1][isle.w >> 1].ship;
   ok(seaEdge, seed + " map edge is sea");
@@ -198,7 +211,14 @@ for (var y = 0; y < island.h && !placed; y++) {
   }
 }
 ok(placed, "placed infantry squad");
+ok(battle.squads[0].facing === 2, "placed facing stored on squad");
+battle.rotateSquad("c1");
+ok(battle.squads[0].facing === 3, "rotate facing updates squad");
+battle.rotateSquad("c1", 2);
 ok(battle.placeSquad("c1", battle.squads[0].tx, battle.squads[0].ty) === true, "re-place same tile is no-op");
+ok(GS.Army.create(GS.rng(8)).commanders.length === 4, "default army still 4 after custom battle army");
+var bFour = new GS.Battle(island, GS.Army.create(GS.rng(8)), { sandbox: true });
+ok(bFour.squads.length === 4, "battle defaults to 4 squads");
 ok(battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive; }).length === 10, "10 soldiers born");
 var anySol = battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive; })[0];
 ok(anySol && battle.squadAt(anySol.x, anySol.y) === "c1", "squadAt finds living soldier");
@@ -264,6 +284,8 @@ for (var li = 0; li < islandH.landings.length; li++) {
   }
 }
 ok(!!farEnemy, "spawned a distant raider");
+bh._rebuildHuntFlow();
+ok(bh.huntFlow && bh.huntFlow.dist, "hunt flow field toward living threats");
 function avgDistTo(battle, target) {
   var s = 0, n = 0;
   for (var i = 0; i < battle.entities.length; i++) {

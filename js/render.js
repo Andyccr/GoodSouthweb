@@ -196,6 +196,49 @@
     ctx.fillText(ch, px + this.tw / 2, py + this.th / 2 + 0.5);
   };
 
+  Renderer.prototype._tilePx = function (tx, ty) {
+    return {
+      x: (tx - (this.useCam ? this.camX : 0)) * this.tw + this.ox,
+      y: (ty - (this.useCam ? this.camY : 0)) * this.th + this.oy,
+    };
+  };
+
+  /** Draw a formation facing chevron so placed heading is visible on the map. */
+  Renderer.prototype._facingArrow = function (tx, ty, facing, highlight) {
+    var dir = GS.DIRS[facing] || GS.DIRS[2];
+    var len = highlight ? 2.2 : 1.75;
+    var origin = this._tilePx(tx + 0.5, ty + 0.5);
+    var tip = this._tilePx(tx + 0.5 + dir.dx * len, ty + 0.5 + dir.dy * len);
+    var backX = tx + 0.5 + dir.dx * (len - 0.55);
+    var backY = ty + 0.5 + dir.dy * (len - 0.55);
+    var px = -dir.dy, py = dir.dx;
+    var left = this._tilePx(backX + px * 0.4, backY + py * 0.4);
+    var right = this._tilePx(backX - px * 0.4, backY - py * 0.4);
+    var ctx = this.ctx;
+    var color = this.tint(highlight ? C.LCYAN : C.YELLOW);
+    ctx.save();
+    ctx.globalAlpha = highlight ? 0.95 : 0.82;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = highlight ? 2.6 : 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(origin.x, origin.y);
+    ctx.lineTo(tip.x, tip.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(tip.x, tip.y);
+    ctx.lineTo(left.x, left.y);
+    ctx.lineTo(right.x, right.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    var gx = Math.round(tx + dir.dx * Math.min(2, Math.round(len)));
+    var gy = Math.round(ty + dir.dy * Math.min(2, Math.round(len)));
+    this.cell(gx, gy, dir.ch, highlight ? C.LCYAN : C.YELLOW, highlight ? "#003344" : "#3a2a00");
+  };
+
   Renderer.prototype._rebuildTerrain = function (island, terrainGen) {
     var w = island.w, h = island.h;
     var key = w + "x" + h + ":" + (island.seed || 0) + ":" + this.tw + "x" + this.th + ":" + this.palette + ":" + (terrainGen || 0);
@@ -321,15 +364,10 @@
       this.cell(ex, ey, e.ch, e.fg, bg2);
     }
 
-    var sq = battle.getSquad(battle.selected);
-    if (sq && sq.placed) {
-      var fx = sq.tx + GS.DIRS[sq.facing].dx;
-      var fy = sq.ty + GS.DIRS[sq.facing].dy;
-      if (fx >= 0 && fy >= 0 && fx < island.w && fy < island.h) {
-        this.ctx.globalAlpha = 0.85;
-        this.cell(fx, fy, GS.DIRS[sq.facing].ch, C.LCYAN, null);
-        this.ctx.globalAlpha = 1;
-      }
+    for (i = 0; i < battle.squads.length; i++) {
+      var placedSq = battle.squads[i];
+      if (!placedSq.placed || placedSq.soldiers <= 0) continue;
+      this._facingArrow(placedSq.tx, placedSq.ty, placedSq.facing, placedSq.id === battle.selected);
     }
 
     for (i = 0; i < battle.projectiles.length; i++) {
@@ -350,6 +388,7 @@
       this.ctx.globalAlpha = 1;
     }
 
+    var sq = battle.getSquad(battle.selected);
     var cx = battle.cursor.x, cy = battle.cursor.y;
     var hx = hover && hover.x >= 0 ? hover.x : cx;
     var hy = hover && hover.y >= 0 ? hover.y : cy;
@@ -370,6 +409,7 @@
         }
       }
       this.ctx.globalAlpha = 1;
+      this._facingArrow(placeX, placeY, sq.facing, true);
     } else if (opts.tool === "paint" && opts.brush != null) {
       var def = GS.tileDef(opts.brush);
       this.ctx.globalAlpha = 0.65;

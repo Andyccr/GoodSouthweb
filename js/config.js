@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "1.5.0",
+    version: "1.6.0",
     saveVersion: 3,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -16,6 +16,7 @@
       coinPerHouse: 1,
       chartW: 88,
       chartH: 48,
+      starter: ["infantry", "infantry", "archer", "pike"],
     },
 
     map: {
@@ -57,7 +58,7 @@
       beaconRangeBonus: 1.6,
       beaconDmgBonus: 1.18,
       beaconRadius: 4,
-      pathRefresh: 0.45,
+      pathRefresh: 0.55,
       hunt: {
         distMelee: 0.42,
         distArcher: 0.16,
