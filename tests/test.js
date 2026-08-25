@@ -112,6 +112,14 @@ army.coins = 20;
 var hireOk = GS.Army.hire(army, rng, "pike");
 ok(hireOk.ok && army.commanders.length === 5, "hire pike");
 ok(GS.Army.living(army).length === 5, "living commanders");
+var healA = GS.Army.create(GS.rng(2));
+healA.commanders[0].soldiers = 3;
+healA.commanders[1].soldiers = 0;
+healA.commanders[1].dead = true;
+var max0 = healA.commanders[0].maxSoldiers;
+GS.Army.applyBattleOutcome(healA, { kind: "victory", coins: 1 });
+ok(healA.commanders[0].soldiers === max0, "victory restores a surviving squad to full");
+ok(healA.commanders[1].dead && healA.commanders[1].soldiers === 0, "wiped squad stays dead");
 
 var camp = GS.Campaign.create(2026, 14);
 ok(camp.islands.length >= 10, "campaign islands");
@@ -227,6 +235,17 @@ ok(battle.placeSquad("c1", battle.squads[0].tx, battle.squads[0].ty) === true, "
 ok(GS.Army.create(GS.rng(8)).commanders.length === 4, "default army still 4 after custom battle army");
 var bFour = new GS.Battle(island, GS.Army.create(GS.rng(8)), { sandbox: true });
 ok(bFour.squads.length === 4, "battle defaults to 4 squads");
+ok(bFour.rotateSquad(bFour.selected) === true, "rotate works before place");
+ok(bFour.squads[0].facing === 3 && bFour.squads[0].facingLocked, "unplaced facing is locked");
+var keptFacing = false;
+for (var fy = 0; fy < island.h && !keptFacing; fy++) {
+  for (var fx = 0; fx < island.w && !keptFacing; fx++) {
+    if (island.tiles[fy][fx].walk && island.tiles[fy][fx].type !== GS.T.HOUSE) {
+      keptFacing = bFour.placeSquad(bFour.selected, fx, fy);
+    }
+  }
+}
+ok(keptFacing && bFour.squads[0].facing === 3, "place keeps the facing chosen with R");
 ok(battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive; }).length === 10, "10 soldiers born");
 ok(battle._livingSoldiers.length === 10, "living cache refresh after deploy place");
 var anySol = battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive; })[0];
@@ -331,6 +350,26 @@ var farE = { x: 1.5, y: 1.5, alive: true, id: 2, hp: 18, maxHp: 18, role: "raide
 var sol = bh.entities.filter(function (e) { return e.kind === "soldier" && e.alive; })[0];
 ok(sol && bh.huntScore(sol, nearE, 0) > bh.huntScore(sol, farE, 0), "house-threat outweighs a far idle raider");
 ok(bh.huntScore(sol, nearE, 6) < bh.huntScore(sol, nearE, 0), "pile-on penalty spreads assignments");
+bh._assignSquadHunts(bh._collectThreats());
+var hunts = {};
+var members = [];
+for (var hi = 0; hi < bh.entities.length; hi++) {
+  var he = bh.entities[hi];
+  if (he.alive && he.kind === "soldier" && he.squadId === "hunt1") {
+    members.push(he);
+    hunts[he.targetId || bh.squads[0].huntId] = 1;
+  }
+}
+ok(members.length >= 2 && Object.keys(hunts).length <= 2, "squad shares a hunt target");
+var cx = 0, cy = 0;
+for (hi = 0; hi < members.length; hi++) { cx += members[hi].x; cy += members[hi].y; }
+cx /= members.length; cy /= members.length;
+var spread = 0;
+for (hi = 0; hi < members.length; hi++) {
+  var sdx = members[hi].x - cx, sdy = members[hi].y - cy;
+  spread = Math.max(spread, Math.sqrt(sdx * sdx + sdy * sdy));
+}
+ok(spread < 8, "squad stays together while hunting, spread=" + spread.toFixed(1));
 
 console.log("Battle serialize");
 var snap = GS.Battle.serialize(battle);

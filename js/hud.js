@@ -104,7 +104,7 @@
     if (banner) {
       if (b.phase === "deploy") {
         banner.classList.remove("hidden");
-        banner.textContent = game.touch ? "点空地放下兵团 · 拖动画布 · 长按转向" : "就位 — 点空地放下兵团，开战后天兵会自己接战 · G 开战";
+        banner.textContent = game.touch ? "点空地放下 · 转向看箭头朝向 · 拖动画布" : "就位 — 点空地放下兵团，R 转向（箭头），开战后天兵整团接战 · G 开战";
       } else if (b.phase === "fight" && b.speed === 0) {
         banner.classList.remove("hidden");
         banner.textContent = "暂停";
@@ -114,6 +114,12 @@
     top.innerHTML = '<span class="brand">' + b.island.name + '</span><span class="chips">' +
       (game.compact ? "" : ui.chip("生态", GS.BIOMES[b.island.biome].name)) +
       ui.chip("阶段", phaseLabel, b.phase === "deploy" ? "hi" : "cyan") +
+      (function () {
+        var sel = b.getSquad(b.selected);
+        if (!sel) return "";
+        var d = GS.DIRS[sel.facing] || GS.DIRS[2];
+        return ui.chip("朝向", d.name + d.ch, "cyan");
+      }()) +
       ui.chip("屋舍", cnt.houses + "/" + b.houses.length, cnt.houses < b.houses.length ? "warn" : "ok") +
       ui.chip("我军", cnt.soldiers) +
       ui.chip("北蛮", cnt.enemies, cnt.enemies ? "warn" : "") +
@@ -177,7 +183,7 @@
     if (!game.compact) items.push({ act: "pause-menu", label: "菜单", kbd: "Esc" });
     if (game.compact) {
       var hideDockDup = {
-        start: true, pause: true, rotate: true,
+        start: true, pause: true,
         "tool-place": true, "tool-paint": true, "brush-next": true,
         "spawn-enemy": true, "spawn-ship": true, "spawn-ally": true, gen: true,
       };
