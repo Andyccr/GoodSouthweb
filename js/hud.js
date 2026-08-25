@@ -176,9 +176,14 @@
     items.push({ act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" });
     if (!game.compact) items.push({ act: "pause-menu", label: "菜单", kbd: "Esc" });
     if (game.compact) {
+      var hideDockDup = {
+        start: true, pause: true, rotate: true,
+        "tool-place": true, "tool-paint": true, "brush-next": true,
+        "spawn-enemy": true, "spawn-ship": true, "spawn-ally": true, gen: true,
+      };
       items = items.filter(function (it) {
-        if (it.sep) return true;
-        return it.act !== "start" && it.act !== "pause" && it.act !== "rotate";
+        if (it.sep) return false;
+        return !hideDockDup[it.act];
       });
     }
     ui.setToolbar(items);
@@ -271,8 +276,23 @@
     }
     html += "</ul>";
     if (game.mode === "sandbox") {
-      html += "<h3>沙盒</h3><p>工具 <b>" + (game.sandboxTool === "paint" ? "刷地 / " + GS.tileDef(game.sandboxBrush).name : "布置") +
-        "</b></p>";
+      html += "<h3>沙盒</h3>";
+      if (game.compact) {
+        html += '<p class="hint">刷地后点地图改地形；新岛用当前种子/生态。</p>' +
+          '<p class="sheet-actions">' +
+          '<button type="button" data-act="tool-place"' + (game.sandboxTool === "place" ? ' class="primary"' : "") + ">布置</button>" +
+          '<button type="button" data-act="tool-paint"' + (game.sandboxTool === "paint" ? ' class="primary"' : "") + ">刷地</button>" +
+          '<button type="button" data-act="brush-next">' + GS.tileDef(game.sandboxBrush).name + "</button>" +
+          "</p><p class=\"sheet-actions\">" +
+          '<button type="button" data-act="spawn-enemy">蛮兵</button>' +
+          '<button type="button" data-act="spawn-ship">长船</button>' +
+          '<button type="button" data-act="spawn-ally">己方</button>' +
+          '<button type="button" data-act="gen">新岛</button>' +
+          "</p>";
+      } else {
+        html += "<p>工具 <b>" + (game.sandboxTool === "paint" ? "刷地 / " + GS.tileDef(game.sandboxBrush).name : "布置") +
+          "</b></p>";
+      }
     }
     return html;
   };
