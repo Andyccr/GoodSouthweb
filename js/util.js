@@ -46,5 +46,72 @@
     deepClone: function (obj) {
       return JSON.parse(JSON.stringify(obj));
     },
+
+    /** Viewport / pointer heuristics. Pass a window-like object for tests. */
+    device: {
+      compact: function (win) {
+        win = win || (typeof window !== "undefined" ? window : null);
+        if (!win) return false;
+        var w = win.innerWidth || 1024;
+        var h = win.innerHeight || 768;
+        var coarse = false;
+        try {
+          coarse = !!(win.matchMedia && win.matchMedia("(pointer: coarse)").matches);
+        } catch (e) {}
+        var nav = win.navigator || {};
+        var touch = (nav.maxTouchPoints || 0) > 0 || typeof win.ontouchstart !== "undefined";
+        return w <= 900 || h <= 620 || ((touch || coarse) && w <= 1180);
+      },
+      touch: function (win) {
+        win = win || (typeof window !== "undefined" ? window : null);
+        if (!win) return false;
+        var coarse = false;
+        try {
+          coarse = !!(win.matchMedia && win.matchMedia("(pointer: coarse)").matches);
+        } catch (e) {}
+        var nav = win.navigator || {};
+        return coarse || (nav.maxTouchPoints || 0) > 0;
+      },
+      lowFx: function (win) {
+        win = win || (typeof window !== "undefined" ? window : null);
+        if (!win) return false;
+        if (GS.util.device.compact(win)) return true;
+        try {
+          if (win.matchMedia && win.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+        } catch (e2) {}
+        var conn = win.navigator && win.navigator.connection;
+        if (conn && (conn.saveData || conn.effectiveType === "2g" || conn.effectiveType === "slow-2g")) return true;
+        return false;
+      },
+      apply: function (win) {
+        win = win || (typeof window !== "undefined" ? window : null);
+        if (!win || !win.document || !win.document.documentElement) {
+          return { compact: false, touch: false, lowFx: false };
+        }
+        var compact = GS.util.device.compact(win);
+        var touch = GS.util.device.touch(win);
+        var lowFx = GS.util.device.lowFx(win);
+        var root = win.document.documentElement;
+        root.classList.toggle("is-compact", compact);
+        root.classList.toggle("is-touch", touch);
+        root.classList.toggle("low-fx", lowFx);
+        return { compact: compact, touch: touch, lowFx: lowFx };
+      },
+    },
+
+    touch: {
+      dist: function (ax, ay, bx, by) {
+        var dx = ax - bx, dy = ay - by;
+        return Math.sqrt(dx * dx + dy * dy);
+      },
+      shouldPan: function (dx, dy, threshold) {
+        threshold = threshold == null ? 12 : threshold;
+        return dx * dx + dy * dy >= threshold * threshold;
+      },
+      pinchZoom: function (startDist, nowDist, startZoom) {
+        if (!startDist || startDist < 1) return startZoom;
+        return startZoom * (nowDist / startDist);
+      },
+    },
   };
 })(typeof window !== "undefined" ? window : globalThis);
