@@ -263,6 +263,7 @@
       }
       sq.entities.push(e.id);
     }
+    this._refreshLiving();
   };
 
   Battle.prototype._retargetFormation = function (sq) {

@@ -216,13 +216,27 @@
     var right = this._tilePx(backX - px * 0.4, backY - py * 0.4);
     var ctx = this.ctx;
     var color = this.tint(highlight ? C.LCYAN : C.YELLOW);
+    var outline = this.tint("#000000");
     ctx.save();
-    ctx.globalAlpha = highlight ? 0.95 : 0.82;
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = highlight ? 2.6 : 2;
+    ctx.globalAlpha = highlight ? 0.98 : 0.9;
+    ctx.strokeStyle = outline;
+    ctx.fillStyle = outline;
+    ctx.lineWidth = highlight ? 5 : 4.2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(origin.x, origin.y);
+    ctx.lineTo(tip.x, tip.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(tip.x, tip.y);
+    ctx.lineTo(left.x, left.y);
+    ctx.lineTo(right.x, right.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = highlight ? 2.8 : 2.2;
     ctx.beginPath();
     ctx.moveTo(origin.x, origin.y);
     ctx.lineTo(tip.x, tip.y);
@@ -339,9 +353,14 @@
       this.cell(k.x | 0, k.y | 0, k.ch, k.fg, null);
     }
 
-    var ents = battle._livingSoldiers && battle._livingEnemies
-      ? battle._livingSoldiers.concat(battle._livingEnemies)
-      : battle.entities.filter(function (e) { return e.alive && (e.kind === "soldier" || e.kind === "enemy"); });
+    var ents;
+    if (battle.phase === "fight" && battle._livingSoldiers && battle._livingEnemies) {
+      ents = battle._livingSoldiers.concat(battle._livingEnemies);
+    } else {
+      ents = battle.entities.filter(function (e) {
+        return e.alive && (e.kind === "soldier" || e.kind === "enemy");
+      });
+    }
     for (i = 0; i < battle.entities.length; i++) {
       if (battle.entities[i].alive && battle.entities[i].kind === "ship") ents.push(battle.entities[i]);
     }
@@ -366,7 +385,7 @@
 
     for (i = 0; i < battle.squads.length; i++) {
       var placedSq = battle.squads[i];
-      if (!placedSq.placed || placedSq.soldiers <= 0) continue;
+      if (!placedSq.placed) continue;
       this._facingArrow(placedSq.tx, placedSq.ty, placedSq.facing, placedSq.id === battle.selected);
     }
 
