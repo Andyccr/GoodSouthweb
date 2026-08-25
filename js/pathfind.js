@@ -19,35 +19,140 @@
     return x + "," + y;
   }
 
+  function MinHeap() {
+    this.a = [];
+  }
+  MinHeap.prototype.push = function (node) {
+    this.a.push(node);
+    this._up(this.a.length - 1);
+  };
+  MinHeap.prototype.pop = function () {
+    var a = this.a;
+    if (!a.length) return null;
+    var top = a[0];
+    var last = a.pop();
+    if (a.length) {
+      a[0] = last;
+      this._down(0);
+    }
+    return top;
+  };
+  MinHeap.prototype._up = function (i) {
+    var a = this.a;
+    while (i > 0) {
+      var p = (i - 1) >> 1;
+      if (a[i].f >= a[p].f) break;
+      var t = a[i];
+      a[i] = a[p];
+      a[p] = t;
+      i = p;
+    }
+  };
+  MinHeap.prototype._down = function (i) {
+    var a = this.a;
+    var n = a.length;
+    while (true) {
+      var s = i;
+      var l = i * 2 + 1;
+      var r = i * 2 + 2;
+      if (l < n && a[l].f < a[s].f) s = l;
+      if (r < n && a[r].f < a[s].f) s = r;
+      if (s === i) break;
+      var t = a[i];
+      a[i] = a[s];
+      a[s] = t;
+      i = s;
+    }
+  };
+
+  function snapToPassable(passable, w, h, x, y, radius) {
+    x = Math.round(x);
+    y = Math.round(y);
+    radius = radius == null ? 4 : radius;
+    if (x >= 0 && y >= 0 && x < w && y < h && passable(x, y)) return { x: x, y: y };
+    var best = null;
+    var bestD = Infinity;
+    var r, dx, dy, nx, ny, d;
+    for (r = 1; r <= radius; r++) {
+      for (dx = -r; dx <= r; dx++) {
+        for (dy = -r; dy <= r; dy++) {
+          nx = x + dx;
+          ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          if (!passable(nx, ny)) continue;
+          d = dx * dx + dy * dy;
+          if (d < bestD) {
+            bestD = d;
+            best = { x: nx, y: ny };
+          }
+        }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
+
+  function canStep(passable, x, y, dx, dy, w, h) {
+    var nx = x + dx;
+    var ny = y + dy;
+    if (nx < 0 || ny < 0 || nx >= w || ny >= h) return false;
+    if (!passable(nx, ny)) return false;
+    if (dx !== 0 && dy !== 0) {
+      if (!passable(x + dx, y) || !passable(x, y + dy)) return false;
+    }
+    return true;
+  }
+
+  function heuristic(dx, dy, diag) {
+    dx = Math.abs(dx);
+    dy = Math.abs(dy);
+    if (!diag) return dx + dy;
+    return Math.max(dx, dy) + 0.41 * Math.min(dx, dy);
+  }
+
   function astar(passable, cost, w, h, x0, y0, x1, y1, opts) {
     opts = opts || {};
     var diag = !!opts.diag;
     var neigh = diag ? N8 : N4;
+    var snap = opts.snap !== false;
+    x0 = x0 | 0;
+    y0 = y0 | 0;
+    x1 = x1 | 0;
+    y1 = y1 | 0;
+    if (snap) {
+      var s0 = snapToPassable(passable, w, h, x0, y0, opts.snapRadius || 4);
+      var s1 = snapToPassable(passable, w, h, x1, y1, opts.snapRadius || 4);
+      if (!s0 || !s1) return null;
+      x0 = s0.x;
+      y0 = s0.y;
+      x1 = s1.x;
+      y1 = s1.y;
+    } else if (!passable(x0, y0) || !passable(x1, y1)) {
+      return null;
+    }
     if (x0 === x1 && y0 === y1) return [{ x: x0, y: y0 }];
-    if (!passable(x1, y1) || !passable(x0, y0)) return null;
 
-    var open = [{ x: x0, y: y0, g: 0, f: Math.abs(x1 - x0) + Math.abs(y1 - y0), p: -1 }];
-    var best = {};
-    best[key(x0, y0)] = 0;
-    var closed = {};
+    var open = new MinHeap();
+    var gScore = {};
+    var visited = {};
+    var startK = key(x0, y0);
+    gScore[startK] = 0;
+    open.push({
+      x: x0,
+      y: y0,
+      g: 0,
+      f: heuristic(x1 - x0, y1 - y0, diag),
+      _parent: null,
+    });
     var steps = 0;
-    var limit = opts.limit || w * h * 6;
+    var limit = opts.limit || w * h * 8;
 
-    while (open.length && steps++ < limit) {
-      var bi = 0;
-      for (var i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
-      var cur = open.splice(bi, 1)[0];
+    while (open.a.length && steps++ < limit) {
+      var cur = open.pop();
       var ck = key(cur.x, cur.y);
-      if (closed[ck]) continue;
-      closed[ck] = cur;
+      if (visited[ck]) continue;
+      visited[ck] = true;
       if (cur.x === x1 && cur.y === y1) {
-        var path = [];
-        var n = cur;
-        while (n) {
-          path.push({ x: n.x, y: n.y });
-          n = n.p >= 0 ? arguments.callee._nodes && null : n._parent;
-          if (!n) break;
-        }
         var out = [];
         var node = cur;
         while (node) {
@@ -58,24 +163,25 @@
         return out;
       }
       for (var k = 0; k < neigh.length; k++) {
-        var nx = cur.x + neigh[k][0];
-        var ny = cur.y + neigh[k][1];
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-        if (!passable(nx, ny)) continue;
-        var isDiag = neigh[k][0] !== 0 && neigh[k][1] !== 0;
+        var dx = neigh[k][0];
+        var dy = neigh[k][1];
+        if (!canStep(passable, cur.x, cur.y, dx, dy, w, h)) continue;
+        var nx = cur.x + dx;
+        var ny = cur.y + dy;
+        var nk = key(nx, ny);
+        if (visited[nk]) continue;
+        var isDiag = dx !== 0 && dy !== 0;
         var step = (cost(nx, ny) || 1) * (isDiag ? 1.41 : 1);
         var g = cur.g + step;
-        var nk = key(nx, ny);
-        if (best[nk] != null && g >= best[nk]) continue;
-        best[nk] = g;
-        var node2 = {
+        if (gScore[nk] != null && g >= gScore[nk]) continue;
+        gScore[nk] = g;
+        open.push({
           x: nx,
           y: ny,
           g: g,
-          f: g + Math.abs(x1 - nx) + Math.abs(y1 - ny),
+          f: g + heuristic(x1 - nx, y1 - ny, diag),
           _parent: cur,
-        };
-        open.push(node2);
+        });
       }
     }
     return null;
@@ -130,7 +236,6 @@
   /**
    * Multi-source Dijkstra flow field: for each walkable cell, next step toward nearest goal.
    * Returns { w, h, nextX: Int16Array, nextY: Int16Array, dist: Float32Array } or null.
-   * nextX/Y of -1 means stay / unreachable.
    */
   function flowField(passable, costFn, w, h, goals) {
     if (!goals || !goals.length) return null;
@@ -144,7 +249,7 @@
       nextX[i] = -1;
       nextY[i] = -1;
     }
-    var open = [];
+    var heap = new MinHeap();
     for (i = 0; i < goals.length; i++) {
       var gx = goals[i].x | 0, gy = goals[i].y | 0;
       if (gx < 0 || gy < 0 || gx >= w || gy >= h) continue;
@@ -154,32 +259,31 @@
       dist[gi] = 0;
       nextX[gi] = gx;
       nextY[gi] = gy;
-      open.push(gi);
+      heap.push({ x: gx, y: gy, f: 0, i: gi });
     }
-    if (!open.length) return null;
+    if (!heap.a.length) return null;
 
-    var neigh = N8;
-    while (open.length) {
-      var bi = 0;
-      for (i = 1; i < open.length; i++) if (dist[open[i]] < dist[open[bi]]) bi = i;
-      var cur = open.splice(bi, 1)[0];
+    while (heap.a.length) {
+      var curN = heap.pop();
+      var cur = curN.i;
+      if (curN.f > dist[cur] + 1e-6) continue;
       var cx = cur % w, cy = (cur / w) | 0;
       var cd = dist[cur];
-      for (var k = 0; k < neigh.length; k++) {
-        var nx = cx + neigh[k][0];
-        var ny = cy + neigh[k][1];
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-        if (!passable(nx, ny)) continue;
-        var isDiag = neigh[k][0] !== 0 && neigh[k][1] !== 0;
+      for (var k = 0; k < N8.length; k++) {
+        var dx = N8[k][0];
+        var dy = N8[k][1];
+        if (!canStep(passable, cx, cy, dx, dy, w, h)) continue;
+        var nx = cx + dx;
+        var ny = cy + dy;
+        var isDiag = dx !== 0 && dy !== 0;
         var step = (costFn(nx, ny) || 1) * (isDiag ? 1.41 : 1);
         var ni = ny * w + nx;
         var nd = cd + step;
         if (nd + 1e-6 < dist[ni]) {
           dist[ni] = nd;
-          // step from neighbor toward current (toward goals)
           nextX[ni] = cx;
           nextY[ni] = cy;
-          open.push(ni);
+          heap.push({ x: nx, y: ny, f: nd, i: ni });
         }
       }
     }
@@ -203,6 +307,8 @@
     los: los,
     flowField: flowField,
     flowStep: flowStep,
+    snap: snapToPassable,
+    canStep: canStep,
     N4: N4,
     N8: N8,
   };
