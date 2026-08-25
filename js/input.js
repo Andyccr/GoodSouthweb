@@ -1,4 +1,4 @@
-/* Good South — desktop input → game.dispatch(actions) */
+/* Good South — desktop + touch input → game.dispatch(actions) */
 (function (g) {
   var GS = g.GS || (g.GS = {});
   var $ = GS.util.$;
@@ -7,6 +7,9 @@
     this.game = game;
     this.pointer = { x: 0, y: 0, down: false, button: 0, pan: false, lastX: 0, lastY: 0 };
     this.keys = {};
+    this._pts = {};
+    this._gesture = null;
+    this._longTimer = 0;
   }
 
   Input.prototype.bind = function () {
@@ -21,8 +24,10 @@
     if (view) {
       view.addEventListener("pointerdown", function (e) { self.onPointerDown(e); });
       view.addEventListener("pointermove", function (e) { self.onPointerMove(e); });
-      view.addEventListener("pointerup", function () { self.pointer.down = false; self.pointer.pan = false; });
-      view.addEventListener("pointerleave", function () {
+      view.addEventListener("pointerup", function (e) { self.onPointerUp(e); });
+      view.addEventListener("pointercancel", function (e) { self.onPointerUp(e); });
+      view.addEventListener("pointerleave", function (e) {
+        if (e.pointerType === "touch") return;
         self.pointer.down = false;
         self.pointer.pan = false;
         game.hover = { x: -1, y: -1 };
@@ -35,12 +40,26 @@
         if (e.shiftKey) game.dispatch("rotate-wheel", e.deltaY > 0 ? 1 : -1);
         else game.dispatch("zoom", e.deltaY > 0 ? -1 : 1);
       }, { passive: false });
+      view.addEventListener("touchstart", function (e) { e.preventDefault(); }, { passive: false });
+      view.addEventListener("touchmove", function (e) { e.preventDefault(); }, { passive: false });
     }
 
-    window.addEventListener("resize", function () { game.hudDirty = true; });
+    window.addEventListener("pointerup", function (e) {
+      if (self._pts[e.pointerId]) self.onPointerUp(e);
+    });
+    window.addEventListener("resize", function () {
+      game.applyDevice();
+      game.hudDirty = true;
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", function () {
+        game.applyDevice();
+        game.hudDirty = true;
+      });
+    }
     document.body.addEventListener("pointerdown", function () { GS.audio.unlock(); }, { once: true });
 
-    ["left", "right"].forEach(function (id) {
+    ["left", "right", "dock"].forEach(function (id) {
       var el = $(id);
       if (!el) return;
       el.addEventListener("click", function (e) {
@@ -49,6 +68,10 @@
         game.dispatch(t.getAttribute("data-act"), t.getAttribute("data-arg"));
       });
     });
+    var scrim = $("sheet-scrim");
+    if (scrim) {
+      scrim.addEventListener("click", function () { game.dispatch("toggle-sheet", "close"); });
+    }
 
     var gen = $("genbtn");
     if (gen) gen.addEventListener("click", function () { game.dispatch("gen"); });
@@ -57,7 +80,19 @@
       if (!n) return;
       n.addEventListener("keydown", function (e) { e.stopPropagation(); });
       n.addEventListener("mousedown", function (e) { e.stopPropagation(); });
+      n.addEventListener("change", function () { n.setAttribute("data-touched", "1"); });
     });
+  };
+
+  Input.prototype._ids = function () {
+    return Object.keys(this._pts);
+  };
+
+  Input.prototype._clearLong = function () {
+    if (this._longTimer) {
+      clearTimeout(this._longTimer);
+      this._longTimer = 0;
+    }
   };
 
   Input.prototype.onKey = function (e) {
@@ -66,12 +101,10 @@
     var game = this.game;
     var k = e.key;
 
-    // Global save / pause hotkeys
     if (k === "F5") { e.preventDefault(); game.dispatch("quicksave"); return; }
     if (k === "F9") { e.preventDefault(); game.dispatch("quickload"); return; }
     if (k === "F1" || k === "?") { e.preventDefault(); game.dispatch("help"); return; }
 
-    // Pause menu has priority
     if (game.menuOpen) {
       if (k === "Escape") {
         e.preventDefault();
@@ -218,21 +251,106 @@
     return null;
   };
 
+  Input.prototype._applyTap = function (e) {
+    var game = this.game;
+    var tile = this._tile(e);
+    if (!tile) return;
+
+    if (game.mode === "campaign") {
+      game.pointerCampaign(tile);
+      return;
+    }
+    if (game.mode !== "battle" && game.mode !== "sandbox") return;
+    var b = game.battle;
+    b.cursor.x = tile.x;
+    b.cursor.y = tile.y;
+    game.hover = { x: tile.x, y: tile.y };
+
+    var sid = b.squadAt(tile.x, tile.y);
+    if (sid) {
+      if (sid !== b.selected) game.dispatch("select-squad", sid);
+      return;
+    }
+    game.dispatch("place");
+  };
+
+  Input.prototype._mid = function () {
+    var ids = this._ids();
+    if (ids.length < 2) return null;
+    var a = this._pts[ids[0]], b = this._pts[ids[1]];
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  };
+
+  Input.prototype._span = function () {
+    var ids = this._ids();
+    if (ids.length < 2) return 0;
+    var a = this._pts[ids[0]], b = this._pts[ids[1]];
+    return GS.util.touch.dist(a.x, a.y, b.x, b.y);
+  };
+
   Input.prototype.onPointerDown = function (e) {
     var game = this.game;
     var view = $("view");
-    if (view) view.focus();
+    if (view) {
+      view.focus();
+      if (view.setPointerCapture) {
+        try { view.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+    }
     this.pointer.down = true;
     this.pointer.button = e.button;
     this.pointer.lastX = e.clientX;
     this.pointer.lastY = e.clientY;
-    var tile = this._tile(e);
+    this._pts[e.pointerId] = { x: e.clientX, y: e.clientY, type: e.pointerType, button: e.button };
+
+    var touch = e.pointerType === "touch";
+    var n = this._ids().length;
+
+    if (touch && n >= 2) {
+      e.preventDefault();
+      this._clearLong();
+      this._gesture = {
+        pinch: true,
+        pan: false,
+        tap: false,
+        startDist: this._span(),
+        startZoom: game.renderer.zoom,
+        lastMid: this._mid(),
+      };
+      game.ui.hideTooltip();
+      return;
+    }
 
     if ((game.mode === "battle" || game.mode === "sandbox") && (e.button === 1 || (e.button === 0 && e.altKey))) {
       e.preventDefault();
       this.pointer.pan = true;
+      this._gesture = { pinch: false, pan: true, tap: false };
       return;
     }
+
+    if (touch) {
+      e.preventDefault();
+      this._gesture = { pinch: false, pan: false, tap: true, long: false, sx: e.clientX, sy: e.clientY };
+      var self = this;
+      this._clearLong();
+      this._longTimer = setTimeout(function () {
+        self._longTimer = 0;
+        if (!self._gesture || self._gesture.pan || self._gesture.pinch) return;
+        self._gesture.long = true;
+        self._gesture.tap = false;
+        if (game.mode === "battle" || game.mode === "sandbox") game.dispatch("rotate");
+        else if (game.mode === "campaign") game.dispatch("open-island", String(game.campCursor));
+      }, 420);
+      var tile = this._tile(e);
+      if (tile && (game.mode === "battle" || game.mode === "sandbox")) {
+        game.battle.cursor.x = tile.x;
+        game.battle.cursor.y = tile.y;
+        game.hover = tile;
+      }
+      return;
+    }
+
+    var tile = this._tile(e);
     if (!tile) return;
 
     if (game.mode === "campaign") {
@@ -247,32 +365,68 @@
 
     if (e.button === 2) { game.dispatch("rotate"); return; }
     if (e.button !== 0) return;
-
-    var sid = b.squadAt(tile.x, tile.y);
-    if (sid) {
-      if (sid !== b.selected) game.dispatch("select-squad", sid);
-      return;
-    }
-    game.dispatch("place");
+    this._applyTap(e);
   };
 
   Input.prototype.onPointerMove = function (e) {
     var game = this.game;
     this.pointer.x = e.clientX;
     this.pointer.y = e.clientY;
+    if (this._pts[e.pointerId]) {
+      this._pts[e.pointerId].x = e.clientX;
+      this._pts[e.pointerId].y = e.clientY;
+    }
+
+    if (this._gesture && this._gesture.pinch && this._ids().length >= 2 &&
+        (game.mode === "battle" || game.mode === "sandbox") && game.battle) {
+      e.preventDefault();
+      var dist = this._span();
+      var z = GS.util.touch.pinchZoom(this._gesture.startDist, dist, this._gesture.startZoom);
+      var mid = this._mid();
+      var tile = game.renderer.tileAtPointer(mid.x, mid.y, game.battle.w, game.battle.h);
+      game.renderer.setZoom(z, game.battle.w, game.battle.h, tile ? tile.x : null, tile ? tile.y : null);
+      if (this._gesture.lastMid) {
+        var r = game.renderer;
+        r.pan(
+          (this._gesture.lastMid.x - mid.x) / (r.tw || 16),
+          (this._gesture.lastMid.y - mid.y) / (r.th || 16),
+          game.battle.w, game.battle.h
+        );
+      }
+      this._gesture.lastMid = mid;
+      this.pointer.lastX = e.clientX;
+      this.pointer.lastY = e.clientY;
+      return;
+    }
+
+    if (this._gesture && this._gesture.tap && !this._gesture.pinch &&
+        (game.mode === "battle" || game.mode === "sandbox")) {
+      var dx0 = e.clientX - this._gesture.sx;
+      var dy0 = e.clientY - this._gesture.sy;
+      if (GS.util.touch.shouldPan(dx0, dy0, 12)) {
+        this._gesture.pan = true;
+        this._gesture.tap = false;
+        this._clearLong();
+        this.pointer.pan = true;
+        game.ui.hideTooltip();
+      }
+    }
+
     if (this.pointer.pan && game.battle && (game.mode === "battle" || game.mode === "sandbox")) {
-      var r = game.renderer;
-      var dx = (this.pointer.lastX - e.clientX) / (r.tw || 16);
-      var dy = (this.pointer.lastY - e.clientY) / (r.th || 16);
-      r.pan(dx, dy, game.battle.w, game.battle.h);
+      var r2 = game.renderer;
+      var dx = (this.pointer.lastX - e.clientX) / (r2.tw || 16);
+      var dy = (this.pointer.lastY - e.clientY) / (r2.th || 16);
+      r2.pan(dx, dy, game.battle.w, game.battle.h);
       this.pointer.lastX = e.clientX;
       this.pointer.lastY = e.clientY;
       return;
     }
     var tile = this._tile(e);
     if (!tile) {
-      game.hover = { x: -1, y: -1 };
-      game.ui.hideTooltip();
+      if (e.pointerType !== "touch") {
+        game.hover = { x: -1, y: -1 };
+        game.ui.hideTooltip();
+      }
       return;
     }
     game.hover = tile;
@@ -283,7 +437,7 @@
     }
     if (game.mode !== "battle" && game.mode !== "sandbox") return;
     var b = game.battle;
-    if (this.pointer.down && this.pointer.button === 0 && game.mode === "sandbox" && game.sandboxTool === "paint") {
+    if (this.pointer.down && this.pointer.button === 0 && game.mode === "sandbox" && game.sandboxTool === "paint" && e.pointerType !== "touch") {
       if (b.cursor.x !== tile.x || b.cursor.y !== tile.y) {
         b.cursor.x = tile.x;
         b.cursor.y = tile.y;
@@ -293,7 +447,31 @@
       b.cursor.x = tile.x;
       b.cursor.y = tile.y;
     }
-    game.updateBattleTooltip(tile, e.clientX, e.clientY);
+    if (e.pointerType !== "touch") game.updateBattleTooltip(tile, e.clientX, e.clientY);
+  };
+
+  Input.prototype.onPointerUp = function (e) {
+    var game = this.game;
+    var was = this._pts[e.pointerId];
+    delete this._pts[e.pointerId];
+    this._clearLong();
+
+    var n = this._ids().length;
+    if (this._gesture && this._gesture.pinch) {
+      if (n < 2) this._gesture.pinch = false;
+      if (n === 0) {
+        this._gesture = null;
+        this.pointer.down = false;
+        this.pointer.pan = false;
+      }
+      return;
+    }
+
+    var tap = this._gesture && this._gesture.tap && !this._gesture.pan && !this._gesture.long && was && was.type === "touch";
+    this.pointer.down = n > 0;
+    this.pointer.pan = false;
+    if (tap) this._applyTap(e);
+    if (n === 0) this._gesture = null;
   };
 
   GS.Input = Input;

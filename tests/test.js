@@ -53,8 +53,16 @@ ok(hit === 5, "event bus accumulates");
 
 console.log("Config / Util");
 ok(GS.CONFIG.saveVersion >= 3, "save schema v3+");
+ok(GS.CONFIG.battle.zoomMobile >= 16, "mobile zoom default");
 ok(GS.util.clamp(5, 0, 3) === 3, "clamp");
 ok(GS.util.escapeHtml("<a>") === "&lt;a&gt;", "escapeHtml");
+ok(!GS.util.device.compact({ innerWidth: 1440, innerHeight: 900, navigator: { maxTouchPoints: 0 }, matchMedia: function () { return { matches: false }; } }), "desktop is not compact");
+ok(GS.util.device.compact({ innerWidth: 390, innerHeight: 844, navigator: { maxTouchPoints: 5 }, matchMedia: function () { return { matches: true }; } }), "phone is compact");
+ok(GS.util.device.lowFx({ innerWidth: 390, innerHeight: 844, navigator: { maxTouchPoints: 5 }, matchMedia: function () { return { matches: false }; } }), "phone uses low fx");
+ok(GS.util.touch.shouldPan(20, 0, 12), "drag past threshold is pan");
+ok(!GS.util.touch.shouldPan(3, 4, 12), "finger jitter stays a tap");
+ok(Math.abs(GS.util.touch.pinchZoom(100, 150, 16) - 24) < 0.001, "pinch scales zoom");
+ok(GS.util.touch.pinchZoom(0, 150, 16) === 16, "pinch ignores zero start span");
 
 console.log("RNG");
 var a = GS.rng(42);
