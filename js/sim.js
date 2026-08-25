@@ -73,6 +73,9 @@
     this.waves = this.sandbox ? [] : GS.Waves.make(island, this.rng, island.difficulty || 1);
     this.ships = [];
     this.flow = null;
+    this.huntFlow = null;
+    this._huntFlowT = 0;
+    this._occ = null;
     this.warhornReady = true;
     this.warhornT = 0;
     this.terrainGen = 0;
@@ -290,6 +293,7 @@
     this.speed = 1;
     this.announce("角声响起。北境的船帆出现在海平线上。", C.LRED);
     this._rebuildFlow();
+    this._rebuildHuntFlow();
     this._refreshLiving();
     if (GS.audio) GS.audio.horn();
   };
@@ -310,6 +314,68 @@
       if (this.houses[i].alive) goals.push({ x: this.houses[i].x, y: this.houses[i].y });
     }
     this.flow = goals.length ? GS.path.flowField(this.passable, this.cost, this.w, this.h, goals) : null;
+  };
+
+  Battle.prototype._rebuildHuntFlow = function () {
+    var goals = [];
+    var seen = {};
+    var self = this;
+    function add(x, y) {
+      var snapped = GS.path.snap(self.passable, self.w, self.h, x, y, 5);
+      if (!snapped) return;
+      var k = snapped.x + "," + snapped.y;
+      if (seen[k]) return;
+      seen[k] = 1;
+      goals.push(snapped);
+    }
+    for (var i = 0; i < this.entities.length; i++) {
+      var e = this.entities[i];
+      if (!e.alive) continue;
+      if (e.kind === "enemy") add(e.x, e.y);
+      else if (e.kind === "ship") add(e.beachX, e.beachY);
+    }
+    this.huntFlow = goals.length ? GS.path.flowField(this.passable, this.cost, this.w, this.h, goals) : null;
+    this._huntFlowT = 0;
+  };
+
+  Battle.prototype._rebuildOcc = function () {
+    var n = this.w * this.h;
+    if (!this._occ || this._occ.length !== n) this._occ = new Int32Array(n);
+    else this._occ.fill(0);
+    var list = this._livingSoldiers;
+    for (var i = 0; i < list.length; i++) {
+      var e = list[i];
+      if (!e.alive) continue;
+      var ix = e.x | 0, iy = e.y | 0;
+      if (ix < 0 || iy < 0 || ix >= this.w || iy >= this.h) continue;
+      var idx = iy * this.w + ix;
+      if (!this._occ[idx]) this._occ[idx] = e.id;
+    }
+  };
+
+  Battle.prototype._occAt = function (x, y) {
+    if (!this._occ) return 0;
+    x = x | 0;
+    y = y | 0;
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return 0;
+    return this._occ[y * this.w + x];
+  };
+
+  Battle.prototype._setOcc = function (e, ox, oy, nx, ny) {
+    if (!this._occ) return;
+    ox = ox | 0;
+    oy = oy | 0;
+    nx = nx | 0;
+    ny = ny | 0;
+    if (ox === nx && oy === ny) return;
+    if (ox >= 0 && oy >= 0 && ox < this.w && oy < this.h) {
+      var oi = oy * this.w + ox;
+      if (this._occ[oi] === e.id) this._occ[oi] = 0;
+    }
+    if (nx >= 0 && ny >= 0 && nx < this.w && ny < this.h) {
+      var ni = ny * this.w + nx;
+      if (!this._occ[ni]) this._occ[ni] = e.id;
+    }
   };
 
   Battle.prototype._refreshLiving = function () {
@@ -550,6 +616,8 @@
     if (!this.sandbox) this._launchWaves();
     this._tickShips(dt);
     this._tickProjectiles(dt);
+    this._huntFlowT = (this._huntFlowT || 0) + dt;
+    if (this._huntFlowT >= 0.32) this._rebuildHuntFlow();
     this._tickEnemies(dt);
     this._tickSoldiers(dt);
     this._tickHouses(dt);
@@ -878,18 +946,23 @@
   };
 
   Battle.prototype._pathTo = function (e, tx, ty) {
-    var sx = e.x | 0, sy = e.y | 0;
-    tx = tx | 0; ty = ty | 0;
-    if (!this.passable(tx, ty)) {
-      var n4 = GS.path.N4;
-      var found = false;
-      for (var i = 0; i < 4; i++) {
-        var nx = tx + n4[i][0], ny = ty + n4[i][1];
-        if (this.passable(nx, ny)) { tx = nx; ty = ny; found = true; break; }
-      }
-      if (!found) return null;
-    }
-    return GS.path.astar(this.passable, this.cost, this.w, this.h, sx, sy, tx, ty, { diag: true });
+    var start = GS.path.snap(this.passable, this.w, this.h, e.x, e.y, 4);
+    var goal = GS.path.snap(this.passable, this.w, this.h, tx, ty, 4);
+    if (!start || !goal) return null;
+    return GS.path.astar(this.passable, this.cost, this.w, this.h, start.x, start.y, goal.x, goal.y, {
+      diag: true,
+      snap: false,
+    });
+  };
+
+  Battle.prototype._tryMove = function (e, nx, ny) {
+    var ix = nx | 0, iy = ny | 0;
+    if (!this.passable(ix, iy) && !this.passable(Math.round(nx), Math.round(ny))) return false;
+    var ox = e.x, oy = e.y;
+    e.x = nx;
+    e.y = ny;
+    this._setOcc(e, ox, oy, nx, ny);
+    return true;
   };
 
   Battle.prototype._steer = function (e, tx, ty, dt) {
@@ -900,30 +973,59 @@
     var sp = e.speed * dt;
     var nx = e.x + dx * sp;
     var ny = e.y + dy * sp;
-    if (this.passable(nx | 0, ny | 0) || this.passable(Math.round(nx), Math.round(ny))) {
-      e.x = nx;
-      e.y = ny;
+    var blocker = this._occAt(nx, ny);
+    if (blocker && blocker !== e.id) {
+      var px = -dy, py = dx;
+      if (this._tryMove(e, e.x + px * sp, e.y + py * sp)) return;
+      if (this._tryMove(e, e.x - px * sp, e.y - py * sp)) return;
+    }
+    if (this._tryMove(e, nx, ny)) {
       if (Math.abs(dx) > Math.abs(dy)) e.facing = dx > 0 ? 1 : 3;
       else e.facing = dy > 0 ? 2 : 0;
-    } else if (this.passable(nx | 0, e.y | 0)) {
-      e.x = nx;
-    } else if (this.passable(e.x | 0, ny | 0)) {
-      e.y = ny;
+      return;
     }
+    if (this.passable(nx | 0, e.y | 0) && this._tryMove(e, nx, e.y)) return;
+    if (this.passable(e.x | 0, ny | 0) && this._tryMove(e, e.x, ny)) return;
   };
 
   Battle.prototype._followPath = function (e, dt) {
     if (!e.path || !e.path.length) return false;
-    var n = e.path[0];
-    var tx = n.x + 0.5, ty = n.y + 0.5;
-    if (dist(e, { x: tx, y: ty }) < 0.28) {
-      e.path.shift();
-      if (!e.path.length) return false;
-      n = e.path[0];
-      tx = n.x + 0.5; ty = n.y + 0.5;
+    while (e.path.length) {
+      var n = e.path[0];
+      var tx = n.x + 0.5, ty = n.y + 0.5;
+      if (dist(e, { x: tx, y: ty }) < 0.32) e.path.shift();
+      else break;
     }
-    this._steer(e, tx, ty, dt);
+    if (!e.path.length) return false;
+    n = e.path[0];
+    this._steer(e, n.x + 0.5, n.y + 0.5, dt);
     return true;
+  };
+
+  Battle.prototype._followFlow = function (e, field, dt) {
+    if (!field) return false;
+    var stepTo = GS.path.flowStep(field, e.x | 0, e.y | 0);
+    if (!stepTo) return false;
+    if (stepTo.x === (e.x | 0) && stepTo.y === (e.y | 0)) return false;
+    this._steer(e, stepTo.x + 0.5, stepTo.y + 0.5, dt);
+    return true;
+  };
+
+  Battle.prototype._unstick = function (e, dt) {
+    var moved = e._lastX == null || Math.abs(e.x - e._lastX) > 0.04 || Math.abs(e.y - e._lastY) > 0.04;
+    e._stuck = moved ? 0 : (e._stuck || 0) + dt;
+    e._lastX = e.x;
+    e._lastY = e.y;
+    if (e._stuck < 0.7) return;
+    e.path = null;
+    e._stuck = 0;
+    var snap = GS.path.snap(this.passable, this.w, this.h, e.x, e.y, 4);
+    if (snap) {
+      var ox = e.x, oy = e.y;
+      e.x = snap.x + 0.5;
+      e.y = snap.y + 0.5;
+      this._setOcc(e, ox, oy, e.x, e.y);
+    }
   };
 
   Battle.prototype._tickEnemies = function (dt) {
@@ -962,13 +1064,7 @@
         continue;
       }
       // prefer flow field toward houses; fall back to A*
-      if (house && this.flow) {
-        var stepTo = GS.path.flowStep(this.flow, e.x | 0, e.y | 0);
-        if (stepTo && (stepTo.x !== (e.x | 0) || stepTo.y !== (e.y | 0))) {
-          this._steer(e, stepTo.x + 0.5, stepTo.y + 0.5, step);
-          continue;
-        }
-      }
+      if (house && this._followFlow(e, this.flow, step)) continue;
       if (house) {
         if (!e.path || !e.path.length || this.rng.chance(0.008)) {
           e.path = this._pathTo(e, house.x, house.y);
@@ -979,15 +1075,17 @@
   };
 
   Battle.prototype._tickSoldiers = function (dt) {
-    var refresh = (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.45;
+    var refresh = (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.55;
     var threats = this._collectThreats();
     var pile = {};
     var i, e, foe, range, inRange, slot;
+    this._rebuildOcc();
 
     for (i = 0; i < this._livingSoldiers.length; i++) {
       e = this._livingSoldiers[i];
       if (!e.alive) continue;
       e.cooldown -= dt;
+      this._unstick(e, dt);
       slot = { x: e.slotX + 0.5, y: e.slotY + 0.5 };
       range = e.range;
       if (e.role === "archer" && this._nearBeacon(e)) {
@@ -1035,6 +1133,8 @@
         ty = foe.y - (foe.y - e.y) / d * want;
       }
       if (this._nearBeacon(e) && d <= e.range + 1.8) return; // hold the beacon if already useful
+    } else if (this._followFlow(e, this.huntFlow, dt)) {
+      return;
     }
     if (!this.passable(tx | 0, ty | 0)) {
       tx = foe.x;
@@ -1255,7 +1355,7 @@
         biomeName: island.biomeName, flavor: island.flavor, difficulty: island.difficulty,
         seed: island.seed, landings: island.landings, landingDirs: island.landingDirs,
         houses: island.houses, tiles: tiles, landCount: island.landCount,
-        beacons: island.beacons || [],
+        beacons: island.beacons || [], shape: island.shape || "blob",
       },
       t: battle.t,
       phase: battle.phase,
@@ -1365,7 +1465,10 @@
       if (e.kind === "ship") battle.ships.push(ent.id);
     }
     battle._cachePass();
-    if (battle.phase === "fight") battle._rebuildFlow();
+    if (battle.phase === "fight") {
+      battle._rebuildFlow();
+      battle._rebuildHuntFlow();
+    }
     battle._reap();
     return battle;
   };
