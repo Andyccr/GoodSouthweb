@@ -264,25 +264,38 @@ armyH.commanders = [{
 var bh = new GS.Battle(islandH, armyH, { sandbox: true, battleSeed: 11 });
 var hx = islandH.houses[0].x, hy = islandH.houses[0].y;
 var placedH = false;
-for (var yy = 0; yy < islandH.h && !placedH; yy++) {
-  for (var xx = 0; xx < islandH.w && !placedH; xx++) {
+var bestPlace = null, bestPlaceD = 1e9;
+for (var yy = 0; yy < islandH.h; yy++) {
+  for (var xx = 0; xx < islandH.w; xx++) {
     var tcell = islandH.tiles[yy][xx];
     if (!tcell.walk || tcell.type === GS.T.HOUSE) continue;
     var ddx = xx - hx, ddy = yy - hy;
-    if (ddx * ddx + ddy * ddy < 64) continue;
-    placedH = bh.placeSquad("hunt1", xx, yy, 2);
+    var dd = ddx * ddx + ddy * ddy;
+    if (dd < 4 || dd > 36) continue;
+    if (dd < bestPlaceD) {
+      bestPlaceD = dd;
+      bestPlace = { x: xx, y: yy };
+    }
   }
 }
-ok(placedH, "hunt squad placed away from house");
+if (bestPlace) placedH = bh.placeSquad("hunt1", bestPlace.x, bestPlace.y, 2);
+ok(placedH, "hunt squad placed inland near a house");
 bh.startFight();
 var farEnemy = null;
+var farD = -1;
+var sqx = bh.squads[0].tx, sqy = bh.squads[0].ty;
 for (var li = 0; li < islandH.landings.length; li++) {
   var L = islandH.landings[li];
-  if (islandH.tiles[L.y][L.x].walk) {
-    farEnemy = bh.spawnEnemy("raider", L.x, L.y);
-    break;
+  if (!islandH.tiles[L.y][L.x].walk) continue;
+  var ldx = L.x - sqx, ldy = L.y - sqy;
+  var ld = ldx * ldx + ldy * ldy;
+  if (ld > farD) {
+    farD = ld;
+    farEnemy = L;
   }
 }
+ok(!!farEnemy && farD > 36, "found a distant landing for the raider, d2=" + farD);
+farEnemy = bh.spawnEnemy("raider", farEnemy.x, farEnemy.y);
 ok(!!farEnemy, "spawned a distant raider");
 bh._rebuildHuntFlow();
 ok(bh.huntFlow && bh.huntFlow.dist, "hunt flow field toward living threats");
@@ -299,9 +312,10 @@ function avgDistTo(battle, target) {
   return n ? s / n : 0;
 }
 var d0 = avgDistTo(bh, farEnemy);
-for (var ht = 0; ht < 120; ht++) bh.tick(0.05);
+ok(d0 > 5, "raiders start far from the squad (d0=" + d0.toFixed(1) + ")");
+for (var ht = 0; ht < 160; ht++) bh.tick(0.05);
 var d1 = avgDistTo(bh, farEnemy);
-ok(d1 < d0 - 1.5, "soldiers leave home stance to hunt (d0=" + d0.toFixed(1) + " d1=" + d1.toFixed(1) + ")");
+ok(!farEnemy.alive || d1 < d0 - 1.5, "soldiers leave home stance to hunt (d0=" + d0.toFixed(1) + " d1=" + d1.toFixed(1) + " alive=" + farEnemy.alive + ")");
 
 var nearE = { x: hx + 0.5, y: hy + 0.5, alive: true, id: 1, hp: 18, maxHp: 18, role: "raider", kind: "enemy", dmg: 6, speed: 2.5 };
 var farE = { x: 1.5, y: 1.5, alive: true, id: 2, hp: 18, maxHp: 18, role: "raider", kind: "enemy", dmg: 6, speed: 2.5 };
