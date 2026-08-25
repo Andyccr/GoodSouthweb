@@ -16,12 +16,16 @@
     o.classList.remove("hidden");
     o.innerHTML = html;
     this.bind(o);
+    var dock = $("dock");
+    if (dock) dock.classList.add("under-overlay");
   };
 
   Screens.prototype.hide = function () {
     var o = this.overlay();
     o.classList.add("hidden");
     o.innerHTML = "";
+    var dock = $("dock");
+    if (dock) dock.classList.remove("under-overlay");
   };
 
   Screens.prototype.bind = function (root) {
@@ -169,6 +173,12 @@
       "<li>点击己方士兵只选中该兵团；再点空地才布置/换阵。点到乡勇不会取消选中。</li>" +
       "<li><b>滚轮</b>缩放地图，<b>中键拖拽</b>（或 Alt+左键）平移镜头。</li>" +
       "<li>北蛮一律乘长船从深海驶向海滩，靠岸后才下船。</li>" +
+      "</ul>" +
+      "<h3>手机</h3>" +
+      "<ul>" +
+      "<li>点空地就位；点士兵选中兵团。拖动画布，双指缩放。</li>" +
+      "<li>长按转向。底栏打开情报 / 部队抽屉（选兵团也在部队里），点开战。</li>" +
+      "<li>窄屏会自动用较小岛屿、降低特效，避免卡顿。</li>" +
       "</ul>" +
       "<h3>桌面操作</h3>" +
       "<pre class=\"keys\">" +

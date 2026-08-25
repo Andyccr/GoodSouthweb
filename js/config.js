@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "1.6.0",
+    version: "1.7.0",
     saveVersion: 3,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -49,9 +49,10 @@
       deployHint: "点一下空地放下兵团即可。开战后天兵会自己找北蛮打。",
       maxSpeed: 3,
       hudIntervalMs: 120,
-      zoomMin: 12,
-      zoomMax: 24,
+      zoomMin: 10,
+      zoomMax: 28,
       zoomDefault: 16,
+      zoomMobile: 18,
       warhornDuration: 6.5,
       warhornSlow: 0.42,
       militiaPerHouse: 2,
