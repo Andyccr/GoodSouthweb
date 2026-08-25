@@ -774,17 +774,30 @@ button.danger-outline {
   text-align: center;
 }
 
-.is-compact #sandbox-tools {
-  top: auto;
-  bottom: calc(156px + env(safe-area-inset-bottom));
-  left: 8px;
-  right: 8px;
-  transform: none;
-  max-width: none;
-  font-size: 12px;
+.is-compact #sandbox-tools,
+.is-compact #sandbox-tools.visible {
+  display: none !important;
 }
 
-.is-compact #sandbox-tools label { margin: 0; }
+.sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.sheet-actions button {
+  flex: 1;
+  min-width: 72px;
+  min-height: 40px;
+  justify-content: center;
+}
+
+button.primary {
+  border-color: var(--cyan);
+  background: #102848;
+  color: var(--hi);
+}
 .is-compact .panel {
   max-width: 100%;
   width: 100%;
