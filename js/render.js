@@ -16,6 +16,7 @@
     this.zoom = (GS.CONFIG.battle && GS.CONFIG.battle.zoomDefault) || 16;
     this.shake = 0;
     this.time = 0;
+    this.lowFx = false;
     this.palette = "df";
     this.fit = true;
     this.showLandings = true;
@@ -32,6 +33,7 @@
   Renderer.prototype.setPalette = function (p) {
     this.palette = p;
     this._terrainKey = "";
+    this._campSeaKey = "";
   };
 
   Renderer.prototype.tint = function (hex) {
@@ -89,7 +91,7 @@
     var wrap = this.canvas.parentElement;
     var cw = Math.max(320, wrap.clientWidth || 800);
     var ch = Math.max(240, wrap.clientHeight || 600);
-    var z = this.zoom | 0;
+    var z = this.zoom;
     this.tw = z;
     this.th = Math.max(z, Math.round(z * 1.12));
     var key = "view:" + cw + "x" + ch + ":" + this.tw + "x" + this.th + ":" + this.palette + ":" + mapW + "x" + mapH;
@@ -107,7 +109,9 @@
   };
 
   Renderer.prototype._setCanvasSize = function (w, h) {
-    var dpr = Math.min(2, (typeof window !== "undefined" && window.devicePixelRatio) || 1);
+    var cap = this.lowFx ? 1.25 : 2;
+    var dpr = Math.min(cap, (typeof window !== "undefined" && window.devicePixelRatio) || 1);
+    if (this.lowFx && w * h > 420000) dpr = Math.min(dpr, 1);
     this.canvas.width = Math.max(1, w * dpr);
     this.canvas.height = Math.max(1, h * dpr);
     this.canvas.style.width = w + "px";
@@ -155,9 +159,9 @@
 
   Renderer.prototype.setZoom = function (z, mapW, mapH, focusX, focusY) {
     var cfg = GS.CONFIG.battle || {};
-    var min = cfg.zoomMin || 12, max = cfg.zoomMax || 24;
-    z = Math.max(min, Math.min(max, z | 0));
-    if (z === this.zoom) return;
+    var min = cfg.zoomMin || 10, max = cfg.zoomMax || 28;
+    z = Math.max(min, Math.min(max, +z));
+    if (Math.abs(z - this.zoom) < 0.08) return;
     var fx = focusX != null ? focusX : this.camX + (this.cssW / this.tw) / 2;
     var fy = focusY != null ? focusY : this.camY + (this.cssH / this.th) / 2;
     this.zoom = z;
@@ -298,9 +302,12 @@
     var island = battle.island;
     this.layoutView(island.w, island.h);
     if (this._followLock > 0) this._followLock--;
-    this.followTile(battle.cursor.x, battle.cursor.y, island.w, island.h);
-    this.time += 0.016;
-    this.shake *= 0.85;
+    if (!this.lowFx || this._followLock <= 0) {
+      this.followTile(battle.cursor.x, battle.cursor.y, island.w, island.h);
+    }
+    this.time += this.lowFx ? 0.032 : 0.016;
+    if (!this.lowFx) this.shake *= 0.85;
+    else this.shake = 0;
     var t = this.time;
     var x, y, i;
 
@@ -316,14 +323,16 @@
     var y1 = Math.min(island.h, ((this.camY + this.cssH / this.th) | 0) + 2);
 
     var wc = this._waterCells;
-    for (i = 0; i < wc.length; i += 3) {
-      x = wc[i]; y = wc[i + 1];
-      if (x < x0 || y < y0 || x >= x1 || y >= y1) continue;
-      var typ = wc[i + 2];
-      var wave = ((x + y + (t * (typ === GS.T.LAVA ? 8 : 3))) | 0) % 4;
-      var ch = wave === 0 ? "≈" : wave === 1 ? "~" : wave === 2 ? "∼" : "≈";
-      var tile = island.tiles[y][x];
-      this.cell(x, y, ch, tile.fg, null);
+    if (!this.lowFx) {
+      for (i = 0; i < wc.length; i += 3) {
+        x = wc[i]; y = wc[i + 1];
+        if (x < x0 || y < y0 || x >= x1 || y >= y1) continue;
+        var typ = wc[i + 2];
+        var wave = ((x + y + (t * (typ === GS.T.LAVA ? 8 : 3))) | 0) % 4;
+        var ch = wave === 0 ? "≈" : wave === 1 ? "~" : wave === 2 ? "∼" : "≈";
+        var tile = island.tiles[y][x];
+        this.cell(x, y, ch, tile.fg, null);
+      }
     }
 
     if (this.showLandings && battle.phase === "deploy") {
@@ -333,7 +342,7 @@
         var bg = "#3a2a00";
         var lch = island.tiles[L.y][L.x].ch;
         var lfg = island.tiles[L.y][L.x].fg;
-        if (((t * 3) | 0) % 2 === 0) {
+        if (!this.lowFx && ((t * 3) | 0) % 2 === 0) {
           lch = GS.DIRS[L.dir].ch;
           lfg = C.YELLOW;
         }
@@ -464,21 +473,40 @@
     ctx.stroke();
   };
 
-  Renderer.prototype.drawCampaign = function (camp, army, cursorId, hoverTile) {
-    this.resize(camp.w, camp.h);
-    this.clear("#000055");
-    this._applyFont();
-    var x, y;
-    // cheaper sea: skip fbm every cell — sample sparsely via hash
+  Renderer.prototype._rebuildCampaignSea = function (camp) {
+    var key = camp.w + "x" + camp.h + ":" + (camp.seed || 0) + ":" + this.tw + "x" + this.th + ":" + this.palette;
+    if (key === this._campSeaKey && this._campSea) return;
+    this._campSeaKey = key;
+    if (!this._campSea) this._campSea = document.createElement("canvas");
+    var c = this._campSea;
+    c.width = Math.max(1, camp.w * this.tw);
+    c.height = Math.max(1, camp.h * this.th);
+    var ctx = c.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = this.tint("#000055");
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.font = this._font;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    var x, y, tw = this.tw, th = this.th;
     for (y = 0; y < camp.h; y++) {
       for (x = 0; x < camp.w; x++) {
         var n = ((x * 73856093) ^ (y * 19349663) ^ camp.seed) >>> 0;
         var v = (n & 255) / 255;
         var ch = v > 0.62 ? "≈" : v > 0.5 ? "~" : "≈";
-        var fg = v > 0.7 ? C.LBLUE : C.BLUE;
-        this.cell(x, y, ch, fg, "#000055");
+        ctx.fillStyle = this.tint(v > 0.7 ? "#55FFFF" : "#0055AA");
+        ctx.fillText(ch, x * tw + tw / 2, y * th + th / 2 + 0.5);
       }
     }
+  };
+
+  Renderer.prototype.drawCampaign = function (camp, army, cursorId, hoverTile) {
+    this.resize(camp.w, camp.h);
+    this._rebuildCampaignSea(camp);
+    if (this._campSea) this.ctx.drawImage(this._campSea, 0, 0);
+    else this.clear("#000055");
+    this._applyFont();
+    var x, y;
     for (var i = 0; i < camp.islands.length; i++) {
       var a = camp.islands[i];
       if (a.status === "hidden") continue;

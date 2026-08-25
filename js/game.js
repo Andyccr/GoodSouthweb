@@ -27,6 +27,10 @@
     this.hudDirty = true;
     this.last = 0;
     this._logWatch = 0;
+    this.compact = false;
+    this.touch = false;
+    this.lowFx = false;
+    this.sheet = null;
 
     // pause / menu
     this.menuOpen = false;
@@ -38,6 +42,7 @@
     this._applySettings(GS.Save.loadSettings());
     this._wireUi();
     this._wireBus();
+    this.applyDevice();
     this.input.bind();
     this._bindLifecycle();
     this.setMode("title");
@@ -54,6 +59,7 @@
   Game.prototype.setMode = function (mode, data) {
     var prev = this.mode;
     this.closeMenu(true);
+    this.toggleSheet("close");
     this.mode = mode;
     GS.bus.emit(GS.EV.MODE_CHANGE, { from: prev, to: mode, data: data });
     this.hudDirty = true;
@@ -99,6 +105,46 @@
     });
   };
 
+  Game.prototype.applyDevice = function () {
+    var d = GS.util.device.apply();
+    this.compact = d.compact;
+    this.touch = d.touch;
+    this.lowFx = d.lowFx;
+    if (this.renderer) {
+      this.renderer.lowFx = d.lowFx;
+      this.renderer._resizeKey = "";
+    }
+    var size = $("sizebox");
+    if (size) {
+      if (d.compact && size.value === "large" && !size.getAttribute("data-touched")) {
+        size.value = "small";
+      }
+    }
+    var dock = $("dock");
+    if (dock) dock.classList.toggle("hidden", !d.compact);
+    if (!d.compact) this.toggleSheet("close");
+    this.hudDirty = true;
+  };
+
+  Game.prototype.toggleSheet = function (which) {
+    var left = $("left"), right = $("right"), scrim = $("sheet-scrim");
+    var want = which === "left" || which === "right" ? which : null;
+    if (want && this.sheet === want) want = null;
+    if (left) left.classList.toggle("open", want === "left");
+    if (right) right.classList.toggle("open", want === "right");
+    this.sheet = want;
+    if (scrim) scrim.classList.toggle("hidden", !want);
+  };
+
+  Game.prototype._fitBattleCam = function () {
+    if (!this.renderer || !this.island) return;
+    if (this.compact) {
+      this.renderer.zoom = (GS.CONFIG.battle && GS.CONFIG.battle.zoomMobile) || 18;
+    }
+    this.renderer.layoutView(this.island.w, this.island.h);
+    this.renderer.centerOn(this.island.w / 2, this.island.h / 2, this.island.w, this.island.h);
+  };
+
   Game.prototype._bindLifecycle = function () {
     var self = this;
     document.addEventListener("visibilitychange", function () {
@@ -131,6 +177,7 @@
     } else if (this.battle) {
       this._resumeSpeed = this.battle.speed || 1;
     }
+    this.toggleSheet("close");
     this.menuOpen = true;
     this.menuKind = "pause";
     this.screens.pause({
@@ -191,6 +238,7 @@
       "evac", "pal", "mute", "select-squad", "open-island", "tool-place", "tool-paint",
       "brush-next", "spawn-enemy", "spawn-ship", "spawn-ally", "gen", "place",
       "zoom",
+      "toggle-sheet",
       "save-menu", "load-menu", "save-slot", "load-slot", "quicksave", "quickload",
       "resume-or-title", "confirm-new-campaign", "warhorn",
     ];
@@ -220,6 +268,10 @@
   /* ---------- frame ---------- */
 
   Game.prototype.frame = function (t) {
+    if (typeof document !== "undefined" && document.hidden) {
+      this.last = t;
+      return;
+    }
     if (!this.last) this.last = t;
     var dt = Math.min(0.05, (t - this.last) / 1000);
     this.last = t;
@@ -353,6 +405,9 @@
         if (!this.battle) return;
         this.renderer.setZoom(this.renderer.zoom + (arg > 0 ? 1 : -1), this.battle.w, this.battle.h, this.battle.cursor.x, this.battle.cursor.y);
         this.hudDirty = true;
+        return;
+      case "toggle-sheet":
+        this.toggleSheet(arg);
         return;
       case "look":
         if (!this.battle) return;
@@ -622,11 +677,8 @@
     this.battle = new GS.Battle(this.island, this.army, { sandbox: false });
     this.sandboxTool = "place";
     this.setMode("battle");
-    if (this.renderer && this.island) {
-      this.renderer.layoutView(this.island.w, this.island.h);
-      this.renderer.centerOn(this.island.w / 2, this.island.h / 2, this.island.w, this.island.h);
-    }
-    this.ui.toast(GS.CONFIG.battle.deployHint, "info");
+    this._fitBattleCam();
+    this.ui.toast(this.touch ? "点空地就位，拖动画布，双指缩放。" : GS.CONFIG.battle.deployHint, "info");
     this.autosave("登岛");
   };
 
@@ -705,11 +757,8 @@
     this.battle = new GS.Battle(this.island, this.army, { sandbox: true });
     this.sandboxTool = "place";
     this.setMode("sandbox");
-    if (this.renderer && this.island) {
-      this.renderer.layoutView(this.island.w, this.island.h);
-      this.renderer.centerOn(this.island.w / 2, this.island.h / 2, this.island.w, this.island.h);
-    }
-    this.ui.toast("沙盒就绪 " + this.island.w + "×" + this.island.h + "。滚轮缩放，中键拖镜头。", "info");
+    this._fitBattleCam();
+    this.ui.toast("沙盒就绪 " + this.island.w + "×" + this.island.h + (this.touch ? "。点地布置，拖动画布。" : "。滚轮缩放，中键拖镜头。"), "info");
   };
 
   Game.prototype.regenSandbox = function () {
@@ -725,10 +774,7 @@
     this.army = this.army || GS.Army.create(GS.rng(GS.hashStr(this.seedInput)));
     this.battle = new GS.Battle(this.island, this.army, { sandbox: true });
     this.setMode("sandbox");
-    if (this.renderer && this.island) {
-      this.renderer.layoutView(this.island.w, this.island.h);
-      this.renderer.centerOn(this.island.w / 2, this.island.h / 2, this.island.w, this.island.h);
-    }
+    this._fitBattleCam();
     this.ui.toast("新岛：" + this.island.name + "（" + this.island.w + "×" + this.island.h + "）", "ok");
   };
 
@@ -750,7 +796,7 @@
       return true;
     }
     if (!b.selected) {
-      this.ui.toast("先点选一个兵团（1–9 或点击士兵）。", "warn");
+      this.ui.toast(this.touch ? "先点选一个兵团。" : "先点选一个兵团（1–9 或点击士兵）。", "warn");
       return false;
     }
     var ok = b.placeSquad(b.selected, b.cursor.x, b.cursor.y);
