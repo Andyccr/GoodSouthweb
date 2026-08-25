@@ -668,6 +668,10 @@ button.danger-outline {
 }
 
 /* compact / touch (class set by GS.util.device.apply) */
+.is-compact #stage {
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+}
+
 .is-compact #app {
   grid-template-rows: 44px minmax(0, 1fr);
 }
@@ -833,6 +837,10 @@ button.primary {
 
 @media (max-height: 500px) and (orientation: landscape) {
   .is-compact #app { grid-template-rows: 32px minmax(0, 1fr); }
+  .is-compact #stage {
+    padding-bottom: 0;
+    padding-right: 80px;
+  }
   .is-compact #dock {
     left: auto;
     right: 0;

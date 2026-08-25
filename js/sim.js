@@ -125,11 +125,14 @@
         soldiers: c.soldiers,
         maxSoldiers: c.maxSoldiers,
         facing: 2,
+        facingLocked: false,
         tx: -1,
         ty: -1,
         placed: false,
         entities: [],
         moveCd: 0,
+        huntId: 0,
+        marchFacing: 2,
       });
     }
     if (this.squads.length) this.selected = this.squads[0].id;
@@ -165,8 +168,12 @@
     if (this.phase === "fight" && sq.moveCd > 0) { this.placeError = "cooldown"; return false; }
     sq.tx = tx;
     sq.ty = ty;
-    if (facing != null) sq.facing = facing;
-    else if (!sq.placed) sq.facing = this._faceNearestLanding(tx, ty);
+    if (facing != null) {
+      sq.facing = facing;
+      sq.facingLocked = true;
+    } else if (!sq.placed && !sq.facingLocked) {
+      sq.facing = this._faceNearestLanding(tx, ty);
+    }
     sq.placed = true;
     if (!sq.entities.length) this._birthSquad(sq);
     else this._retargetFormation(sq);
@@ -203,10 +210,13 @@
 
   Battle.prototype.rotateSquad = function (squadId, dir) {
     var sq = this.getSquad(squadId);
-    if (!sq || !sq.placed) return;
+    if (!sq) return false;
     if (dir == null) sq.facing = (sq.facing + 1) & 3;
     else sq.facing = dir & 3;
-    this._retargetFormation(sq);
+    sq.facingLocked = true;
+    sq.marchFacing = sq.facing;
+    if (sq.placed) this._retargetFormation(sq);
+    return true;
   };
 
   Battle.prototype.getSquad = function (id) {
@@ -780,8 +790,14 @@
     var score = 8;
     var distW = e.role === "archer" ? (W.distArcher || 0.16) : (W.distMelee || 0.42);
     score -= d * distW;
-    score += this._housePressure(foe) * (W.house || 14);
-    if (foe.maxHp) score += (1 - foe.hp / foe.maxHp) * (W.wounded || 5);
+    var houseP = this._housePressure(foe);
+    score += houseP * (W.house || 24);
+    if (houseP > 0.18) score += W.alarm || 10;
+    if (foe.maxHp) {
+      var hurt = 1 - foe.hp / foe.maxHp;
+      score += hurt * (W.wounded || 5);
+      if (hurt > 0.55) score += W.finish || 3;
+    }
     if (foe.kind === "ship") {
       score += (W.ship || 6) + (foe.cargo ? foe.cargo.length * 1.2 : 0);
     }
@@ -795,16 +811,72 @@
     }
     if (e.role === "archer") {
       if (foe.kind === "ship" || foe.role === "thrower") score += 4;
-      if (d < 2.2 && foe.range <= 1.8) score -= 3; // rather kite than stand in a raider
+      if (d < 2.2 && foe.range <= 1.8) score -= 3;
     }
     if (e.militia) {
       var home = dist(e, { x: (e.slotX || 0) + 0.5, y: (e.slotY || 0) + 0.5 });
       score -= home * 0.55;
       if (d > 10) score -= 20;
     }
-    score -= (pile || 0) * (W.pile || 9);
+    score -= (pile || 0) * (W.pile || 5);
     if (e.hp < e.maxHp * 0.35 && d < 3 && e.role !== "archer") score -= 4;
     return score;
+  };
+
+  Battle.prototype._squadLiving = function (sq) {
+    var out = [];
+    if (!sq) return out;
+    for (var i = 0; i < this._livingSoldiers.length; i++) {
+      var e = this._livingSoldiers[i];
+      if (e.alive && !e.militia && e.squadId === sq.id) out.push(e);
+    }
+    return out;
+  };
+
+  Battle.prototype._squadCenter = function (living) {
+    var c = { x: 0, y: 0 };
+    if (!living || !living.length) return c;
+    for (var i = 0; i < living.length; i++) {
+      c.x += living[i].x;
+      c.y += living[i].y;
+    }
+    c.x /= living.length;
+    c.y /= living.length;
+    return c;
+  };
+
+  Battle.prototype._squadLeader = function (living) {
+    if (!living || !living.length) return null;
+    for (var i = 0; i < living.length; i++) if (living[i].commander) return living[i];
+    return living[0];
+  };
+
+  /** One hunt target per squad so the whole company marches together. */
+  Battle.prototype._assignSquadHunts = function (threats) {
+    var claimed = {};
+    for (var s = 0; s < this.squads.length; s++) {
+      var sq = this.squads[s];
+      var living = this._squadLiving(sq);
+      sq.huntId = 0;
+      if (!living.length) continue;
+      var c = this._squadCenter(living);
+      var probe = { x: c.x, y: c.y, role: sq.role, hp: 20, maxHp: 20 };
+      var best = null, bestS = -1e8;
+      for (var i = 0; i < threats.length; i++) {
+        var sc = this.huntScore(probe, threats[i], claimed[threats[i].id] || 0);
+        if (sc > bestS) {
+          bestS = sc;
+          best = threats[i];
+        }
+      }
+      if (best && bestS > -20) {
+        sq.huntId = best.id;
+        claimed[best.id] = (claimed[best.id] || 0) + 1;
+        var dx = best.x - c.x, dy = best.y - c.y;
+        if (Math.abs(dx) >= Math.abs(dy)) sq.marchFacing = dx >= 0 ? 1 : 3;
+        else sq.marchFacing = dy >= 0 ? 2 : 0;
+      }
+    }
   };
 
   Battle.prototype._pickHuntTarget = function (e, threats, pile) {
@@ -1077,10 +1149,12 @@
 
   Battle.prototype._tickSoldiers = function (dt) {
     var refresh = (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.55;
+    var W = (GS.CONFIG.battle && GS.CONFIG.battle.hunt) || {};
+    var cohesion = W.cohesion || 2.8;
     var threats = this._collectThreats();
-    var pile = {};
-    var i, e, foe, range, inRange, slot;
+    var i, e, foe, attack, range, inRange, slot, sq, living, leader, dest, c;
     this._rebuildOcc();
+    this._assignSquadHunts(threats);
 
     for (i = 0; i < this._livingSoldiers.length; i++) {
       e = this._livingSoldiers[i];
@@ -1093,20 +1167,25 @@
         range += (GS.CONFIG.battle && GS.CONFIG.battle.beaconRangeBonus) || 1.6;
       }
 
+      sq = e.squadId ? this.getSquad(e.squadId) : null;
       var close = this._nearestThreat(e, threats, Math.max(range + 0.4, 2.6));
-      foe = this._pickHuntTarget(e, threats, pile);
-      if (close && dist(e, close) <= range + 0.18) foe = close;
-      if (foe) pile[foe.id] = (pile[foe.id] || 0) + 1;
-      e.targetId = foe ? foe.id : 0;
+      if (e.militia) foe = this._pickHuntTarget(e, threats, {});
+      else if (sq && sq.huntId) {
+        foe = this.byId(sq.huntId);
+        if (foe && !foe.alive) foe = null;
+      } else foe = this._pickHuntTarget(e, threats, {});
 
-      inRange = foe && dist(e, foe) <= range + 0.15;
+      attack = (close && dist(e, close) <= range + 0.18) ? close : foe;
+      e.targetId = (foe && foe.id) || (attack && attack.id) || 0;
+
+      inRange = attack && dist(e, attack) <= range + 0.15;
       var losOk = true;
       if (inRange && e.range > 1.8) {
-        losOk = GS.path.los(this.losBlocked, e.x | 0, e.y | 0, foe.x | 0, foe.y | 0);
+        losOk = GS.path.los(this.losBlocked, e.x | 0, e.y | 0, attack.x | 0, attack.y | 0);
       }
       if (inRange && losOk && e.cooldown <= 0) {
-        if (e.range > 1.8) this._shoot(e, foe);
-        else this._melee(e, foe);
+        if (e.range > 1.8) this._shoot(e, attack);
+        else this._melee(e, attack);
       }
 
       if (e.role === "archer" && close && close.range <= 1.8 && dist(e, close) < 2.15) {
@@ -1114,7 +1193,38 @@
         continue;
       }
 
+      if (!e.militia && sq && !inRange) {
+        living = this._squadLiving(sq);
+        if (living.length > 1) {
+          c = this._squadCenter(living);
+          if (dist(e, c) > cohesion + (e.role === "archer" ? 1.1 : 0)) {
+            this._steer(e, c.x, c.y, dt);
+            continue;
+          }
+        }
+      }
+
       if (foe && (!inRange || (e.range > 1.8 && !losOk))) {
+        living = sq ? this._squadLiving(sq) : [e];
+        leader = this._squadLeader(living);
+        if (sq && leader && e !== leader && living.length > 1) {
+          var idx = 0;
+          for (var li = 0; li < living.length; li++) if (living[li] === e) idx = li;
+          var face = sq.marchFacing != null ? sq.marchFacing : sq.facing;
+          var slots = formationSlots(leader.x, leader.y, face, living.length, sq.role);
+          dest = slots[idx] || slots[0];
+          if (dist(e, dest) > 1.4) {
+            e._pathAge = (e._pathAge || 0) + dt;
+            if (!e.path || !e.path.length || e._pathAge > refresh) {
+              e.path = this._pathTo(e, dest.x | 0, dest.y | 0);
+              e._pathAge = 0;
+            }
+            if (!this._followPath(e, dt)) this._steer(e, dest.x, dest.y, dt);
+          } else {
+            this._steer(e, dest.x, dest.y, dt);
+          }
+          continue;
+        }
         this._chase(e, foe, dt, refresh);
         continue;
       }
@@ -1133,9 +1243,7 @@
         tx = foe.x - (foe.x - e.x) / d * want;
         ty = foe.y - (foe.y - e.y) / d * want;
       }
-      if (this._nearBeacon(e) && d <= e.range + 1.8) return; // hold the beacon if already useful
-    } else if (this._followFlow(e, this.huntFlow, dt)) {
-      return;
+      if (this._nearBeacon(e) && d <= e.range + 1.8) return;
     }
     if (!this.passable(tx | 0, ty | 0)) {
       tx = foe.x;

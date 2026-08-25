@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "1.7.0",
+    version: "1.8.0",
     saveVersion: 3,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -12,7 +12,7 @@
     campaign: {
       islandCount: 14,
       startCoins: 10,
-      recruitHealOnVictory: 2,
+      recruitHealOnVictory: "full",
       coinPerHouse: 1,
       chartW: 88,
       chartH: 48,
@@ -63,13 +63,15 @@
       hunt: {
         distMelee: 0.42,
         distArcher: 0.16,
-        pile: 9,
-        house: 14,
+        pile: 5,
+        house: 24,
+        alarm: 10,
         wounded: 5,
         ship: 6,
         jarl: 16,
         brute: 4,
         finish: 3,
+        cohesion: 2.8,
       },
     },
 

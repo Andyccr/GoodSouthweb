@@ -210,7 +210,7 @@
   /** Draw a formation facing chevron so placed heading is visible on the map. */
   Renderer.prototype._facingArrow = function (tx, ty, facing, highlight) {
     var dir = GS.DIRS[facing] || GS.DIRS[2];
-    var len = highlight ? 2.2 : 1.75;
+    var len = highlight ? 2.8 : 2.1;
     var origin = this._tilePx(tx + 0.5, ty + 0.5);
     var tip = this._tilePx(tx + 0.5 + dir.dx * len, ty + 0.5 + dir.dy * len);
     var backX = tx + 0.5 + dir.dx * (len - 0.55);
@@ -302,7 +302,7 @@
     var island = battle.island;
     this.layoutView(island.w, island.h);
     if (this._followLock > 0) this._followLock--;
-    if (!this.lowFx || this._followLock <= 0) {
+    if (battle.phase !== "deploy" && (!this.lowFx || this._followLock <= 0)) {
       this.followTile(battle.cursor.x, battle.cursor.y, island.w, island.h);
     }
     this.time += this.lowFx ? 0.032 : 0.016;
