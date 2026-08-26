@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "1.8.0",
+    version: "1.8.1",
     saveVersion: 3,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -61,9 +61,9 @@
       beaconRadius: 4,
       pathRefresh: 0.55,
       hunt: {
-        distMelee: 0.42,
-        distArcher: 0.16,
-        pile: 5,
+        distMelee: 0.18,
+        distArcher: 0.08,
+        pile: 4,
         house: 24,
         alarm: 10,
         wounded: 5,
@@ -71,7 +71,7 @@
         jarl: 16,
         brute: 4,
         finish: 3,
-        cohesion: 2.8,
+        cohesion: 8,
       },
     },
 
