@@ -12,6 +12,18 @@
     this.game.hudDirty = true;
   };
 
+  Hud.prototype._setTop = function (brand, chipsHtml) {
+    var b = $("top-brand");
+    var c = $("top-chips");
+    if (b) b.textContent = brand || "GOOD SOUTH";
+    if (c) c.innerHTML = chipsHtml || "";
+  };
+
+  Hud.prototype._setHint = function (text) {
+    var h = $("bot-hint");
+    if (h) h.textContent = text || "";
+  };
+
   Hud.prototype.render = function (force) {
     var game = this.game;
     var now = performance.now ? performance.now() : Date.now();
@@ -21,8 +33,6 @@
 
     var mode = game.mode;
     var ui = game.ui;
-    var top = $("topbar");
-    var bot = $("bottom");
     var left = $("left");
     var right = $("right");
     var tools = $("sandbox-tools");
@@ -30,9 +40,8 @@
     if (tools) tools.classList.toggle("visible", mode === "sandbox");
 
     if (mode === "title" || mode === "help" || mode === "hire" || mode === "preview" || mode === "result") {
-      top.innerHTML = '<span class="brand">GOOD SOUTH</span><span class="chips">' +
-        ui.chip("模式", "菜单", "cyan") + "</span>";
-      bot.innerHTML = '<div class="hint-line">' + (game.touch ? "点按钮开始" : "A 战役 · B 沙盒 · C 手册 · F1 帮助") + "</div>";
+      this._setTop("GOOD SOUTH", ui.chip("模式", "菜单", "cyan"));
+      this._setHint(game.touch ? "点按钮开始" : "A 战役 · B 沙盒 · C 手册 · F1 帮助");
       ui.setToolbar([]);
       ui.setCommands([]);
       this._dock(game, [
@@ -46,43 +55,41 @@
     }
 
     if (mode === "campaign") {
-      this._campaign(game, top, bot, left, right, banner);
+      this._campaign(game, left, right, banner);
       return;
     }
 
     if ((mode === "battle" || mode === "sandbox") && game.battle) {
-      this._battle(game, top, bot, left, right, banner);
+      this._battle(game, left, right, banner);
     }
   };
 
-  Hud.prototype._campaign = function (game, top, bot, left, right, banner) {
+  Hud.prototype._campaign = function (game, left, right, banner) {
     if (banner) banner.classList.add("hidden");
     var node = GS.Campaign.getNode(game.campaign, game.campCursor);
     var ui = game.ui;
-    top.innerHTML = '<span class="brand">GOOD SOUTH</span><span class="chips">' +
+    this._setTop("GOOD SOUTH",
       ui.chip("海图", "群岛", "cyan") +
       ui.chip("钱币", game.army.coins, "hi") +
       ui.chip("收复", game.army.islandsCleared, "ok") +
-      ui.chip("调色", game.palette) +
-      "</span>";
+      ui.chip("调色", game.palette));
     left.innerHTML = this.campLeft(game, node);
     right.innerHTML = this.roster(game.army) + this.islandList(game) + this.legend();
-    bot.innerHTML = '<div class="hint-line">' + (game.touch ? "点岛登陆 · 底栏打开编制" : "WASD选岛 · Enter登陆 · Esc菜单 · F5保存 · N招募 · Q标题") + "</div>";
-    ui.setToolbar(game.compact ? [
-      { act: "save-menu", label: "保存", kbd: "F5" },
-      { act: "pal", label: "调色", kbd: "P" },
-      { act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" },
-      { act: "help", label: "手册", kbd: "?" },
-    ] : [
-      { act: "pause-menu", label: "菜单", kbd: "Esc" },
-      { act: "save-menu", label: "保存", kbd: "F5" },
-      { act: "hire", label: "招募", kbd: "N" },
-      { act: "pal", label: "调色", kbd: "P" },
-      { act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" },
-      { act: "help", label: "手册", kbd: "?" },
-      { sep: true },
-      { act: "title", label: "标题", kbd: "Q" },
-    ]);
+    this._setHint(game.touch ? "点岛登陆 · 底栏打开编制" : "WASD选岛 · Enter登陆 · Esc菜单 · F5保存 · N招募 · Q标题");
+    if (game.compact) {
+      ui.setToolbar([]);
+    } else {
+      ui.setToolbar([
+        { act: "pause-menu", label: "菜单", kbd: "Esc" },
+        { act: "save-menu", label: "保存", kbd: "F5" },
+        { act: "hire", label: "招募", kbd: "N" },
+        { act: "pal", label: "调色", kbd: "P" },
+        { act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" },
+        { act: "help", label: "手册", kbd: "?" },
+        { sep: true },
+        { act: "title", label: "标题", kbd: "Q" },
+      ]);
+    }
     ui.setCommands(node && node.status === "scouted" ? [
       { act: "open-island", arg: String(node.id), label: "登陆 " + node.name, kbd: "G" },
     ] : []);
@@ -94,7 +101,7 @@
     ]);
   };
 
-  Hud.prototype._battle = function (game, top, bot, left, right, banner) {
+  Hud.prototype._battle = function (game, left, right, banner) {
     var b = game.battle;
     var ui = game.ui;
     var cnt = b.counts();
@@ -111,7 +118,7 @@
       } else banner.classList.add("hidden");
     }
 
-    top.innerHTML = '<span class="brand">' + b.island.name + '</span><span class="chips">' +
+    this._setTop(b.island.name,
       (game.compact ? "" : ui.chip("生态", GS.BIOMES[b.island.biome].name)) +
       ui.chip("阶段", phaseLabel, b.phase === "deploy" ? "hi" : "cyan") +
       (function () {
@@ -124,16 +131,15 @@
       ui.chip("我军", cnt.soldiers) +
       ui.chip("北蛮", cnt.enemies, cnt.enemies ? "warn" : "") +
       (b.waves.length ? ui.chip("波次", waveDone + "/" + b.waves.length) : ui.chip("模式", "沙盒", "cyan")) +
-      (game.compact ? "" : ui.chip("t", b.t.toFixed(1))) +
-      "</span>";
+      (game.compact ? "" : ui.chip("t", b.t.toFixed(1))));
 
     left.innerHTML = this.battleLeft(game, b);
     right.innerHTML = this.squadList(b) + this.logHtml(b) + this.legend();
-    bot.innerHTML = '<div class="hint-line">' + (game.touch
+    this._setHint(game.touch
       ? "点空地就位 · 拖动画布 · 双指缩放 · 长按转向"
       : (game.mode === "sandbox"
-        ? "Esc菜单 · 中键拖镜头 · 滚轮缩放 · T地形 · B长船"
-        : "Esc菜单 · 点空地就位 · 天兵会自行接战 · U号角")) + "</div>";
+        ? "拖动画布平移 · 滚轮缩放 · 右键转向 · Shift+WASD移镜"
+        : "点空地就位 · 拖动画布平移 · R转向 · G开战 · F对准"));
 
     this.battleToolbar(game, b);
   };
@@ -174,25 +180,12 @@
       items.push({ act: "gen", label: "新岛" });
     }
     items.push({ sep: true });
-    if (game.compact) {
-      items.push({ act: "zoom", arg: "1", label: "+" });
-      items.push({ act: "zoom", arg: "-1", label: "−" });
-    }
+    items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: "放大" });
+    items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: "缩小" });
     if (game.army && game.campaign) items.push({ act: "quicksave", label: "快存", kbd: "F5" });
     items.push({ act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" });
-    if (!game.compact) items.push({ act: "pause-menu", label: "菜单", kbd: "Esc" });
-    if (game.compact) {
-      var hideDockDup = {
-        start: true, pause: true,
-        "tool-place": true, "tool-paint": true, "brush-next": true,
-        "spawn-enemy": true, "spawn-ship": true, "spawn-ally": true, gen: true,
-      };
-      items = items.filter(function (it) {
-        if (it.sep) return false;
-        return !hideDockDup[it.act];
-      });
-    }
-    ui.setToolbar(items);
+    items.push({ act: "pause-menu", label: "菜单", kbd: "Esc" });
+    ui.setToolbar(game.compact ? [] : items);
 
     var cmds = [];
     var sqs = b.livingSquads();
@@ -202,7 +195,25 @@
         arg: sqs[i].id,
         label: GS.ROLES[sqs[i].role].ch + " " + sqs[i].name.split("·")[0],
         kbd: String(i + 1),
+        active: sqs[i].id === b.selected,
       });
+    }
+    if (game.compact) {
+      cmds.push({ act: "zoom", arg: "1", label: "+" });
+      cmds.push({ act: "zoom", arg: "-1", label: "−" });
+      if (b.phase === "fight") {
+        cmds.push({ act: "spd", arg: "1", label: "1×", active: b.speed === 1 });
+        cmds.push({ act: "spd", arg: "2", label: "2×", active: b.speed === 2 });
+        cmds.push({ act: "spd", arg: "3", label: "3×", active: b.speed === 3 });
+        if (game.mode === "battle") {
+          cmds.push({
+            act: "warhorn",
+            label: b.warhornReady ? "号角" : "号角已用",
+            active: b.warhornT > 0,
+            disabled: !b.warhornReady && b.warhornT <= 0,
+          });
+        }
+      }
     }
     ui.setCommands(cmds);
     this._dock(game, [

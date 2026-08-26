@@ -11,22 +11,32 @@
 
   function UI() {
     this.root = document.getElementById("ui-chrome") || this._mount();
-    this.toolbar = this.root.querySelector("#toolbar");
+    this.toolbar = document.getElementById("toolbar") || this.root.querySelector("#toolbar");
     this.toasts = this.root.querySelector("#toasts");
     this.tooltip = this.root.querySelector("#tooltip");
-    this.commands = this.root.querySelector("#commands");
+    this.commands = document.getElementById("commands") || this.root.querySelector("#commands");
     this._toastTimer = null;
     this._handlers = {};
   }
 
   UI.prototype._mount = function () {
+    var tbHost = document.getElementById("toolbar-host");
+    var cmdHost = document.getElementById("commands-host");
     var root = el("div", "", "");
     root.id = "ui-chrome";
-    root.innerHTML =
-      '<div id="toolbar" class="toolbar hidden"></div>' +
+    var toolbar = el("div", "toolbar hidden");
+    toolbar.id = "toolbar";
+    var commands = el("div", "commands hidden");
+    commands.id = "commands";
+    if (tbHost) tbHost.appendChild(toolbar);
+    else root.appendChild(toolbar);
+    if (cmdHost) cmdHost.appendChild(commands);
+    else root.appendChild(commands);
+    var extras = el("div", "", "");
+    extras.innerHTML =
       '<div id="toasts" class="toasts" aria-live="polite"></div>' +
-      '<div id="tooltip" class="tooltip hidden"></div>' +
-      '<div id="commands" class="commands hidden"></div>';
+      '<div id="tooltip" class="tooltip hidden"></div>';
+    while (extras.firstChild) root.appendChild(extras.firstChild);
     document.body.appendChild(root);
     return root;
   };
@@ -106,18 +116,23 @@
   };
 
   UI.prototype.setCommands = function (items) {
+    var app = document.getElementById("app");
     if (!items || !items.length) {
       this.commands.classList.add("hidden");
       this.commands.innerHTML = "";
+      if (app) app.classList.remove("has-cmd-strip");
       return;
     }
     this.commands.classList.remove("hidden");
     this.commands.innerHTML = items.map(function (it) {
-      return '<button type="button" class="cmd-btn" data-act="' + it.act + '"' +
-        (it.arg != null ? ' data-arg="' + it.arg + '"' : "") + ">" +
+      var cls = "cmd-btn" + (it.active ? " active" : "");
+      return '<button type="button" class="' + cls + '" data-act="' + it.act + '"' +
+        (it.arg != null ? ' data-arg="' + it.arg + '"' : "") +
+        (it.disabled ? " disabled" : "") + ">" +
         (it.kbd ? "<kbd>" + it.kbd + "</kbd> " : "") + it.label + "</button>";
     }).join("");
     this.bindClicks(this.commands);
+    if (app) app.classList.add("has-cmd-strip");
   };
 
   UI.prototype.kbd = function (s) {
