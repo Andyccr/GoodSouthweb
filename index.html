@@ -23,6 +23,28 @@
         <span class="chips" id="top-chips"></span>
       </div>
       <div id="toolbar-host"></div>
+      <div id="sandbox-tools">
+        <span>SANDBOX</span>
+        <label>种子 <input id="seedbox" value="south" size="10" /></label>
+        <label>生态
+          <select id="biomebox">
+            <option value="verdant">沃野</option>
+            <option value="rocky">岩礁</option>
+            <option value="marsh">泽地</option>
+            <option value="snow">霜岛</option>
+            <option value="ash">火山</option>
+          </select>
+        </label>
+        <label>威胁 <input id="diffbox" type="number" min="1" max="8" value="3" style="width:3em" /></label>
+        <label>尺度
+          <select id="sizebox">
+            <option value="small">小</option>
+            <option value="medium">中</option>
+            <option value="large" selected>大</option>
+          </select>
+        </label>
+        <button type="button" id="genbtn">生成新岛</button>
+      </div>
     </header>
     <div id="main">
       <aside id="left">
@@ -30,28 +52,6 @@
         <p>北蛮的长船正在南下。</p>
       </aside>
       <div id="stage">
-        <div id="sandbox-tools">
-          <span>SANDBOX</span>
-          <label>种子 <input id="seedbox" value="south" size="10" /></label>
-          <label>生态
-            <select id="biomebox">
-              <option value="verdant">沃野</option>
-              <option value="rocky">岩礁</option>
-              <option value="marsh">泽地</option>
-              <option value="snow">霜岛</option>
-              <option value="ash">火山</option>
-            </select>
-          </label>
-          <label>威胁 <input id="diffbox" type="number" min="1" max="8" value="3" style="width:3em" /></label>
-          <label>尺度
-            <select id="sizebox">
-              <option value="small">小</option>
-              <option value="medium">中</option>
-              <option value="large" selected>大</option>
-            </select>
-          </label>
-          <button type="button" id="genbtn">生成新岛</button>
-        </div>
         <div id="phase-banner" class="phase-banner hidden">布置阶段</div>
         <canvas id="view" width="800" height="480" tabindex="0" aria-label="游戏画面">需要 canvas 支持。</canvas>
       </div>

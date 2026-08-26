@@ -111,7 +111,7 @@
     if (banner) {
       if (b.phase === "deploy") {
         banner.classList.remove("hidden");
-        banner.textContent = game.touch ? "点空地放下 · 转向看箭头朝向 · 拖动画布" : "就位 — 点空地放下兵团，R 转向（箭头），开战后天兵整团接战 · G 开战";
+        banner.textContent = (game.compact || game.touch) ? "点空地放下 · 转向看箭头朝向 · 拖动画布" : "就位 — 点空地放下兵团，R 转向（箭头），开战后天兵整团接战 · G 开战";
       } else if (b.phase === "fight" && b.speed === 0) {
         banner.classList.remove("hidden");
         banner.textContent = "暂停";
@@ -135,11 +135,11 @@
 
     left.innerHTML = this.battleLeft(game, b);
     right.innerHTML = this.squadList(b) + this.logHtml(b) + this.legend();
-    this._setHint(game.touch
+    this._setHint((game.touch || game.compact)
       ? "点空地就位 · 拖动画布 · 双指缩放 · 长按转向"
       : (game.mode === "sandbox"
-        ? "拖动画布平移 · 滚轮缩放 · 右键转向 · Shift+WASD移镜"
-        : "点空地就位 · 拖动画布平移 · R转向 · G开战 · F对准"));
+        ? "点空地就位 · 拖平移 · 滚轮缩放 · 右键转向 · Shift+WASD移镜 · F对准"
+        : "点空地就位 · 拖平移 · R转向 · G开战 · F对准"));
 
     this.battleToolbar(game, b);
   };
@@ -150,6 +150,9 @@
     if (b.phase === "deploy") {
       items.push({ act: "start", label: "开战", kbd: "G", primary: true });
       items.push({ act: "rotate", label: "转向", kbd: "R" });
+      items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: "放大" });
+      items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: "缩小" });
+      items.push({ act: "center-cam", label: "对准", kbd: "F" });
       items.push({ act: "look", label: b.look ? "观察中" : "观察", kbd: "'", active: b.look });
     } else if (b.phase === "fight") {
       items.push({ act: "pause", label: b.speed ? "暂停" : "继续", kbd: "␣", active: !b.speed });
@@ -158,6 +161,9 @@
       items.push({ act: "spd", arg: "3", label: "3×", active: b.speed === 3 });
       items.push({ sep: true });
       items.push({ act: "rotate", label: "转向", kbd: "R" });
+      items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: "放大" });
+      items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: "缩小" });
+      items.push({ act: "center-cam", label: "对准", kbd: "F" });
       if (game.mode === "battle") {
         items.push({
           act: "warhorn",
@@ -180,8 +186,6 @@
       items.push({ act: "gen", label: "新岛" });
     }
     items.push({ sep: true });
-    items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: "放大" });
-    items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: "缩小" });
     if (game.army && game.campaign) items.push({ act: "quicksave", label: "快存", kbd: "F5" });
     items.push({ act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" });
     items.push({ act: "pause-menu", label: "菜单", kbd: "Esc" });
@@ -201,6 +205,7 @@
     if (game.compact) {
       cmds.push({ act: "zoom", arg: "1", label: "+" });
       cmds.push({ act: "zoom", arg: "-1", label: "−" });
+      cmds.push({ act: "center-cam", label: "对准" });
       if (b.phase === "fight") {
         cmds.push({ act: "spd", arg: "1", label: "1×", active: b.speed === 1 });
         cmds.push({ act: "spd", arg: "2", label: "2×", active: b.speed === 2 });
