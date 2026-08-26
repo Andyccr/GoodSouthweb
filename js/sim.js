@@ -109,6 +109,49 @@
       var t = tileAt(self.island, x, y);
       return t && t.los;
     };
+    this._buildLandComp();
+  };
+
+  Battle.prototype._buildLandComp = function () {
+    var w = this.w, h = this.h;
+    var lab = new Int32Array(w * h);
+    var id = 0;
+    var qx = [], qy = [];
+    var n4 = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    var x, y, qi, k, cx, cy, nx, ny;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        if (!this.passable(x, y) || lab[y * w + x]) continue;
+        id++;
+        qx.length = 0;
+        qy.length = 0;
+        qx.push(x);
+        qy.push(y);
+        lab[y * w + x] = id;
+        for (qi = 0; qi < qx.length; qi++) {
+          cx = qx[qi];
+          cy = qy[qi];
+          for (k = 0; k < 4; k++) {
+            nx = cx + n4[k][0];
+            ny = cy + n4[k][1];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            if (!this.passable(nx, ny) || lab[ny * w + nx]) continue;
+            lab[ny * w + nx] = id;
+            qx.push(nx);
+            qy.push(ny);
+          }
+        }
+      }
+    }
+    this._landComp = lab;
+  };
+
+  Battle.prototype._landId = function (x, y) {
+    if (!this._landComp) this._buildLandComp();
+    x = x | 0;
+    y = y | 0;
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return 0;
+    return this._landComp[y * this.w + x];
   };
 
   Battle.prototype._spawnSquads = function (army) {
@@ -793,6 +836,11 @@
     var houseP = this._housePressure(foe);
     score += houseP * (W.house || 24);
     if (houseP > 0.18) score += W.alarm || 10;
+    var landA = this._landId(e.x, e.y);
+    var landB = this._landId(foe.kind === "ship" ? (foe.beachX || foe.x) : foe.x,
+      foe.kind === "ship" ? (foe.beachY || foe.y) : foe.y);
+    if (landA && landB && landA !== landB) score -= 50;
+    if (foe.kind === "ship" && !foe.landing) score -= 8;
     if (foe.maxHp) {
       var hurt = 1 - foe.hp / foe.maxHp;
       score += hurt * (W.wounded || 5);
@@ -869,7 +917,7 @@
           best = threats[i];
         }
       }
-      if (best && bestS > -20) {
+      if (best) {
         sq.huntId = best.id;
         claimed[best.id] = (claimed[best.id] || 0) + 1;
         var dx = best.x - c.x, dy = best.y - c.y;
@@ -888,7 +936,7 @@
         best = threats[i];
       }
     }
-    return bestS > -20 ? best : null;
+    return best;
   };
 
   Battle.prototype._nearestThreat = function (e, threats, maxD) {
@@ -1019,13 +1067,23 @@
   };
 
   Battle.prototype._pathTo = function (e, tx, ty) {
-    var start = GS.path.snap(this.passable, this.w, this.h, e.x, e.y, 4);
-    var goal = GS.path.snap(this.passable, this.w, this.h, tx, ty, 4);
+    var start = GS.path.snap(this.passable, this.w, this.h, e.x, e.y, 10);
+    var goal = GS.path.snap(this.passable, this.w, this.h, tx, ty, 12);
     if (!start || !goal) return null;
     return GS.path.astar(this.passable, this.cost, this.w, this.h, start.x, start.y, goal.x, goal.y, {
       diag: true,
       snap: false,
     });
+  };
+
+  Battle.prototype._huntGoal = function (foe) {
+    if (!foe) return null;
+    if (foe.kind === "ship") {
+      var bx = foe.beachX != null ? foe.beachX : foe.x;
+      var by = foe.beachY != null ? foe.beachY : foe.y;
+      return GS.path.snap(this.passable, this.w, this.h, bx, by, 12) || { x: bx | 0, y: by | 0 };
+    }
+    return GS.path.snap(this.passable, this.w, this.h, foe.x, foe.y, 12);
   };
 
   Battle.prototype._tryMove = function (e, nx, ny) {
@@ -1048,9 +1106,12 @@
     var ny = e.y + dy * sp;
     var blocker = this._occAt(nx, ny);
     if (blocker && blocker !== e.id) {
-      var px = -dy, py = dx;
-      if (this._tryMove(e, e.x + px * sp, e.y + py * sp)) return;
-      if (this._tryMove(e, e.x - px * sp, e.y - py * sp)) return;
+      var other = this.byId(blocker);
+      if (!other || other.team !== e.team) {
+        var px = -dy, py = dx;
+        if (this._tryMove(e, e.x + px * sp, e.y + py * sp)) return;
+        if (this._tryMove(e, e.x - px * sp, e.y - py * sp)) return;
+      }
     }
     if (this._tryMove(e, nx, ny)) {
       if (Math.abs(dx) > Math.abs(dy)) e.facing = dx > 0 ? 1 : 3;
@@ -1089,12 +1150,24 @@
     e._stuck = moved ? 0 : (e._stuck || 0) + dt;
     e._lastX = e.x;
     e._lastY = e.y;
-    if (e._stuck < 0.7) return;
+    if (e._stuck < 0.45) return;
     e.path = null;
+    e._huntX = null;
     e._stuck = 0;
-    var snap = GS.path.snap(this.passable, this.w, this.h, e.x, e.y, 4);
+    var n4 = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+    var i, nx, ny, ox = e.x, oy = e.y;
+    for (i = 0; i < n4.length; i++) {
+      nx = (e.x | 0) + n4[i][0];
+      ny = (e.y | 0) + n4[i][1];
+      if (!this.passable(nx, ny)) continue;
+      if (this._occAt(nx + 0.5, ny + 0.5) && this._occAt(nx + 0.5, ny + 0.5) !== e.id) continue;
+      e.x = nx + 0.5;
+      e.y = ny + 0.5;
+      this._setOcc(e, ox, oy, e.x, e.y);
+      return;
+    }
+    var snap = GS.path.snap(this.passable, this.w, this.h, e.x, e.y, 6);
     if (snap) {
-      var ox = e.x, oy = e.y;
       e.x = snap.x + 0.5;
       e.y = snap.y + 0.5;
       this._setOcc(e, ox, oy, e.x, e.y);
@@ -1149,10 +1222,8 @@
 
   Battle.prototype._tickSoldiers = function (dt) {
     var refresh = (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.55;
-    var W = (GS.CONFIG.battle && GS.CONFIG.battle.hunt) || {};
-    var cohesion = W.cohesion || 2.8;
     var threats = this._collectThreats();
-    var i, e, foe, attack, range, inRange, slot, sq, living, leader, dest, c;
+    var i, e, foe, attack, range, inRange, slot, sq, leader, living;
     this._rebuildOcc();
     this._assignSquadHunts(threats);
 
@@ -1193,36 +1264,11 @@
         continue;
       }
 
-      if (!e.militia && sq && !inRange) {
-        living = this._squadLiving(sq);
-        if (living.length > 1) {
-          c = this._squadCenter(living);
-          if (dist(e, c) > cohesion + (e.role === "archer" ? 1.1 : 0)) {
-            this._steer(e, c.x, c.y, dt);
-            continue;
-          }
-        }
-      }
-
       if (foe && (!inRange || (e.range > 1.8 && !losOk))) {
         living = sq ? this._squadLiving(sq) : [e];
         leader = this._squadLeader(living);
-        if (sq && leader && e !== leader && living.length > 1) {
-          var idx = 0;
-          for (var li = 0; li < living.length; li++) if (living[li] === e) idx = li;
-          var face = sq.marchFacing != null ? sq.marchFacing : sq.facing;
-          var slots = formationSlots(leader.x, leader.y, face, living.length, sq.role);
-          dest = slots[idx] || slots[0];
-          if (dist(e, dest) > 1.4) {
-            e._pathAge = (e._pathAge || 0) + dt;
-            if (!e.path || !e.path.length || e._pathAge > refresh) {
-              e.path = this._pathTo(e, dest.x | 0, dest.y | 0);
-              e._pathAge = 0;
-            }
-            if (!this._followPath(e, dt)) this._steer(e, dest.x, dest.y, dt);
-          } else {
-            this._steer(e, dest.x, dest.y, dt);
-          }
+        if (sq && leader && e !== leader && living.length > 1 && dist(e, leader) > 10) {
+          this._chase(e, leader, dt, refresh);
           continue;
         }
         this._chase(e, foe, dt, refresh);
@@ -1235,30 +1281,29 @@
   };
 
   Battle.prototype._chase = function (e, foe, dt, refresh) {
-    var tx = foe.x, ty = foe.y;
-    if (e.role === "archer") {
+    var goal = this._huntGoal(foe) || { x: foe.x | 0, y: foe.y | 0 };
+    var tx = goal.x + 0.5, ty = goal.y + 0.5;
+    if (e.role === "archer" && foe.kind !== "soldier") {
       var want = Math.max(2.4, (e.range || 6) * 0.72);
       var d = dist(e, foe) || 1;
-      if (d > 0.2) {
+      if (d > 0.2 && this.passable(foe.x | 0, foe.y | 0)) {
         tx = foe.x - (foe.x - e.x) / d * want;
         ty = foe.y - (foe.y - e.y) / d * want;
       }
       if (this._nearBeacon(e) && d <= e.range + 1.8) return;
     }
-    if (!this.passable(tx | 0, ty | 0)) {
-      tx = foe.x;
-      ty = foe.y;
-    }
     e._pathAge = (e._pathAge || 0) + dt;
     var stale = !e.path || !e.path.length || e._pathAge > refresh + (e.id % 6) * 0.04;
-    var destChanged = e._huntX == null || Math.abs(e._huntX - (tx | 0)) > 1 || Math.abs(e._huntY - (ty | 0)) > 1;
+    var destChanged = e._huntX == null || Math.abs(e._huntX - (goal.x | 0)) > 1 || Math.abs(e._huntY - (goal.y | 0)) > 1;
     if (stale || destChanged) {
-      e.path = this._pathTo(e, tx | 0, ty | 0);
+      e.path = this._pathTo(e, goal.x, goal.y);
       e._pathAge = 0;
-      e._huntX = tx | 0;
-      e._huntY = ty | 0;
+      e._huntX = goal.x | 0;
+      e._huntY = goal.y | 0;
     }
-    if (!this._followPath(e, dt)) this._steer(e, tx, ty, dt);
+    if (this._followPath(e, dt)) return;
+    if (this._followFlow(e, this.huntFlow, dt)) return;
+    this._steer(e, tx, ty, dt);
   };
 
   Battle.prototype._goHome = function (e, slot, dt, refresh) {
