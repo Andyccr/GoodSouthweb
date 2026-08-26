@@ -18,8 +18,11 @@
 <body>
   <div id="app">
     <header id="topbar">
-      <span class="brand">GOOD SOUTH</span>
-      <span class="chips"></span>
+      <div class="topbar-main">
+        <span class="brand" id="top-brand">GOOD SOUTH</span>
+        <span class="chips" id="top-chips"></span>
+      </div>
+      <div id="toolbar-host"></div>
     </header>
     <div id="main">
       <aside id="left">
@@ -60,7 +63,7 @@
 ↑ 枪兵  v 北蛮</pre>
       </aside>
     </div>
-    <footer id="bottom"><div class="hint-line">a 战役 · b 沙盒 · c 手册</div></footer>
+    <footer id="bottom"><div class="hint-line" id="bot-hint">a 战役 · b 沙盒 · c 手册</div><div id="commands-host"></div></footer>
     <nav id="dock" class="hidden" aria-label="手机快捷栏"></nav>
   </div>
   <div id="sheet-scrim" class="hidden"></div>
