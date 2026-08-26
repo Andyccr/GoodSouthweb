@@ -10,6 +10,7 @@ var context = {
   Math: Math,
   setTimeout: setTimeout,
   Uint8Array: Uint8Array,
+  Int32Array: Int32Array,
   localStorage: {
     getItem: function (k) { return store[k] || null; },
     setItem: function (k, v) { store[k] = String(v); },
@@ -370,6 +371,14 @@ for (hi = 0; hi < members.length; hi++) {
   spread = Math.max(spread, Math.sqrt(sdx * sdx + sdy * sdy));
 }
 ok(spread < 8, "squad stays together while hunting, spread=" + spread.toFixed(1));
+ok(!!bh.squads[0].huntId || !farEnemy.alive, "squad keeps a hunt target while the raider lives");
+for (var ht2 = 0; ht2 < 160; ht2++) bh.tick(0.05);
+var d2 = avgDistTo(bh, farEnemy);
+ok(!farEnemy.alive || d2 < d1 - 0.8, "soldiers keep closing on the enemy, not stall (d1=" + d1.toFixed(1) + " d2=" + d2.toFixed(1) + " alive=" + farEnemy.alive + ")");
+if (farEnemy.alive) {
+  var homeNow = avgDistTo(bh, { x: sqx + 0.5, y: sqy + 0.5 });
+  ok(homeNow > 5, "not stuck on the deploy tile, homeDist=" + homeNow.toFixed(1));
+}
 
 console.log("Battle serialize");
 var snap = GS.Battle.serialize(battle);
