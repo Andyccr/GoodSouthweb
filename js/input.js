@@ -28,8 +28,7 @@
       view.addEventListener("pointercancel", function (e) { self.onPointerUp(e); });
       view.addEventListener("pointerleave", function (e) {
         if (e.pointerType === "touch") return;
-        self.pointer.down = false;
-        self.pointer.pan = false;
+        if (self.pointer.down) return;
         game.hover = { x: -1, y: -1 };
         game.ui.hideTooltip();
       });
@@ -194,7 +193,26 @@
     if (k === "ArrowDown" || k === "j" || k === "J" || k === "s" || k === "S") dy = 1;
 
     if (k === "K" || k === "'" || k === ";") { game.dispatch("look"); return; }
+    if (k === "=" || k === "+" || k === "." || k === ">") {
+      e.preventDefault();
+      game.dispatch("zoom", 1);
+      return;
+    }
+    if (k === "," || k === "<") {
+      e.preventDefault();
+      game.dispatch("zoom", -1);
+      return;
+    }
+    if (k === "f" || k === "F" || k === "Home") {
+      e.preventDefault();
+      game.dispatch("center-cam");
+      return;
+    }
     if (dx || dy) {
+      if (e.shiftKey && game.renderer) {
+        game.renderer.pan(dx * 4, dy * 4, b.w, b.h);
+        return;
+      }
       b.cursor.x = Math.max(0, Math.min(b.w - 1, b.cursor.x + dx));
       b.cursor.y = Math.max(0, Math.min(b.h - 1, b.cursor.y + dy));
       game.hover = { x: b.cursor.x, y: b.cursor.y };
@@ -288,6 +306,11 @@
     return GS.util.touch.dist(a.x, a.y, b.x, b.y);
   };
 
+  Input.prototype._setPanCursor = function (on) {
+    var view = $("view");
+    if (view) view.classList.toggle("is-panning", !!on);
+  };
+
   Input.prototype.onPointerDown = function (e) {
     var game = this.game;
     var view = $("view");
@@ -325,7 +348,18 @@
       e.preventDefault();
       this.pointer.pan = true;
       this._gesture = { pinch: false, pan: true, tap: false };
+      this._setPanCursor(true);
       return;
+    }
+
+    var preview = this._tile(e);
+    if (preview && (game.mode === "battle" || game.mode === "sandbox")) {
+      game.hover = preview;
+      var b = game.battle;
+      if (b && e.pointerType !== "touch") {
+        b.cursor.x = preview.x;
+        b.cursor.y = preview.y;
+      }
     }
 
     if (touch) {
@@ -341,29 +375,22 @@
         if (game.mode === "battle" || game.mode === "sandbox") game.dispatch("rotate");
         else if (game.mode === "campaign") game.dispatch("open-island", String(game.campCursor));
       }, 420);
-      var preview = this._tile(e);
-      if (preview && (game.mode === "battle" || game.mode === "sandbox")) {
-        game.hover = preview;
-      }
       return;
     }
 
-    var tile = this._tile(e);
-    if (!tile) return;
-
-    if (game.mode === "campaign") {
-      game.pointerCampaign(tile);
-      return;
+    this._gesture = {
+      pinch: false,
+      pan: false,
+      tap: true,
+      long: false,
+      rotate: e.button === 2,
+      paint: game.mode === "sandbox" && game.sandboxTool === "paint" && e.button === 0,
+      sx: e.clientX,
+      sy: e.clientY,
+    };
+    if (game.mode === "campaign" && preview) {
+      game.hoverCampaign(preview, e.clientX, e.clientY);
     }
-    if (game.mode !== "battle" && game.mode !== "sandbox") return;
-    var b = game.battle;
-    b.cursor.x = tile.x;
-    b.cursor.y = tile.y;
-    game.hover = { x: tile.x, y: tile.y };
-
-    if (e.button === 2) { game.dispatch("rotate"); return; }
-    if (e.button !== 0) return;
-    this._applyTap(e);
   };
 
   Input.prototype.onPointerMove = function (e) {
@@ -398,15 +425,20 @@
     }
 
     if (this._gesture && this._gesture.tap && !this._gesture.pinch &&
-        (game.mode === "battle" || game.mode === "sandbox")) {
+        (game.mode === "battle" || game.mode === "sandbox" || game.mode === "campaign")) {
       var dx0 = e.clientX - this._gesture.sx;
       var dy0 = e.clientY - this._gesture.sy;
-      if (GS.util.touch.shouldPan(dx0, dy0, 12)) {
-        this._gesture.pan = true;
-        this._gesture.tap = false;
-        this._clearLong();
-        this.pointer.pan = true;
-        game.ui.hideTooltip();
+      if (!this._gesture.paint && GS.util.touch.shouldPan(dx0, dy0, 12)) {
+        if (game.mode === "campaign") {
+          this._gesture.tap = false;
+        } else {
+          this._gesture.pan = true;
+          this._gesture.tap = false;
+          this._clearLong();
+          this.pointer.pan = true;
+          this._setPanCursor(true);
+          game.ui.hideTooltip();
+        }
       }
     }
 
@@ -461,14 +493,22 @@
         this._gesture = null;
         this.pointer.down = false;
         this.pointer.pan = false;
+        this._setPanCursor(false);
       }
       return;
     }
 
-    var tap = this._gesture && this._gesture.tap && !this._gesture.pan && !this._gesture.long && was && was.type === "touch";
+    var tap = this._gesture && this._gesture.tap && !this._gesture.pan && !this._gesture.long && was;
     this.pointer.down = n > 0;
-    this.pointer.pan = false;
-    if (tap) this._applyTap(e);
+    this.pointer.pan = n > 0 && this.pointer.pan;
+    if (n === 0) this._setPanCursor(false);
+    if (tap) {
+      if (this._gesture.rotate) {
+        if (game.mode === "battle" || game.mode === "sandbox") game.dispatch("rotate");
+      } else {
+        this._applyTap(e);
+      }
+    }
     if (n === 0) this._gesture = null;
   };
 

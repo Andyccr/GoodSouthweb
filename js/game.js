@@ -237,7 +237,7 @@
       "back-camp", "next", "retry", "start", "pause", "pause-menu", "resume", "spd", "rotate", "look",
       "evac", "pal", "mute", "select-squad", "open-island", "tool-place", "tool-paint",
       "brush-next", "spawn-enemy", "spawn-ship", "spawn-ally", "gen", "place",
-      "zoom",
+      "zoom", "center-cam",
       "toggle-sheet",
       "save-menu", "load-menu", "save-slot", "load-slot", "quicksave", "quickload",
       "resume-or-title", "confirm-new-campaign", "warhorn",
@@ -414,6 +414,15 @@
         this.renderer.setZoom(this.renderer.zoom + (arg > 0 ? 1 : -1), this.battle.w, this.battle.h, this.battle.cursor.x, this.battle.cursor.y);
         this.hudDirty = true;
         return;
+      case "center-cam": {
+        if (!this.battle || !this.renderer) return;
+        var csq = this.battle.getSquad(this.battle.selected);
+        var cx = (csq && csq.placed) ? csq.tx : this.battle.cursor.x;
+        var cy = (csq && csq.placed) ? csq.ty : this.battle.cursor.y;
+        this.renderer.centerOn(cx, cy, this.battle.w, this.battle.h);
+        this.renderer._followLock = 120;
+        return;
+      }
       case "toggle-sheet":
         this.toggleSheet(arg);
         return;
