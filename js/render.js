@@ -510,6 +510,9 @@
       this.ctx.drawImage(this._campSea, srcX, srcY, this.cssW, this.cssH, 0, 0, this.cssW, this.cssH);
     }
     this._applyFont();
+    var hoverHit = hoverTile && GS.Campaign && GS.Campaign.pickAt
+      ? GS.Campaign.pickAt(camp, hoverTile.x, hoverTile.y)
+      : null;
     var i, e;
     for (i = 0; i < camp.islands.length; i++) {
       var a = camp.islands[i];
@@ -534,7 +537,7 @@
       if (is.status === "cleared") { glyph = "⌂"; fg2 = C.YELLOW; }
       if (is.status === "lost") { glyph = "░"; fg2 = C.RED; }
       var selected = is.id === cursorId;
-      var hovered = hoverTile && Math.abs(hoverTile.x - is.mx) <= 1 && Math.abs(hoverTile.y - is.my) <= 1;
+      var hovered = hoverHit && hoverHit.island.id === is.id;
       var pad = selected ? "#334400" : hovered ? "#003355" : "#002244";
       var ox, oy;
       for (oy = -1; oy <= 1; oy++) {
