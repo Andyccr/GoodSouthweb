@@ -526,6 +526,7 @@
       if (is.biome === "marsh") { glyph = "n"; fg2 = C.GREEN; }
       if (is.biome === "snow") { glyph = "*"; fg2 = C.WHITE; }
       if (is.biome === "ash") { glyph = "^"; fg2 = C.LRED; }
+      if (is.biome === "pine") { glyph = "♣"; fg2 = C.GREEN; }
       if (is.status === "cleared") { glyph = "⌂"; fg2 = C.YELLOW; }
       if (is.status === "lost") { glyph = "░"; fg2 = C.RED; }
       var bg = "#002244";
