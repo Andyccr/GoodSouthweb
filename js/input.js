@@ -20,6 +20,7 @@
 
     window.addEventListener("keydown", function (e) { self.onKey(e); });
     window.addEventListener("keyup", function (e) { self.keys[e.key] = false; });
+    window.addEventListener("blur", function () { self.keys = {}; });
 
     if (view) {
       view.addEventListener("pointerdown", function (e) { self.onPointerDown(e); });
@@ -31,13 +32,16 @@
         if (self.pointer.down) return;
         game.hover = { x: -1, y: -1 };
         game.ui.hideTooltip();
+        self.pointer.x = 0;
+        self.pointer.y = 0;
       });
       view.addEventListener("contextmenu", function (e) { e.preventDefault(); });
       view.addEventListener("wheel", function (e) {
-        if (game.mode !== "battle" && game.mode !== "sandbox") return;
+        if (game.mode !== "battle" && game.mode !== "sandbox" && game.mode !== "campaign") return;
         e.preventDefault();
-        if (e.shiftKey) game.dispatch("rotate-wheel", e.deltaY > 0 ? 1 : -1);
-        else game.dispatch("zoom", e.deltaY > 0 ? -1 : 1);
+        if (e.shiftKey && (game.mode === "battle" || game.mode === "sandbox")) {
+          game.dispatch("rotate-wheel", e.deltaY > 0 ? 1 : -1);
+        } else game.dispatch("zoom", e.deltaY > 0 ? -1 : 1);
       }, { passive: false });
       view.addEventListener("touchstart", function (e) { e.preventDefault(); }, { passive: false });
       view.addEventListener("touchmove", function (e) { e.preventDefault(); }, { passive: false });
@@ -165,22 +169,47 @@
     var ids = GS.Campaign.visibleIslands(game.campaign).map(function (i) { return i.id; });
     var idx = ids.indexOf(game.campCursor);
     if (idx < 0) idx = 0;
-    if (["ArrowRight", "l", "L", "d", "D"].indexOf(k) >= 0) idx = Math.min(ids.length - 1, idx + 1);
-    if (["ArrowLeft", "h", "H", "a", "A"].indexOf(k) >= 0) idx = Math.max(0, idx - 1);
-    if (["ArrowDown", "j", "J", "s", "S"].indexOf(k) >= 0) idx = Math.min(ids.length - 1, idx + 1);
-    if (["ArrowUp", "k", "K", "w", "W"].indexOf(k) >= 0) idx = Math.max(0, idx - 1);
-    if (ids[idx] !== game.campCursor) {
-      game.campCursor = ids[idx];
-      game.hudDirty = true;
+    var cycle = 0;
+    if (k === "Tab") {
       e.preventDefault();
+      cycle = e.shiftKey ? -1 : 1;
     }
-    if (k === "Enter" || k === "g" || k === "G") game.dispatch("open-island", String(game.campCursor));
+    if (k === "[" || k === "PageUp") cycle = -1;
+    if (k === "]" || k === "PageDown") cycle = 1;
+    if (cycle && ids.length) {
+      idx = (idx + cycle + ids.length) % ids.length;
+      game.campCursor = ids[idx];
+      game._campArmed = game.campCursor;
+      game._focusIsland(game.campCursor);
+      game.hudDirty = true;
+    }
+    var panKeys = ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "w", "a", "s", "d", "W", "A", "S", "D", "h", "j", "k", "l", "H", "J", "K", "L"];
+    if (panKeys.indexOf(k) >= 0) e.preventDefault();
+    if (k === "Enter" || k === "g" || k === "G" || k === " ") {
+      e.preventDefault();
+      game.dispatch("open-island", String(game.campCursor));
+    }
     if (k === "n" || k === "N") game.dispatch("hire");
-    if (k === "q") game.dispatch("title");
+    if (k === "q" || k === "Q") { e.preventDefault(); game.dispatch("pause-menu"); }
     if (k === "Escape") { e.preventDefault(); game.dispatch("pause-menu"); }
     if (k === "p" || k === "P") game.dispatch("pal");
     if (k === "-" || k === "_") game.dispatch("mute");
-    if (k === "F5") game.dispatch("quicksave");
+    if (k === "0" || k === "End") {
+      e.preventDefault();
+      game.dispatch("fit-cam");
+    }
+    if (k === "f" || k === "F" || k === "Home") {
+      e.preventDefault();
+      game._focusIsland(game.campCursor);
+    }
+    if (k === "=" || k === "+" || k === "." || k === ">") {
+      e.preventDefault();
+      game.dispatch("zoom", 1);
+    }
+    if (k === "," || k === "<") {
+      e.preventDefault();
+      game.dispatch("zoom", -1);
+    }
   };
 
   Input.prototype._battleKey = function (e) {
@@ -214,13 +243,12 @@
       return;
     }
     if (dx || dy) {
-      if (e.shiftKey && game.renderer) {
-        game.renderer.pan(dx * 4, dy * 4, b.w, b.h);
-        return;
-      }
+      var wasd = ["w", "a", "s", "d", "W", "A", "S", "D"].indexOf(k) >= 0;
+      if (wasd) return;
       b.cursor.x = Math.max(0, Math.min(b.w - 1, b.cursor.x + dx));
       b.cursor.y = Math.max(0, Math.min(b.h - 1, b.cursor.y + dy));
       game.hover = { x: b.cursor.x, y: b.cursor.y };
+      game._kbCursor = true;
       if (b.look) game.lookText = b.lookAt(b.cursor.x, b.cursor.y);
       if (game.renderer && game.renderer._followLock) game.renderer._followLock = 0;
       game.hudDirty = true;
@@ -293,7 +321,8 @@
 
     var sid = b.squadAt(tile.x, tile.y);
     if (sid) {
-      if (sid !== b.selected) game.dispatch("select-squad", sid);
+      if (sid === b.selected) game.dispatch("rotate");
+      else game.dispatch("select-squad", sid);
       return;
     }
     game.dispatch("place");
@@ -311,6 +340,15 @@
     if (ids.length < 2) return 0;
     var a = this._pts[ids[0]], b = this._pts[ids[1]];
     return GS.util.touch.dist(a.x, a.y, b.x, b.y);
+  };
+
+  Input.prototype._camSize = function () {
+    var game = this.game;
+    if (game.mode === "campaign" && game.campaign) return { w: game.campaign.w, h: game.campaign.h };
+    if (game.battle && (game.mode === "battle" || game.mode === "sandbox")) {
+      return { w: game.battle.w, h: game.battle.h };
+    }
+    return null;
   };
 
   Input.prototype._setPanCursor = function (on) {
@@ -335,8 +373,9 @@
 
     var touch = e.pointerType === "touch";
     var n = this._ids().length;
+    var canCam = game.mode === "battle" || game.mode === "sandbox" || game.mode === "campaign";
 
-    if (touch && n >= 2) {
+    if (touch && n >= 2 && canCam) {
       e.preventDefault();
       this._clearLong();
       this._gesture = {
@@ -351,7 +390,7 @@
       return;
     }
 
-    if ((game.mode === "battle" || game.mode === "sandbox") && (e.button === 1 || (e.button === 0 && e.altKey))) {
+    if (canCam && (e.button === 1 || (e.button === 0 && e.altKey))) {
       e.preventDefault();
       this.pointer.pan = true;
       this._gesture = { pinch: false, pan: true, tap: false };
@@ -404,25 +443,29 @@
     var game = this.game;
     this.pointer.x = e.clientX;
     this.pointer.y = e.clientY;
+    if (e.pointerType !== "touch") game._kbCursor = false;
     if (this._pts[e.pointerId]) {
       this._pts[e.pointerId].x = e.clientX;
       this._pts[e.pointerId].y = e.clientY;
     }
+    var canCam = game.mode === "battle" || game.mode === "sandbox" || game.mode === "campaign";
+    var map = this._camSize();
 
-    if (this._gesture && this._gesture.pinch && this._ids().length >= 2 &&
-        (game.mode === "battle" || game.mode === "sandbox") && game.battle) {
+    if (this._gesture && this._gesture.pinch && this._ids().length >= 2 && canCam && map) {
       e.preventDefault();
       var dist = this._span();
+      var lim = game.mode === "campaign" ? GS.CONFIG.campaign : GS.CONFIG.battle;
       var z = GS.util.touch.pinchZoom(this._gesture.startDist, dist, this._gesture.startZoom);
       var mid = this._mid();
-      var tile = game.renderer.tileAtPointer(mid.x, mid.y, game.battle.w, game.battle.h);
-      game.renderer.setZoom(z, game.battle.w, game.battle.h, tile ? tile.x : null, tile ? tile.y : null);
+      var tileZ = game.renderer.tileAtPointer(mid.x, mid.y, map.w, map.h);
+      game.renderer.setZoom(z, map.w, map.h, tileZ ? tileZ.x : null, tileZ ? tileZ.y : null, lim);
+      if (game.mode === "campaign") game._campZoom = game.renderer.zoom;
       if (this._gesture.lastMid) {
         var r = game.renderer;
         r.pan(
           (this._gesture.lastMid.x - mid.x) / (r.tw || 16),
           (this._gesture.lastMid.y - mid.y) / (r.th || 16),
-          game.battle.w, game.battle.h
+          map.w, map.h
         );
       }
       this._gesture.lastMid = mid;
@@ -431,29 +474,25 @@
       return;
     }
 
-    if (this._gesture && this._gesture.tap && !this._gesture.pinch &&
-        (game.mode === "battle" || game.mode === "sandbox" || game.mode === "campaign")) {
+    if (this._gesture && this._gesture.tap && !this._gesture.pinch && canCam) {
       var dx0 = e.clientX - this._gesture.sx;
       var dy0 = e.clientY - this._gesture.sy;
-      if (!this._gesture.paint && GS.util.touch.shouldPan(dx0, dy0, 12)) {
-        if (game.mode === "campaign") {
-          this._gesture.tap = false;
-        } else {
-          this._gesture.pan = true;
-          this._gesture.tap = false;
-          this._clearLong();
-          this.pointer.pan = true;
-          this._setPanCursor(true);
-          game.ui.hideTooltip();
-        }
+      var thresh = GS.util.touch.panThreshold(e.pointerType);
+      if (!this._gesture.paint && GS.util.touch.shouldPan(dx0, dy0, thresh)) {
+        this._gesture.pan = true;
+        this._gesture.tap = false;
+        this._clearLong();
+        this.pointer.pan = true;
+        this._setPanCursor(true);
+        game.ui.hideTooltip();
       }
     }
 
-    if (this.pointer.pan && game.battle && (game.mode === "battle" || game.mode === "sandbox")) {
+    if (this.pointer.pan && map) {
       var r2 = game.renderer;
       var dx = (this.pointer.lastX - e.clientX) / (r2.tw || 16);
       var dy = (this.pointer.lastY - e.clientY) / (r2.th || 16);
-      r2.pan(dx, dy, game.battle.w, game.battle.h);
+      r2.pan(dx, dy, map.w, map.h);
       this.pointer.lastX = e.clientX;
       this.pointer.lastY = e.clientY;
       return;
@@ -512,6 +551,10 @@
     if (tap) {
       if (this._gesture.rotate) {
         if (game.mode === "battle" || game.mode === "sandbox") game.dispatch("rotate");
+        else if (game.mode === "campaign") {
+          var landTile = this._tile(e);
+          if (landTile) game.pointerCampaign(landTile, { forceLand: true });
+        }
       } else {
         this._applyTap(e);
       }

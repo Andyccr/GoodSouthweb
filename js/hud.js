@@ -76,7 +76,9 @@
       ui.chip("调色", game.palette));
     left.innerHTML = this.campLeft(game, node);
     right.innerHTML = this.roster(game.army) + this.relicList(game.army) + this.islandList(game) + this.legend();
-    this._setHint(game.touch ? "点岛登陆 · 底栏打开编制" : "WASD选岛 · Enter登陆 · Esc菜单 · F5保存 · N招募 · Q标题");
+    this._setHint(game.touch
+      ? "点岛选中 · 再点或长按登陆 · 拖/捏平移缩放"
+      : "WASD/拖平移 · 滚轮缩放 · 点岛再点登陆 · 右键立刻登 · Tab换岛 · Enter登陆");
     if (game.compact) {
       ui.setToolbar([]);
     } else {
@@ -88,12 +90,26 @@
         { act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" },
         { act: "help", label: "手册", kbd: "?" },
         { sep: true },
-        { act: "title", label: "标题", kbd: "Q" },
+        { act: "zoom", arg: "1", label: "+", kbd: ".", title: "放大" },
+        { act: "zoom", arg: "-1", label: "−", kbd: ",", title: "缩小" },
+        { act: "center-cam", label: "对准", kbd: "F" },
+        { act: "fit-cam", label: "全图", kbd: "0" },
+        { sep: true },
+        { act: "title", label: "标题" },
       ]);
     }
-    ui.setCommands(node && node.status === "scouted" ? [
+    var campCmds = node && node.status === "scouted" ? [
       { act: "open-island", arg: String(node.id), label: "登陆 " + node.name, kbd: "G" },
-    ] : []);
+    ] : [];
+    if (game.compact) {
+      campCmds = campCmds.concat([
+        { act: "zoom", arg: "1", label: "+" },
+        { act: "zoom", arg: "-1", label: "−" },
+        { act: "center-cam", label: "对准" },
+        { act: "fit-cam", label: "全图" },
+      ]);
+    }
+    ui.setCommands(campCmds);
     this._dock(game, [
       { act: "toggle-sheet", arg: "left", label: "情报" },
       { act: "toggle-sheet", arg: "right", label: "编制" },
@@ -142,10 +158,10 @@
     left.innerHTML = this.battleLeft(game, b);
     right.innerHTML = this.squadList(b) + this.logHtml(b) + this.legend();
     this._setHint((game.touch || game.compact)
-      ? "点空地就位 · 拖动画布 · 双指缩放 · 长按转向"
+      ? "点空地就位 · 拖平移 · 双指缩放 · 点同一兵团转向"
       : (game.mode === "sandbox"
-        ? "点空地就位 · 拖平移 · 滚轮缩放 · 右键转向 · Shift+WASD移镜 · F对准"
-        : "点空地就位 · 拖平移 · R转向 · G开战 · F对准"));
+        ? "点空地就位 · 拖/WASD平移 · 滚轮缩放 · 右键转向"
+        : "点空地就位 · 拖/WASD平移 · R或再点兵团转向 · G开战"));
 
     this.battleToolbar(game, b);
   };
@@ -269,17 +285,17 @@
       (node.status === "scouted"
         ? '<p><button data-act="open-island" data-arg="' + node.id + '">登陆此岛</button></p>'
         : "") +
-      "<p class=\"hint\">只可进攻已侦察、尚未收复的岛。</p>";
+      "<p class=\"hint\">海图点两下或按 G 登陆。列表只对准镜头。</p>";
   };
 
   Hud.prototype.islandList = function (game) {
-    var html = "<h3>已知岛屿</h3>";
+    var html = "<h3>已知岛屿</h3><p class=\"hint\">点选对准，登陆请用按钮。</p>";
     for (var i = 0; i < game.campaign.islands.length; i++) {
       var is = game.campaign.islands[i];
       if (is.status === "hidden") continue;
       var omShort = (is.omen && is.status === "scouted" && GS.Meta) ? (GS.Meta.omen(is.omen).name) : "";
       html += '<div class="island-item' + (is.id === game.campCursor ? " sel" : "") +
-        '" data-act="open-island" data-arg="' + is.id + '">' +
+        '" data-act="select-island" data-arg="' + is.id + '">' +
         "<span>" + is.name + "</span><span class=\"hint\">" + is.status + " ▲" + is.difficulty +
         (omShort ? " · " + omShort : "") + "</span></div>";
     }

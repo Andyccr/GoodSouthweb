@@ -180,6 +180,8 @@ button, input, select, textarea, .look, .log, .panel { user-select: text; }
 }
 
 #view.is-panning { cursor: grabbing; }
+#view.is-chart { cursor: grab; }
+#view.is-chart.is-panning { cursor: grabbing; }
 
 #view:focus {
   box-shadow: 0 0 0 1px var(--cyan), 0 12px 48px rgba(0, 80, 120, 0.4);

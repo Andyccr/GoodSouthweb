@@ -81,6 +81,36 @@
     return null;
   }
 
+  function pickAt(camp, x, y, radius) {
+    if (!camp || !camp.islands) return null;
+    radius = radius == null ? ((GS.CONFIG.campaign && GS.CONFIG.campaign.pickRadius) || 4) : radius;
+    var best = null, bd = radius + 0.01;
+    for (var i = 0; i < camp.islands.length; i++) {
+      var is = camp.islands[i];
+      if (is.status === "hidden") continue;
+      var dx = is.mx - x, dy = is.my - y;
+      var d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bd) {
+        bd = d;
+        best = is;
+      }
+    }
+    if (!best) return null;
+    return { island: best, dist: bd };
+  }
+
+  /** Map tap: first press selects/arms; a second close tap on the same scouted island lands. */
+  function tapIntent(s) {
+    if (!s || !s.island) return { action: "none" };
+    var open = s.openRadius == null ? 2.6 : s.openRadius;
+    var dist = s.dist == null ? 0 : s.dist;
+    if (s.forceLand && s.island.status === "scouted") return { action: "land" };
+    if (s.island.status === "scouted" && s.selectedId === s.island.id && s.armedId === s.island.id && dist <= open) {
+      return { action: "land" };
+    }
+    return { action: "select", hint: s.island.status === "scouted" };
+  }
+
   function deserialize(data) {
     if (!data || !data.islands) return null;
     return data;
@@ -97,6 +127,8 @@
     generateIsland: generateIsland,
     isFinished: isFinished,
     nextScouted: nextScouted,
+    pickAt: pickAt,
+    tapIntent: tapIntent,
     serialize: serialize,
     deserialize: deserialize,
   };
