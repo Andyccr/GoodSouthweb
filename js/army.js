@@ -35,6 +35,7 @@
       coins: opts.coins != null ? opts.coins : cfg.startCoins,
       commanders: commanders,
       islandsCleared: opts.islandsCleared || 0,
+      relics: opts.relics ? opts.relics.slice() : [],
     };
   }
 
@@ -61,10 +62,20 @@
     return { ok: true, commander: cmd };
   }
 
+  function grantRelic(army, relicId) {
+    if (!army || !relicId) return false;
+    army.relics = army.relics || [];
+    if (army.relics.indexOf(relicId) >= 0) return false;
+    army.relics.push(relicId);
+    GS.bus.emit(GS.EV.ARMY_CHANGED, { army: army, reason: "relic", relic: relicId });
+    return true;
+  }
+
   function applyBattleOutcome(army, outcome) {
     var cfg = GS.CONFIG.campaign;
     if (outcome.kind === "victory") {
       army.coins += outcome.coins || 0;
+      if (outcome.wheatCoins) army.coins += outcome.wheatCoins;
       army.islandsCleared++;
       for (var i = 0; i < army.commanders.length; i++) {
         var c = army.commanders[i];
@@ -87,6 +98,7 @@
       coins: data.coins | 0,
       commanders: data.commanders,
       islandsCleared: data.islandsCleared | 0,
+      relics: data.relics ? data.relics.slice() : [],
     };
   }
 
@@ -96,6 +108,7 @@
     living: livingCommanders,
     canHire: canHire,
     hire: hire,
+    grantRelic: grantRelic,
     applyBattleOutcome: applyBattleOutcome,
     serialize: serialize,
     deserialize: deserialize,

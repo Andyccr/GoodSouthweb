@@ -287,6 +287,10 @@ button, input, select, textarea, .look, .log, .panel { user-select: text; }
 .chip.hi .chip-v { color: var(--hi); }
 .chip.cyan .chip-v { color: var(--cyan); }
 
+.omen { color: var(--hi); }
+.relic-line { color: var(--cyan); }
+.voyage-panel .menu button { white-space: normal; text-align: left; line-height: 1.35; }
+
 .hpbar {
   display: inline-block;
   width: 72px;

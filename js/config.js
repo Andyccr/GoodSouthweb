@@ -3,15 +3,15 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "1.8.1",
-    saveVersion: 3,
+    version: "2.0.0",
+    saveVersion: 4,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
     settingsKey: "goodsouth-settings",
 
     campaign: {
-      islandCount: 14,
-      startCoins: 10,
+      islandCount: 16,
+      startCoins: 12,
       recruitHealOnVictory: "full",
       coinPerHouse: 1,
       chartW: 88,
@@ -42,6 +42,7 @@
       infantry: { cost: 6, soldiers: 10, maxBonus: 2, name: "盾兵" },
       archer: { cost: 8, soldiers: 8, maxBonus: 2, name: "弓手" },
       pike: { cost: 7, soldiers: 9, maxBonus: 2, name: "枪兵" },
+      skirmisher: { cost: 7, soldiers: 8, maxBonus: 2, name: "投矛手" },
     },
 
     battle: {

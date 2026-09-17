@@ -5,6 +5,8 @@
   function create(seed, count) {
     count = count || GS.CONFIG.campaign.islandCount;
     var camp = GS.mapgen.campaign(seed, count);
+    var rng = GS.rng(typeof seed === "number" ? seed : GS.hashStr(String(seed || "south")));
+    if (GS.Meta && GS.Meta.decorateCampaign) GS.Meta.decorateCampaign(camp, rng);
     return camp;
   }
 
@@ -51,11 +53,14 @@
   }
 
   function generateIsland(node) {
-    return GS.mapgen.island(node.seed, {
+    var island = GS.mapgen.island(node.seed, {
       biome: node.biome,
       difficulty: node.difficulty,
       name: node.name,
     });
+    island.omen = node.omen || "calm";
+    island.relic = node.relic || null;
+    return island;
   }
 
   function isFinished(camp) {
@@ -66,6 +71,14 @@
 
   function serialize(camp) {
     return GS.util.deepClone(camp);
+  }
+
+  function nextScouted(camp) {
+    if (!camp) return null;
+    for (var i = 0; i < camp.islands.length; i++) {
+      if (camp.islands[i].status === "scouted") return camp.islands[i];
+    }
+    return null;
   }
 
   function deserialize(data) {
@@ -83,6 +96,7 @@
     resetForRetry: resetForRetry,
     generateIsland: generateIsland,
     isFinished: isFinished,
+    nextScouted: nextScouted,
     serialize: serialize,
     deserialize: deserialize,
   };

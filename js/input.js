@@ -151,6 +151,11 @@
       if (k === "Enter" || k === " " || k === "Escape" || k === "q" || k === "Q") game.dispatch("next");
       return;
     }
+    if (game.mode === "voyage") {
+      if (k === "1" || k === "a" || k === "A") game.dispatch("voyage-pick", "a");
+      if (k === "2" || k === "b" || k === "B") game.dispatch("voyage-pick", "b");
+      return;
+    }
     if (game.mode === "battle" || game.mode === "sandbox") this._battleKey(e);
   };
 
@@ -252,6 +257,8 @@
       if (k === "n" || k === "N") game.dispatch("spawn-enemy");
       if (k === "b" || k === "B") game.dispatch("spawn-ship");
       if (k === "c" || k === "C") game.dispatch("spawn-ally");
+      if (k === "y" || k === "Y") game.dispatch("spawn-shaman");
+      if (k === "i" || k === "I") game.dispatch("spawn-hound");
       if (k === "v" || k === "V") game.dispatch("spawn-jarl");
       if (k === "x" || k === "X") game.dispatch("spawn-thrower");
       if (k === "z" || k === "Z") game.dispatch("tool-place");
