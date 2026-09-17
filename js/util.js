@@ -104,6 +104,11 @@
         var dx = ax - bx, dy = ay - by;
         return Math.sqrt(dx * dx + dy * dy);
       },
+      panThreshold: function (pointerType) {
+        var cfg = (GS.CONFIG && GS.CONFIG.battle) || {};
+        if (pointerType === "touch") return cfg.panThresholdTouch || 16;
+        return cfg.panThreshold || 10;
+      },
       shouldPan: function (dx, dy, threshold) {
         threshold = threshold == null ? 12 : threshold;
         return dx * dx + dy * dy >= threshold * threshold;

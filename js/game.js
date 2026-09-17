@@ -31,6 +31,9 @@
     this.touch = false;
     this.lowFx = false;
     this.sheet = null;
+    this._campZoom = null;
+    this._campArmed = null;
+    this._kbCursor = false;
 
     // pause / menu
     this.menuOpen = false;
@@ -70,6 +73,7 @@
       if ($("sandbox-tools")) $("sandbox-tools").classList.remove("visible");
       if ($("phase-banner")) $("phase-banner").classList.add("hidden");
       this.screens.title();
+      if ($("view")) $("view").classList.remove("is-chart");
       return;
     }
     if (mode === "help") { this.screens.help(); return; }
@@ -83,9 +87,14 @@
       this.ui.hideTooltip();
       if ($("sandbox-tools")) $("sandbox-tools").classList.remove("visible");
       if ($("phase-banner")) $("phase-banner").classList.add("hidden");
-      if ($("view")) $("view").focus();
+      if ($("view")) {
+        $("view").classList.add("is-chart");
+        $("view").focus();
+      }
+      this._fitCampaignCam();
       return;
     }
+    if ($("view")) $("view").classList.remove("is-chart");
     if (mode === "battle" || mode === "sandbox") {
       this.screens.hide();
       if ($("view")) $("view").focus();
@@ -144,12 +153,110 @@
     }
     this.renderer.layoutView(this.island.w, this.island.h);
     this.renderer.centerOn(this.island.w / 2, this.island.h / 2, this.island.w, this.island.h);
+    this.renderer._followLock = 0;
+  };
+
+  Game.prototype._fitCampaignCam = function () {
+    if (!this.renderer || !this.campaign) return;
+    var cfg = GS.CONFIG.campaign || {};
+    if (this._campZoom == null) {
+      this._campZoom = this.compact ? (cfg.zoomMobile || 28) : (cfg.zoomDefault || 22);
+    }
+    this.renderer.zoom = this._campZoom;
+    this.renderer.layoutView(this.campaign.w, this.campaign.h);
+    this.renderer._followLock = 0;
+    this._focusIsland(this.campCursor);
+  };
+
+  Game.prototype._focusIsland = function (id) {
+    if (!this.campaign || !this.renderer) return;
+    var node = this.campaign.islands[id];
+    if (!node) return;
+    this.renderer.centerOn(node.mx, node.my, this.campaign.w, this.campaign.h);
+    this.renderer._followLock = 90;
+  };
+
+  Game.prototype._tickCamera = function (dt) {
+    if (!this.input || GS.util.isTypingTarget()) return;
+    var keys = this.input.keys || {};
+    var dx = 0, dy = 0;
+    if (keys.w || keys.W) dy -= 1;
+    if (keys.s || keys.S) dy += 1;
+    if (keys.a || keys.A) dx -= 1;
+    if (keys.d || keys.D) dx += 1;
+    if (this.mode === "campaign") {
+      if (keys.ArrowLeft || keys.h || keys.H) dx -= 1;
+      if (keys.ArrowRight || keys.l || keys.L) dx += 1;
+      if (keys.ArrowUp || keys.k || keys.K) dy -= 1;
+      if (keys.ArrowDown || keys.j || keys.J) dy += 1;
+    }
+    var map = null, cfg = GS.CONFIG.battle || {};
+    if (this.mode === "campaign" && this.campaign) {
+      map = { w: this.campaign.w, h: this.campaign.h };
+      cfg = GS.CONFIG.campaign || cfg;
+    } else if ((this.mode === "battle" || this.mode === "sandbox") && this.battle) {
+      map = { w: this.battle.w, h: this.battle.h };
+    }
+    if (map && (dx || dy)) {
+      var fast = !!(keys.Shift);
+      var sp = (fast ? (cfg.camShift || 36) : (cfg.camSpeed || 22)) * dt;
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      this.renderer.pan((dx / len) * sp, (dy / len) * sp, map.w, map.h);
+    }
+    if (map) this._tickEdgePan(dt, map, cfg);
+  };
+
+  Game.prototype._tickEdgePan = function (dt, map, cfg) {
+    if (this.compact || this.touch || this.input.pointer.down) return;
+    var view = $("view");
+    if (!view || !this.renderer) return;
+    var box = view.getBoundingClientRect();
+    var px = this.input.pointer.x, py = this.input.pointer.y;
+    if (!px && !py) return;
+    if (px < box.left || py < box.top || px > box.right || py > box.bottom) return;
+    cfg = cfg || GS.CONFIG.battle || {};
+    var m = cfg.edgePan || (GS.CONFIG.battle && GS.CONFIG.battle.edgePan) || 22;
+    var dx = 0, dy = 0;
+    if (px < box.left + m) dx = -1;
+    if (px > box.right - m) dx = 1;
+    if (py < box.top + m) dy = -1;
+    if (py > box.bottom - m) dy = 1;
+    if (!dx && !dy) return;
+    var sp = (cfg.camSpeed || 22) * 0.85 * dt;
+    this.renderer.pan(dx * sp, dy * sp, map.w, map.h);
+  };
+
+  Game.prototype._fitAllChart = function () {
+    if (!this.campaign || !this.renderer) return;
+    var vis = GS.Campaign.visibleIslands(this.campaign);
+    if (!vis.length) return;
+    var cfg = GS.CONFIG.campaign || {};
+    var minX = vis[0].mx, maxX = vis[0].mx, minY = vis[0].my, maxY = vis[0].my;
+    var i;
+    for (i = 1; i < vis.length; i++) {
+      minX = Math.min(minX, vis[i].mx);
+      maxX = Math.max(maxX, vis[i].mx);
+      minY = Math.min(minY, vis[i].my);
+      maxY = Math.max(maxY, vis[i].my);
+    }
+    var pad = 6;
+    this.renderer.layoutView(this.campaign.w, this.campaign.h);
+    var needW = Math.max(8, maxX - minX + pad * 2);
+    var needH = Math.max(6, maxY - minY + pad * 2);
+    var zW = this.renderer.cssW / needW;
+    var zH = this.renderer.cssH / (needH * 1.12);
+    var z = Math.max(cfg.zoomMin || 14, Math.min(cfg.zoomMax || 40, Math.min(zW, zH)));
+    this.renderer.setZoom(z, this.campaign.w, this.campaign.h, (minX + maxX) / 2, (minY + maxY) / 2, cfg);
+    this.renderer.centerOn((minX + maxX) / 2, (minY + maxY) / 2, this.campaign.w, this.campaign.h);
+    this._campZoom = this.renderer.zoom;
+    this.renderer._followLock = 0;
   };
 
   Game.prototype._bindLifecycle = function () {
     var self = this;
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) {
+        if (self.input) self.input.keys = {};
         if ((self.mode === "battle" || self.mode === "sandbox") && self.battle && self.battle.phase === "fight" && self.battle.speed > 0 && !self.menuOpen) {
           self._resumeSpeed = self.battle.speed;
           self.battle.setSpeed(0);
@@ -238,7 +345,7 @@
       "back-camp", "next", "retry", "start", "pause", "pause-menu", "resume", "spd", "rotate", "look",
       "evac", "pal", "mute", "select-squad", "open-island", "tool-place", "tool-paint",
       "brush-next", "spawn-enemy", "spawn-ship", "spawn-ally", "gen", "place",
-      "zoom", "center-cam",
+      "zoom", "center-cam", "fit-cam", "select-island",
       "toggle-sheet",
       "save-menu", "load-menu", "save-slot", "load-slot", "quicksave", "quickload",
       "resume-or-title", "confirm-new-campaign", "warhorn", "voyage-pick",
@@ -278,6 +385,14 @@
     var dt = Math.min(0.05, (t - this.last) / 1000);
     this.last = t;
 
+    if (this.menuOpen) {
+      this.renderWorld();
+      this.hud.render();
+      return;
+    }
+
+    this._tickCamera(dt);
+
     if (this.battle && (this.mode === "battle" || this.mode === "sandbox") && !this.menuOpen) {
       var before = this.battle.log.length;
       this.battle.tick(dt);
@@ -301,6 +416,7 @@
       this.renderer.drawBattle(this.battle, this.hover, {
         tool: this.sandboxTool,
         brush: this.sandboxBrush,
+        followCursor: !!this._kbCursor,
       });
     }
   };
@@ -411,12 +527,47 @@
         this.battle.rotateSquad(this.battle.selected, (sqw.facing + (arg > 0 ? 1 : 3)) & 3);
         this.hudDirty = true;
         return;
-      case "zoom":
+      case "zoom": {
+        var zdir = arg > 0 ? 1 : -1;
+        if (this.mode === "campaign" && this.campaign) {
+          var focus = this.hover && this.hover.x >= 0 ? this.hover : null;
+          var node = this.campaign.islands[this.campCursor];
+          this.renderer.setZoom(
+            this.renderer.zoom + zdir,
+            this.campaign.w, this.campaign.h,
+            focus ? focus.x : (node ? node.mx : null),
+            focus ? focus.y : (node ? node.my : null),
+            GS.CONFIG.campaign
+          );
+          this._campZoom = this.renderer.zoom;
+          this.hudDirty = true;
+          return;
+        }
         if (!this.battle) return;
-        this.renderer.setZoom(this.renderer.zoom + (arg > 0 ? 1 : -1), this.battle.w, this.battle.h, this.battle.cursor.x, this.battle.cursor.y);
+        var zf = (this.hover && this.hover.x >= 0) ? this.hover : this.battle.cursor;
+        this.renderer.setZoom(this.renderer.zoom + zdir, this.battle.w, this.battle.h, zf.x, zf.y);
         this.hudDirty = true;
         return;
+      }
+      case "fit-cam":
+        if (this.mode === "campaign") this._fitAllChart();
+        else this.dispatch("center-cam");
+        this.hudDirty = true;
+        return;
+      case "select-island": {
+        var sid = +arg;
+        if (!this.campaign || !this.campaign.islands[sid] || this.campaign.islands[sid].status === "hidden") return;
+        this.campCursor = sid;
+        this._campArmed = sid;
+        this._focusIsland(sid);
+        this.hudDirty = true;
+        return;
+      }
       case "center-cam": {
+        if (this.mode === "campaign") {
+          this._focusIsland(this.campCursor);
+          return;
+        }
         if (!this.battle || !this.renderer) return;
         var csq = this.battle.getSquad(this.battle.selected);
         var cx = (csq && csq.placed) ? csq.tx : this.battle.cursor.x;
@@ -479,6 +630,7 @@
         if (sqs[n]) {
           this.battle.selected = sqs[n].id;
           this.ui.toast("选中 " + sqs[n].name, "info");
+          this._centerSelectedSquad(true);
           this.hudDirty = true;
         }
         return;
@@ -490,6 +642,7 @@
         var i = 0;
         for (; i < list.length; i++) if (list[i].id === this.battle.selected) break;
         this.battle.selected = list[(i + 1) % list.length].id;
+        this._centerSelectedSquad(true);
         this.hudDirty = true;
         return;
       }
@@ -576,6 +729,8 @@
     this.army = GS.Army.create(this.rng);
     this.campaign = GS.Campaign.create(seed);
     this.campCursor = 0;
+    this._campZoom = null;
+    this._campArmed = null;
     this._resultShown = false;
     this.autosave("新战役");
     this.ui.toast("远征开始。西侧家园已侦察。", "ok");
@@ -651,6 +806,7 @@
     this.army = data.army;
     this.campaign = data.campaign;
     this.campCursor = this.campaign.current || 0;
+    this._campArmed = null;
     this._resultShown = false;
     this.closeMenu(true);
 
@@ -834,6 +990,15 @@
     this.ui.toast("新岛：" + this.island.name + "（" + this.island.w + "×" + this.island.h + "）", "ok");
   };
 
+  Game.prototype._centerSelectedSquad = function (force) {
+    if (!this.battle || !this.renderer) return;
+    var sq = this.battle.getSquad(this.battle.selected);
+    if (!sq || !sq.placed) return;
+    if (!force && this.renderer._followLock > 0) return;
+    this.renderer.centerOn(sq.tx, sq.ty, this.battle.w, this.battle.h);
+    this.renderer._followLock = 90;
+  };
+
   Game.prototype.tryPlace = function () {
     var b = this.battle;
     if (!b) return false;
@@ -876,35 +1041,46 @@
 
   /* ---------- pointer helpers used by Input ---------- */
 
-  Game.prototype.pointerCampaign = function (tile) {
-    var best = null, bd = 3;
-    for (var i = 0; i < this.campaign.islands.length; i++) {
-      var is = this.campaign.islands[i];
-      if (is.status === "hidden") continue;
-      var d = Math.abs(is.mx - tile.x) + Math.abs(is.my - tile.y);
-      if (d < bd) { bd = d; best = is; }
+  Game.prototype.pointerCampaign = function (tile, opts) {
+    opts = opts || {};
+    if (!tile || !this.campaign) return;
+    var cfg = GS.CONFIG.campaign || {};
+    var hit = GS.Campaign.pickAt(this.campaign, tile.x, tile.y, cfg.pickRadius);
+    if (!hit) return;
+    var intent = GS.Campaign.tapIntent({
+      island: hit.island,
+      dist: hit.dist,
+      selectedId: this.campCursor,
+      armedId: this._campArmed,
+      openRadius: cfg.openRadius,
+      forceLand: !!opts.forceLand,
+    });
+    this.campCursor = hit.island.id;
+    this.hudDirty = true;
+    if (intent.action === "land") {
+      this._campArmed = null;
+      this.openIsland(hit.island.id);
+      return;
     }
-    if (best) {
-      this.campCursor = best.id;
-      this.hudDirty = true;
-      if (bd <= 1) this.openIsland(best.id);
-    }
+    this._campArmed = hit.island.id;
+    this._focusIsland(hit.island.id);
+    if (intent.hint) this.ui.toast(hit.island.name + " · 再点一次登陆", "info");
   };
 
   Game.prototype.hoverCampaign = function (tile, cx, cy) {
-    var best = null, bd = 2;
-    for (var i = 0; i < this.campaign.islands.length; i++) {
-      var is = this.campaign.islands[i];
-      if (is.status === "hidden") continue;
-      var d = Math.abs(is.mx - tile.x) + Math.abs(is.my - tile.y);
-      if (d < bd) { bd = d; best = is; }
-    }
-    if (best) {
+    var hit = GS.Campaign.pickAt(this.campaign, tile.x, tile.y, (GS.CONFIG.campaign && GS.CONFIG.campaign.pickRadius) || 4);
+    if (hit) {
+      var best = hit.island;
       var st = { scouted: "未攻", cleared: "已收复", lost: "已陷" }[best.status] || best.status;
+      var om = best.omen && GS.Meta ? GS.Meta.omen(best.omen) : null;
+      var landHint = best.status !== "scouted"
+        ? "已" + st
+        : (this.touch ? "再点一次登陆 · 长按立刻登" : "再点一次登陆 · 右键立刻登");
       this.ui.setTooltip(
         '<div class="tt-title">' + best.name + "</div>" +
-        '<div class="tt-sub">' + GS.BIOMES[best.biome].name + " · 威胁 " + best.difficulty + " · " + st + "</div>" +
-        "<div>点击登陆</div>",
+        '<div class="tt-sub">' + GS.BIOMES[best.biome].name + " · 威胁 " + best.difficulty + " · " + st +
+        (om && om.id !== "calm" ? " · " + om.name : "") + "</div>" +
+        "<div>" + landHint + "</div>",
         cx, cy
       );
     } else this.ui.hideTooltip();
