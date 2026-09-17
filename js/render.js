@@ -157,9 +157,9 @@
     this.clampCam(mapW, mapH);
   };
 
-  Renderer.prototype.setZoom = function (z, mapW, mapH, focusX, focusY) {
-    var cfg = GS.CONFIG.battle || {};
-    var min = cfg.zoomMin || 10, max = cfg.zoomMax || 28;
+  Renderer.prototype.setZoom = function (z, mapW, mapH, focusX, focusY, lim) {
+    lim = lim || GS.CONFIG.battle || {};
+    var min = lim.zoomMin || 10, max = lim.zoomMax || 28;
     z = Math.max(min, Math.min(max, +z));
     if (Math.abs(z - this.zoom) < 0.08) return;
     var fx = focusX != null ? focusX : this.camX + (this.cssW / this.tw) / 2;
@@ -302,7 +302,7 @@
     var island = battle.island;
     this.layoutView(island.w, island.h);
     if (this._followLock > 0) this._followLock--;
-    if (battle.phase !== "deploy" && (!this.lowFx || this._followLock <= 0)) {
+    if (opts.followCursor) {
       this.followTile(battle.cursor.x, battle.cursor.y, island.w, island.h);
     }
     this.time += this.lowFx ? 0.032 : 0.016;
@@ -501,16 +501,20 @@
   };
 
   Renderer.prototype.drawCampaign = function (camp, army, cursorId, hoverTile) {
-    this.resize(camp.w, camp.h);
+    this.layoutView(camp.w, camp.h);
     this._rebuildCampaignSea(camp);
-    if (this._campSea) this.ctx.drawImage(this._campSea, 0, 0);
-    else this.clear("#000055");
+    this.clear("#000055");
+    if (this._campSea) {
+      var srcX = this.camX * this.tw;
+      var srcY = this.camY * this.th;
+      this.ctx.drawImage(this._campSea, srcX, srcY, this.cssW, this.cssH, 0, 0, this.cssW, this.cssH);
+    }
     this._applyFont();
-    var x, y;
-    for (var i = 0; i < camp.islands.length; i++) {
+    var i, e;
+    for (i = 0; i < camp.islands.length; i++) {
       var a = camp.islands[i];
       if (a.status === "hidden") continue;
-      for (var e = 0; e < a.edges.length; e++) {
+      for (e = 0; e < a.edges.length; e++) {
         var b = camp.islands[a.edges[e]];
         if (b.id < a.id) continue;
         if (b.status === "hidden") continue;
@@ -529,18 +533,40 @@
       if (is.biome === "pine") { glyph = "♣"; fg2 = C.GREEN; }
       if (is.status === "cleared") { glyph = "⌂"; fg2 = C.YELLOW; }
       if (is.status === "lost") { glyph = "░"; fg2 = C.RED; }
-      var bg = "#002244";
-      if (is.id === cursorId) bg = "#334400";
-      if (hoverTile && hoverTile.x === is.mx && hoverTile.y === is.my) bg = "#003355";
-      this.cell(is.mx, is.my, glyph, fg2, bg);
-      if (is.id === cursorId) this._cursor(is.mx, is.my, C.YELLOW);
-      if (is.id === camp.current) this.cell(is.mx, Math.max(0, is.my - 1), "@", C.LCYAN, null);
-      if (is.status === "scouted") {
-        this.ctx.globalAlpha = 0.7;
-        this.cell(is.mx, Math.min(camp.h - 1, is.my + 1), String(Math.min(9, is.difficulty)), C.BROWN, null);
-        this.ctx.globalAlpha = 1;
+      var selected = is.id === cursorId;
+      var hovered = hoverTile && Math.abs(hoverTile.x - is.mx) <= 1 && Math.abs(hoverTile.y - is.my) <= 1;
+      var pad = selected ? "#334400" : hovered ? "#003355" : "#002244";
+      var ox, oy;
+      for (oy = -1; oy <= 1; oy++) {
+        for (ox = -1; ox <= 1; ox++) {
+          if (ox === 0 && oy === 0) continue;
+          this.cell(is.mx + ox, is.my + oy, "·", selected ? C.YELLOW : C.BLUE, pad);
+        }
       }
+      this.cell(is.mx, is.my, glyph, fg2, pad);
+      if (selected) this._cursor(is.mx, is.my, C.YELLOW);
+      if (is.id === camp.current) this.cell(is.mx, Math.max(0, is.my - 2), "@", C.LCYAN, null);
+      if (is.status === "scouted") {
+        this.cell(is.mx, Math.min(camp.h - 1, is.my + 2), String(Math.min(9, is.difficulty)), C.BROWN, null);
+      }
+      this._islandLabel(is.mx, is.my, is.name, selected ? C.YELLOW : C.WHITE);
     }
+  };
+
+  Renderer.prototype._islandLabel = function (tx, ty, text, fg) {
+    var p = this._tilePx(tx + 0.5, ty + 2.15);
+    if (p.x < -40 || p.y < -10 || p.x > this.cssW + 40 || p.y > this.cssH + 20) return;
+    var ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.font = "600 " + Math.max(10, Math.min(13, (this.th * 0.55) | 0)) + "px 'IBM Plex Mono', 'Source Code Pro', 'DejaVu Sans Mono', ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = this.tint("#000000");
+    ctx.fillText(text, p.x + 1, p.y + 1);
+    ctx.fillStyle = this.tint(fg || C.WHITE);
+    ctx.fillText(text, p.x, p.y);
+    ctx.restore();
   };
 
   Renderer.prototype._line = function (x0, y0, x1, y1, color) {

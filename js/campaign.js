@@ -81,6 +81,24 @@
     return null;
   }
 
+  function pickAt(camp, x, y, radius) {
+    if (!camp || !camp.islands) return null;
+    radius = radius == null ? ((GS.CONFIG.campaign && GS.CONFIG.campaign.pickRadius) || 4) : radius;
+    var best = null, bd = radius + 0.01;
+    for (var i = 0; i < camp.islands.length; i++) {
+      var is = camp.islands[i];
+      if (is.status === "hidden") continue;
+      var dx = is.mx - x, dy = is.my - y;
+      var d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bd) {
+        bd = d;
+        best = is;
+      }
+    }
+    if (!best) return null;
+    return { island: best, dist: bd };
+  }
+
   function deserialize(data) {
     if (!data || !data.islands) return null;
     return data;
@@ -97,6 +115,7 @@
     generateIsland: generateIsland,
     isFinished: isFinished,
     nextScouted: nextScouted,
+    pickAt: pickAt,
     serialize: serialize,
     deserialize: deserialize,
   };

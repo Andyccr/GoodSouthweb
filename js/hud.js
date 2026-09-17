@@ -76,7 +76,7 @@
       ui.chip("调色", game.palette));
     left.innerHTML = this.campLeft(game, node);
     right.innerHTML = this.roster(game.army) + this.relicList(game.army) + this.islandList(game) + this.legend();
-    this._setHint(game.touch ? "点岛登陆 · 底栏打开编制" : "WASD选岛 · Enter登陆 · Esc菜单 · F5保存 · N招募 · Q标题");
+    this._setHint(game.touch ? "点岛选中 · 再点登陆 · 拖动画布平移" : "WASD/拖动画布平移 · 滚轮缩放 · Tab换岛 · Enter登陆 · N招募");
     if (game.compact) {
       ui.setToolbar([]);
     } else {
@@ -142,10 +142,10 @@
     left.innerHTML = this.battleLeft(game, b);
     right.innerHTML = this.squadList(b) + this.logHtml(b) + this.legend();
     this._setHint((game.touch || game.compact)
-      ? "点空地就位 · 拖动画布 · 双指缩放 · 长按转向"
+      ? "点空地就位 · 拖平移 · 双指缩放 · 点同一兵团转向"
       : (game.mode === "sandbox"
-        ? "点空地就位 · 拖平移 · 滚轮缩放 · 右键转向 · Shift+WASD移镜 · F对准"
-        : "点空地就位 · 拖平移 · R转向 · G开战 · F对准"));
+        ? "点空地就位 · 拖/WASD平移 · 滚轮缩放 · 右键转向"
+        : "点空地就位 · 拖/WASD平移 · R或再点兵团转向 · G开战"));
 
     this.battleToolbar(game, b);
   };
