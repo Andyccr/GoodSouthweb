@@ -5,8 +5,9 @@
   function rosterFor(difficulty) {
     var roster = ["raider"];
     if (difficulty >= 2) roster.push("thrower");
-    if (difficulty >= 3) roster.push("shield");
+    if (difficulty >= 3) roster.push("shield", "hound");
     if (difficulty >= 4) roster.push("brute");
+    if (difficulty >= 5) roster.push("shaman");
     if (difficulty >= 6) roster.push("berserk");
     return roster;
   }
@@ -31,6 +32,8 @@
         if (i === n - 1 && k > count - 3 && difficulty >= 3) {
           role = rng.chance(0.5) ? "brute" : role;
         }
+        if (difficulty >= 5 && rng.chance(0.08)) role = "shaman";
+        if (difficulty >= 3 && rng.chance(0.1)) role = "hound";
         units.push(role);
       }
       if (i === n - 1 && difficulty >= 7) units.push("jarl");

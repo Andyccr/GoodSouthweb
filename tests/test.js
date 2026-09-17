@@ -24,7 +24,7 @@ vm.createContext(context);
 
 var files = [
   "events.js", "config.js", "util.js", "rng.js",
-  "tiles.js", "names.js", "pathfind.js", "mapgen.js",
+  "tiles.js", "names.js", "content.js", "pathfind.js", "mapgen.js",
   "army.js", "campaign.js", "save.js", "waves.js", "sim.js",
 ];
 files.forEach(function (f) {
@@ -53,7 +53,10 @@ GS.bus.emit("test:ping", { n: 3 });
 ok(hit === 5, "event bus accumulates");
 
 console.log("Config / Util");
-ok(GS.CONFIG.saveVersion >= 3, "save schema v3+");
+ok(GS.CONFIG.saveVersion >= 4, "save schema v4+");
+ok(GS.CONFIG.version.indexOf("2.") === 0, "game version 2.x");
+ok(GS.CONFIG.campaign.islandCount === 16 && GS.CONFIG.campaign.startCoins === 12, "campaign v2 scale");
+ok(GS.CONFIG.hire.skirmisher && GS.CONFIG.hire.skirmisher.cost === 7, "hire table includes skirmisher");
 ok(GS.CONFIG.battle.zoomMobile >= 16, "mobile zoom default");
 ok(GS.util.clamp(5, 0, 3) === 3, "clamp");
 ok(GS.util.escapeHtml("<a>") === "&lt;a&gt;", "escapeHtml");
@@ -104,7 +107,7 @@ ok(GS.path.snap(openInner, 8, 8, 0, 0, 4) && GS.path.snap(openInner, 8, 8, 0, 0,
 console.log("Army / Campaign / Save");
 var rng = GS.rng(99);
 var army = GS.Army.create(rng);
-ok(army.commanders.length === 4 && army.coins === 10, "starter army");
+ok(army.commanders.length === 4 && army.coins === 12, "starter army");
 ok(army.commanders.filter(function (c) { return c.cls === "pike"; }).length === 1, "starter includes pike");
 army.coins = 0;
 var hireFail = GS.Army.hire(army, rng, "archer");
@@ -124,6 +127,10 @@ ok(healA.commanders[1].dead && healA.commanders[1].soldiers === 0, "wiped squad 
 
 var camp = GS.Campaign.create(2026, 14);
 ok(camp.islands.length >= 10, "campaign islands");
+ok(camp.islands.every(function (n) { return !!n.relic && !!n.omen; }), "campaign islands carry relic + omen");
+ok(camp.islands[0].omen === "calm", "homeland omen is calm");
+var camp16 = GS.Campaign.create(2026);
+ok(camp16.islands.length === 16, "default campaign is 16 islands");
 ok(camp.w >= 80 && camp.h >= 44, "larger campaign chart " + camp.w + "x" + camp.h);
 ok(camp.islands[0].status === "scouted", "start scouted");
 GS.Campaign.markCleared(camp, 0);
@@ -151,11 +158,24 @@ delete store[GS.CONFIG.saveKey + ":slot:auto"];
 var legacy = GS.Save.readSlot("auto");
 ok(legacy && legacy.army.commanders.length === army.commanders.length, "legacy save migrate");
 
+var hireSk = GS.Army.hire(GS.Army.create(GS.rng(6)), GS.rng(6), "skirmisher");
+ok(hireSk.ok && hireSk.commander.cls === "skirmisher", "hire skirmisher");
+ok(GS.Army.grantRelic(army, "southlamp") && army.relics.indexOf("southlamp") === 0, "grant relic");
+ok(!GS.Army.grantRelic(army, "southlamp"), "duplicate relic rejected");
+var wheatA = GS.Army.create(GS.rng(7));
+wheatA.commanders[0].soldiers = 4;
+GS.Army.grantRelic(wheatA, "wheat");
+GS.Army.applyBattleOutcome(wheatA, { kind: "victory", coins: 3, wheatCoins: 2 });
+ok(wheatA.coins === 12 + 3 + 2 && wheatA.commanders[0].soldiers === wheatA.commanders[0].maxSoldiers, "wheat bonus coins on victory");
+
 console.log("Waves");
 var isle0 = GS.mapgen.island(7, { difficulty: 4 });
 var waves = GS.Waves.make(isle0, GS.rng(3), 4);
 ok(waves.length >= 3 && waves[0].units.length >= 4, "waves generated via Waves module");
 ok(typeof GS.makeWaves === "function", "makeWaves alias");
+ok(GS.Waves.rosterFor(3).indexOf("hound") >= 0, "hound in mid-threat roster");
+ok(GS.Waves.rosterFor(5).indexOf("shaman") >= 0, "shaman in high-threat roster");
+ok(GS.Waves.rosterFor(2).indexOf("shaman") < 0, "no shaman on easy roster");
 
 console.log("Mapgen islands");
 var fps = {};
@@ -191,6 +211,19 @@ ok(unique >= 16, "diverse maps: " + unique + " unique fingerprints / 20");
 var big = GS.mapgen.island(4242, { difficulty: 5, size: "large" });
 ok(big && big.w >= 90 && big.h >= 70, "large preset " + (big && big.w) + "x" + (big && big.h));
 ok(GS.T.BEACON != null && GS.ROLES.militia, "beacon tile + militia role");
+ok(GS.ROLES.skirmisher && GS.ROLES.shaman && GS.ROLES.hound, "skirmisher + shaman + hound roles");
+ok(GS.BIOMES.pine && GS.BIOMES.pine.name === "松林", "pine biome catalog");
+var pineIsle = GS.mapgen.island(333, { difficulty: 2, biome: "pine", size: "small" });
+ok(pineIsle && pineIsle.biome === "pine", "forced pine island");
+var pineTrees = 0;
+if (pineIsle) {
+  for (var py = 0; py < pineIsle.h; py++) {
+    for (var px = 0; px < pineIsle.w; px++) {
+      if (pineIsle.tiles[py][px].type === GS.T.TREE) pineTrees++;
+    }
+  }
+}
+ok(pineTrees >= 8, "pine island is wooded, trees=" + pineTrees);
 
 console.log("Campaign graph");
 function connected(camp) {
@@ -206,6 +239,7 @@ function connected(camp) {
   return Object.keys(seen).length === camp.islands.length;
 }
 ok(connected(GS.Campaign.create(2026, 14)), "campaign graph connected");
+ok(connected(GS.Campaign.create(2026)), "default 16-island graph connected");
 
 console.log("Formation / Battle smoke");
 var slots = GS.formationSlots(10, 10, 0, 8, "infantry");
@@ -390,6 +424,97 @@ ok(restored && restored.entities.filter(function (e) { return e.alive; }).length
 ok(restored.island.name === island.name, "deserialize keeps island name");
 ok(restored.warhornReady === false, "deserialize warhorn spent");
 ok(restored.flow || restored.phase !== "fight", "deserialize rebuilds flow when fighting");
+
+console.log("Meta relics / omens / voyage");
+ok(GS.Meta && GS.RELICS.hornstone && GS.OMENS.hightide && GS.VOYAGE.length >= 6, "meta catalogs loaded");
+var modsEagleFog = GS.Meta.modsFrom(["eagle", "saltwind"], "fog");
+ok(modsEagleFog.archerRange === 0.9 && Math.abs(modsEagleFog.soldierSpeed - 1.08) < 1e-6 && modsEagleFog.fogRange === 1.15, "mods stack relic + omen");
+var archer = { role: "archer", range: 6.2, speed: 2, resist: 0, wrath: false };
+GS.Meta.applyToSoldier(archer, modsEagleFog);
+ok(Math.abs(archer.range - Math.max(1.9, 6.2 + 0.9 - 1.15)) < 1e-6, "fog shortens boosted archer range");
+ok(Math.abs(archer.speed - 2.16) < 1e-6, "saltwind speeds soldiers");
+var dusk = GS.Meta.modsFrom(["frostbrand"], "dusk");
+var raider = { role: "raider", speed: 2.55, acc: 0.75, range: 1.1 };
+GS.Meta.applyToEnemy(raider, dusk);
+ok(Math.abs(raider.speed - 2.55 * 0.92 * 1.12) < 1e-6, "frostbrand vs dusk net enemy speed");
+var hornArmy = GS.Army.create(GS.rng(12));
+hornArmy.relics = ["hornstone"];
+var hornIsle = GS.mapgen.island(44, { difficulty: 2, size: "small" });
+hornIsle.omen = "calm";
+var hornB = new GS.Battle(hornIsle, hornArmy, { sandbox: true, battleSeed: 2 });
+ok(hornB.warhornCharges === 2, "hornstone grants two warhorn charges");
+var tideIsle = GS.mapgen.island(55, { difficulty: 2, size: "small" });
+tideIsle.omen = "hightide";
+var tideArmy = GS.Army.create(GS.rng(13));
+var tideB = new GS.Battle(tideIsle, tideArmy, { sandbox: false, battleSeed: 4 });
+ok(tideB.waves.some(function (w) { return w.sneak; }), "hightide adds sneak wave");
+ok(tideB.omen === "hightide", "battle stores island omen");
+
+var hexIsle = GS.mapgen.island(66, { difficulty: 2, size: "small" });
+var hexArmy = GS.Army.create(GS.rng(14));
+hexArmy.commanders = [{
+  id: "hex1", name: "测试·咒", cls: "infantry", level: 1, xp: 0,
+  soldiers: 4, maxSoldiers: 6, trait: null, dead: false,
+}];
+var hexB = new GS.Battle(hexIsle, hexArmy, { sandbox: true, battleSeed: 5 });
+var hexPlaced = false;
+for (var hyy = 0; hyy < hexIsle.h && !hexPlaced; hyy++) {
+  for (var hxx = 0; hxx < hexIsle.w && !hexPlaced; hxx++) {
+    if (hexIsle.tiles[hyy][hxx].walk && hexIsle.tiles[hyy][hxx].type !== GS.T.HOUSE) {
+      hexPlaced = hexB.placeSquad("hex1", hxx, hyy, 2);
+    }
+  }
+}
+ok(hexPlaced, "hex fixture squad placed");
+var hexSol = hexB.entities.filter(function (e) { return e.kind === "soldier" && e.alive; })[0];
+var sham = hexB.spawnEnemy("shaman", hexIsle.houses[0].x, hexIsle.houses[0].y);
+var houndE = hexB.spawnEnemy("hound", hexIsle.houses[0].x, hexIsle.houses[0].y);
+ok(sham && sham.role === "shaman" && sham.range > 3, "spawned shaman");
+ok(houndE && houndE.role === "hound" && houndE.speed > GS.ROLES.raider.speed, "spawned hound");
+hexB._hit(hexSol, 2, sham);
+ok(hexSol.hexT > 0, "shaman hex marks a soldier");
+
+var skSlots = GS.formationSlots(10, 10, 0, 8, "skirmisher");
+ok(skSlots.length === 8, "skirmisher formation slots");
+
+var voyArmy = GS.Army.create(GS.rng(21));
+var voyCamp = GS.Campaign.create(21, 8);
+var always = { chance: function () { return true; }, pick: function (arr) { return arr[0]; } };
+var never = { chance: function () { return false; }, pick: function (arr) { return arr[0]; } };
+ok(GS.Meta.rollVoyage(never, voyArmy, voyCamp) === null, "voyage can skip");
+var voy = GS.Meta.rollVoyage(always, voyArmy, voyCamp);
+ok(voy && voy.id === "wreck" && voy.a && voy.b, "voyage rolls wreck when forced");
+var coinsBefore = voyArmy.coins;
+GS.Meta.applyVoyage(voy, "a", { army: voyArmy, campaign: voyCamp, rng: GS.rng(21) });
+ok(voyArmy.coins === coinsBefore + 3, "wreck salvage adds coins");
+GS.Meta.applyVoyage({ id: "deserter" }, "a", { army: voyArmy, campaign: voyCamp, rng: GS.rng(22) });
+ok(voyArmy.commanders.some(function (c) { return c.cls === "skirmisher"; }), "deserter voyage grants skirmisher");
+
+var omenPick = { id: "omen" };
+GS.Campaign.markCleared(voyCamp, 0);
+var next = GS.Campaign.nextScouted(voyCamp);
+ok(!!next, "nextScouted after clearing homeland");
+GS.Meta.applyVoyage(omenPick, "a", { army: voyArmy, campaign: voyCamp, rng: GS.rng(1) });
+ok(next.omen === "calm", "voyage omen detour sets next island calm");
+
+console.log("Save v4 migrate");
+var armyV3 = GS.Army.create(GS.rng(31));
+var campV3 = GS.mapgen.campaign(31, 8);
+ok(!campV3.islands[0].relic, "raw mapgen campaign has no relics yet");
+store[GS.CONFIG.saveKey + ":slot:2"] = JSON.stringify({
+  v: 3,
+  army: GS.Army.serialize(armyV3),
+  campaign: campV3,
+  savedAt: Date.now(),
+  label: "v3",
+});
+var mig = GS.Save.readSlot("2");
+ok(mig && mig.v === 4 && mig.campaign.islands[0].relic, "v3 save migrates to v4 with relics");
+ok(GS.Save.summarize(mig).relics === 0, "summary counts army relics");
+GS.Army.grantRelic(mig.army, "eagle");
+ok(GS.Save.writeSlot("2", mig.army, mig.campaign, { label: "v4" }), "write v4 slot");
+var round = GS.Save.readSlot("2");
+ok(round && round.v === 4 && round.army.relics.indexOf("eagle") >= 0, "v4 relic roundtrip");
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

@@ -39,7 +39,7 @@
     var banner = $("phase-banner");
     if (tools) tools.classList.toggle("visible", mode === "sandbox");
 
-    if (mode === "title" || mode === "help" || mode === "hire" || mode === "preview" || mode === "result") {
+    if (mode === "title" || mode === "help" || mode === "hire" || mode === "preview" || mode === "result" || mode === "voyage") {
       this._setTop("GOOD SOUTH", ui.chip("模式", "菜单", "cyan"));
       this._setHint(game.touch ? "点按钮开始" : "A 战役 · B 沙盒 · C 手册 · F1 帮助");
       ui.setToolbar([]);
@@ -72,9 +72,10 @@
       ui.chip("海图", "群岛", "cyan") +
       ui.chip("钱币", game.army.coins, "hi") +
       ui.chip("收复", game.army.islandsCleared, "ok") +
+      ui.chip("圣物", (game.army.relics || []).length, "cyan") +
       ui.chip("调色", game.palette));
     left.innerHTML = this.campLeft(game, node);
-    right.innerHTML = this.roster(game.army) + this.islandList(game) + this.legend();
+    right.innerHTML = this.roster(game.army) + this.relicList(game.army) + this.islandList(game) + this.legend();
     this._setHint(game.touch ? "点岛登陆 · 底栏打开编制" : "WASD选岛 · Enter登陆 · Esc菜单 · F5保存 · N招募 · Q标题");
     if (game.compact) {
       ui.setToolbar([]);
@@ -130,6 +131,11 @@
       ui.chip("屋舍", cnt.houses + "/" + b.houses.length, cnt.houses < b.houses.length ? "warn" : "ok") +
       ui.chip("我军", cnt.soldiers) +
       ui.chip("北蛮", cnt.enemies, cnt.enemies ? "warn" : "") +
+      (function () {
+        if (game.mode !== "battle" || !b.omen || b.omen === "calm") return "";
+        var om = GS.Meta && GS.Meta.omen(b.omen);
+        return om ? ui.chip("征兆", om.name, om.kind === "bad" ? "warn" : "hi") : "";
+      }()) +
       (b.waves.length ? ui.chip("波次", waveDone + "/" + b.waves.length) : ui.chip("模式", "沙盒", "cyan")) +
       (game.compact ? "" : ui.chip("t", b.t.toFixed(1))));
 
@@ -167,7 +173,7 @@
       if (game.mode === "battle") {
         items.push({
           act: "warhorn",
-          label: b.warhornReady ? "号角" : "号角已用",
+          label: b.warhornReady ? (b.warhornCharges > 1 ? "号角×" + b.warhornCharges : "号角") : "号角已用",
           kbd: "U",
           active: b.warhornT > 0,
           disabled: !b.warhornReady && b.warhornT <= 0,
@@ -183,6 +189,8 @@
       items.push({ act: "spawn-enemy", label: "蛮兵", kbd: "N" });
       items.push({ act: "spawn-ship", label: "长船", kbd: "B" });
       items.push({ act: "spawn-ally", label: "己方", kbd: "C" });
+      items.push({ act: "spawn-shaman", label: "萨满", kbd: "Y" });
+      items.push({ act: "spawn-hound", label: "猎犬", kbd: "I" });
       items.push({ act: "gen", label: "新岛" });
     }
     items.push({ sep: true });
@@ -213,7 +221,7 @@
         if (game.mode === "battle") {
           cmds.push({
             act: "warhorn",
-            label: b.warhornReady ? "号角" : "号角已用",
+            label: b.warhornReady ? (b.warhornCharges > 1 ? "号角×" + b.warhornCharges : "号角") : "号角已用",
             active: b.warhornT > 0,
             disabled: !b.warhornReady && b.warhornT <= 0,
           });
@@ -248,9 +256,13 @@
   Hud.prototype.campLeft = function (game, node) {
     if (!node) return "<p>选一座岛。</p>";
     var st = { hidden: "未知", scouted: "未攻", cleared: "已收复", lost: "已陷" }[node.status] || node.status;
+    var om = node.omen && GS.Meta ? GS.Meta.omen(node.omen) : null;
+    var relic = node.relic && GS.Meta ? GS.Meta.relic(node.relic) : null;
     return "<h3>" + node.name + "</h3>" +
       "<p>" + GS.BIOMES[node.biome].flavor + "</p>" +
       "<p>威胁 " + "▲".repeat(node.difficulty) + "　<span class='chip'>" + st + "</span></p>" +
+      (om ? "<p>征兆 <b>" + om.name + "</b> — " + om.desc + "</p>" : "") +
+      (relic && node.status === "scouted" ? "<p>据点圣物 <b>" + relic.name + "</b> — " + relic.desc + "</p>" : "") +
       "<p>航线：" + node.edges.map(function (id) {
         return game.campaign.islands[id].name;
       }).join("、") + "</p>" +
@@ -265,9 +277,11 @@
     for (var i = 0; i < game.campaign.islands.length; i++) {
       var is = game.campaign.islands[i];
       if (is.status === "hidden") continue;
+      var omShort = (is.omen && is.status === "scouted" && GS.Meta) ? (GS.Meta.omen(is.omen).name) : "";
       html += '<div class="island-item' + (is.id === game.campCursor ? " sel" : "") +
         '" data-act="open-island" data-arg="' + is.id + '">' +
-        "<span>" + is.name + "</span><span class=\"hint\">" + is.status + " ▲" + is.difficulty + "</span></div>";
+        "<span>" + is.name + "</span><span class=\"hint\">" + is.status + " ▲" + is.difficulty +
+        (omShort ? " · " + omShort : "") + "</span></div>";
     }
     return html;
   };
@@ -310,6 +324,9 @@
           '<button type="button" data-act="spawn-ship">长船</button>' +
           '<button type="button" data-act="spawn-ally">己方</button>' +
           '<button type="button" data-act="gen">新岛</button>' +
+          "</p><p class=\"sheet-actions\">" +
+          '<button type="button" data-act="spawn-shaman">萨满</button>' +
+          '<button type="button" data-act="spawn-hound">猎犬</button>' +
           "</p>";
       } else {
         html += "<p>工具 <b>" + (game.sandboxTool === "paint" ? "刷地 / " + GS.tileDef(game.sandboxBrush).name : "布置") +
@@ -354,8 +371,20 @@
     return html + "</ul>";
   };
 
+  Hud.prototype.relicList = function (army) {
+    var ids = (army && army.relics) || [];
+    var html = "<h3>圣物</h3>";
+    if (!ids.length) return html + "<p class=\"hint\">守岛可获得据点圣物，全军常驻。</p>";
+    html += "<ul>";
+    for (var i = 0; i < ids.length; i++) {
+      var r = GS.Meta && GS.Meta.relic(ids[i]);
+      html += "<li>" + (r ? r.ch + " <b>" + r.name + "</b> " + r.desc : ids[i]) + "</li>";
+    }
+    return html + "</ul>";
+  };
+
   Hud.prototype.legend = function () {
-    return "<h3>图例</h3><pre class='legend'>≈深海 ~浅 .滩 ,草 n丘\n▲崖 #岩 ♣树 ⌂屋 █墙 ¥烽\n☻盾 }弓 ↑枪 ☺乡勇\nv蛮 V力 x投 ▼盾 Ω领\n黄闪箭头 = 登陆点</pre>";
+    return "<h3>图例</h3><pre class='legend'>≈深海 ~浅 .滩 ,草 n丘\n▲崖 #岩 ♣树 ⌂屋 █墙 ¥烽\n☻盾 }弓 ↑枪 ‡矛 ☺乡勇\nv蛮 V力 x投 ▼盾 Ψ萨 d犬 Ω领\n黄闪箭头 = 登陆点</pre>";
   };
 
   GS.Hud = Hud;
