@@ -23,8 +23,9 @@
       zoomMobile: 28,
       pickRadius: 4,
       openRadius: 2.6,
-      camSpeed: 18,
-      camShift: 34,
+      camSpeed: 22,
+      camShift: 40,
+      edgePan: 22,
     },
 
     map: {

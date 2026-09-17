@@ -250,6 +250,13 @@ ok(hitHome && hitHome.island.id === 0 && hitHome.dist === 0, "pickAt exact islan
 var near = GS.Campaign.pickAt(pickCamp, home.mx + 2, home.my + 1, 4);
 ok(near && near.island.id === 0, "pickAt nearby still hits");
 ok(!GS.Campaign.pickAt(pickCamp, home.mx + 20, home.my + 20, 3), "pickAt far miss");
+var tapHome = { island: home, selectedId: 0, armedId: null, dist: 0, openRadius: 2.6 };
+ok(GS.Campaign.tapIntent(tapHome).action === "select", "first chart tap selects even if cursor already on home");
+ok(GS.Campaign.tapIntent({ island: home, selectedId: 0, armedId: 0, dist: 1, openRadius: 2.6 }).action === "land", "second close tap lands");
+ok(GS.Campaign.tapIntent({ island: home, selectedId: 0, armedId: 0, dist: 4, openRadius: 2.6 }).action === "select", "far second tap does not land");
+ok(GS.Campaign.tapIntent({ island: home, selectedId: 1, armedId: 0, dist: 0, forceLand: true }).action === "land", "right-click force lands");
+var cleared = { id: 2, status: "cleared" };
+ok(GS.Campaign.tapIntent({ island: cleared, selectedId: 2, armedId: 2, dist: 0, forceLand: true }).action === "select", "cleared island never lands");
 
 console.log("Formation / Battle smoke");
 var slots = GS.formationSlots(10, 10, 0, 8, "infantry");

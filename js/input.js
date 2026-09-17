@@ -20,6 +20,7 @@
 
     window.addEventListener("keydown", function (e) { self.onKey(e); });
     window.addEventListener("keyup", function (e) { self.keys[e.key] = false; });
+    window.addEventListener("blur", function () { self.keys = {}; });
 
     if (view) {
       view.addEventListener("pointerdown", function (e) { self.onPointerDown(e); });
@@ -31,6 +32,8 @@
         if (self.pointer.down) return;
         game.hover = { x: -1, y: -1 };
         game.ui.hideTooltip();
+        self.pointer.x = 0;
+        self.pointer.y = 0;
       });
       view.addEventListener("contextmenu", function (e) { e.preventDefault(); });
       view.addEventListener("wheel", function (e) {
@@ -176,17 +179,25 @@
     if (cycle && ids.length) {
       idx = (idx + cycle + ids.length) % ids.length;
       game.campCursor = ids[idx];
+      game._campArmed = game.campCursor;
       game._focusIsland(game.campCursor);
       game.hudDirty = true;
     }
     var panKeys = ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "w", "a", "s", "d", "W", "A", "S", "D", "h", "j", "k", "l", "H", "J", "K", "L"];
     if (panKeys.indexOf(k) >= 0) e.preventDefault();
-    if (k === "Enter" || k === "g" || k === "G") game.dispatch("open-island", String(game.campCursor));
+    if (k === "Enter" || k === "g" || k === "G" || k === " ") {
+      e.preventDefault();
+      game.dispatch("open-island", String(game.campCursor));
+    }
     if (k === "n" || k === "N") game.dispatch("hire");
-    if (k === "q") game.dispatch("title");
+    if (k === "q" || k === "Q") { e.preventDefault(); game.dispatch("pause-menu"); }
     if (k === "Escape") { e.preventDefault(); game.dispatch("pause-menu"); }
     if (k === "p" || k === "P") game.dispatch("pal");
     if (k === "-" || k === "_") game.dispatch("mute");
+    if (k === "0" || k === "End") {
+      e.preventDefault();
+      game.dispatch("fit-cam");
+    }
     if (k === "f" || k === "F" || k === "Home") {
       e.preventDefault();
       game._focusIsland(game.campCursor);
@@ -540,6 +551,10 @@
     if (tap) {
       if (this._gesture.rotate) {
         if (game.mode === "battle" || game.mode === "sandbox") game.dispatch("rotate");
+        else if (game.mode === "campaign") {
+          var landTile = this._tile(e);
+          if (landTile) game.pointerCampaign(landTile, { forceLand: true });
+        }
       } else {
         this._applyTap(e);
       }
