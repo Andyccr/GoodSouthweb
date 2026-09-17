@@ -65,6 +65,8 @@ ok(GS.util.device.compact({ innerWidth: 390, innerHeight: 844, navigator: { maxT
 ok(GS.util.device.lowFx({ innerWidth: 390, innerHeight: 844, navigator: { maxTouchPoints: 5 }, matchMedia: function () { return { matches: false }; } }), "phone uses low fx");
 ok(GS.util.touch.shouldPan(20, 0, 12), "drag past threshold is pan");
 ok(!GS.util.touch.shouldPan(3, 4, 12), "finger jitter stays a tap");
+ok(GS.util.touch.panThreshold("touch") >= 16, "touch pan threshold is looser");
+ok(GS.util.touch.panThreshold("mouse") <= 12, "mouse pan threshold is tight");
 ok(Math.abs(GS.util.touch.pinchZoom(100, 150, 16) - 24) < 0.001, "pinch scales zoom");
 ok(GS.util.touch.pinchZoom(0, 150, 16) === 16, "pinch ignores zero start span");
 
@@ -241,6 +243,14 @@ function connected(camp) {
 ok(connected(GS.Campaign.create(2026, 14)), "campaign graph connected");
 ok(connected(GS.Campaign.create(2026)), "default 16-island graph connected");
 
+var pickCamp = GS.Campaign.create(2026, 14);
+var home = pickCamp.islands[0];
+var hitHome = GS.Campaign.pickAt(pickCamp, home.mx, home.my, 4);
+ok(hitHome && hitHome.island.id === 0 && hitHome.dist === 0, "pickAt exact island");
+var near = GS.Campaign.pickAt(pickCamp, home.mx + 2, home.my + 1, 4);
+ok(near && near.island.id === 0, "pickAt nearby still hits");
+ok(!GS.Campaign.pickAt(pickCamp, home.mx + 20, home.my + 20, 3), "pickAt far miss");
+
 console.log("Formation / Battle smoke");
 var slots = GS.formationSlots(10, 10, 0, 8, "infantry");
 ok(slots.length === 8, "8 formation slots");
@@ -285,6 +295,7 @@ ok(battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive;
 ok(battle._livingSoldiers.length === 10, "living cache refresh after deploy place");
 var anySol = battle.entities.filter(function (e) { return e.kind === "soldier" && e.alive; })[0];
 ok(anySol && battle.squadAt(anySol.x, anySol.y) === "c1", "squadAt finds living soldier");
+ok(battle.squadAt(battle.squads[0].tx, battle.squads[0].ty) === "c1", "squadAt finds deploy tile");
 battle.startFight();
 ok(battle.flow, "flow field built on fight start");
 ok(battle.blowWarhorn() === true && battle.warhornReady === false, "warhorn once");

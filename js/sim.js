@@ -254,6 +254,11 @@
       if (!e.alive || e.kind !== "soldier" || !e.squadId) continue;
       if ((e.x | 0) === tx && (e.y | 0) === ty) return e.squadId;
     }
+    for (i = 0; i < this.squads.length; i++) {
+      var sq = this.squads[i];
+      if (!sq.placed || sq.soldiers <= 0) continue;
+      if (Math.abs(sq.tx - tx) + Math.abs(sq.ty - ty) <= 1) return sq.id;
+    }
     return null;
   };
 
