@@ -149,6 +149,7 @@
     marsh: { name: "泽地", grass: GS.T.MUD, extra: GS.T.SHRUB, water: GS.T.SHALLOW, beach: GS.T.BEACH, flavor: "泥沼与芦苇" },
     snow: { name: "霜岛", grass: GS.T.SNOW, extra: GS.T.ICE, water: GS.T.DEEP, beach: GS.T.ICE, flavor: "终年积雪的北沿小岛" },
     ash: { name: "火山", grass: GS.T.ASH, extra: GS.T.LAVA, water: GS.T.DEEP, beach: GS.T.BEACH, flavor: "焦黑的火山岩岛" },
+    pine: { name: "松林", grass: GS.T.GRASS, extra: GS.T.TREE, water: GS.T.DEEP, beach: GS.T.BEACH, flavor: "密林遮岸的南境松岛" },
   };
 
   GS.ROLES = {
@@ -167,6 +168,11 @@
       hp: 24, dmg: 8.5, range: 1.55, speed: 1.85, cd: 0.68, acc: 0.8,
       front: 2.35,
       desc: "正面穿刺。对冲锋的北蛮极痛，侧后则弱。",
+    },
+    skirmisher: {
+      id: "skirmisher", name: "投矛手", ch: "‡", fg: C.LMAGENTA, commander: "‡",
+      hp: 18, dmg: 6.2, range: 3.7, speed: 2.55, cd: 0.72, acc: 0.8,
+      desc: "中距游猎。贴身就退，专戳落单的北蛮。",
     },
     raider: {
       id: "raider", name: "掠袭者", ch: "v", fg: C.LRED, enemy: true,
@@ -192,6 +198,14 @@
       id: "jarl", name: "北境领主", ch: "Ω", fg: C.YELLOW, enemy: true,
       hp: 88, dmg: 15, range: 1.25, speed: 2.05, cd: 0.6, acc: 0.8,
     },
+    shaman: {
+      id: "shaman", name: "潮萨满", ch: "Ψ", fg: C.LMAGENTA, enemy: true,
+      hp: 22, dmg: 4.2, range: 5.1, speed: 1.85, cd: 1.15, acc: 0.72, hex: true,
+    },
+    hound: {
+      id: "hound", name: "猎犬", ch: "d", fg: C.BROWN, enemy: true,
+      hp: 12, dmg: 5.5, range: 1.05, speed: 3.35, cd: 0.42, acc: 0.78,
+    },
     militia: {
       id: "militia", name: "乡勇", ch: "☺", fg: C.BROWN, commander: "☺",
       hp: 12, dmg: 4.5, range: 1.05, speed: 2.1, cd: 0.55, acc: 0.68,
@@ -206,6 +220,8 @@
     { id: "wall", name: "盾墙", desc: "受伤 -18%（盾兵）", on: function (s) { if (s.role === "infantry") s.resist = (s.resist || 0) + 0.18; } },
     { id: "wrath", name: "血怒", desc: "残血时伤害提升", on: function (s) { s.wrath = true; } },
     { id: "veteran", name: "老兵", desc: "命中与伤害 +10%", on: function (s) { s.acc += 0.08; s.dmg *= 1.1; } },
+    { id: "captain", name: "队长", desc: "生命 +12%，伤害 +8%", on: function (s) { s.maxHp = (s.maxHp * 1.12) | 0; s.hp = s.maxHp; s.dmg *= 1.08; } },
+    { id: "skirmish", name: "游猎", desc: "投矛手射程 +0.7", on: function (s) { if (s.role === "skirmisher") s.range += 0.7; } },
   ];
 
   GS.DIRS = [

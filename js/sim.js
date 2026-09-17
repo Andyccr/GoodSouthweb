@@ -23,9 +23,10 @@
     var dir = GS.DIRS[facing];
     var px = -dir.dy, py = dir.dx; // perpendicular
     var slots = [];
-    var cols = role === "pike" ? Math.min(n, 8) : role === "archer" ? Math.min(n, 6) : 4;
+    var ranged = role === "archer" || role === "skirmisher";
+    var cols = role === "pike" ? Math.min(n, 8) : ranged ? Math.min(n, 6) : 4;
     var rows = Math.ceil(n / cols);
-    var back = role === "archer" ? 1 : 0;
+    var back = ranged ? 1 : 0;
     var i = 0;
     for (var r = 0; r < rows; r++) {
       for (var c = 0; c < cols && i < n; c++, i++) {
@@ -78,6 +79,10 @@
     this._occ = null;
     this.warhornReady = true;
     this.warhornT = 0;
+    this.warhornCharges = 1;
+    this.omen = island.omen || opts.omen || "calm";
+    this.mods = null;
+    this.promotions = [];
     this.terrainGen = 0;
     this._livingEnemies = [];
     this._livingSoldiers = [];
@@ -88,6 +93,7 @@
     }
     this._spawnSquads(army);
     this._cachePass();
+    if (GS.Meta && GS.Meta.prepareBattle) GS.Meta.prepareBattle(this);
   }
 
   Battle.prototype._cachePass = function () {
@@ -309,6 +315,7 @@
         alive: true,
         commander: i === 0,
       });
+      if (this.mods && GS.Meta) GS.Meta.applyToSoldier(e, this.mods);
       if (sq.trait && GS.TRAITS) {
         for (var t = 0; t < GS.TRAITS.length; t++) {
           if (GS.TRAITS[t].id === sq.trait) GS.TRAITS[t].on(e);
@@ -353,9 +360,13 @@
   };
 
   Battle.prototype.blowWarhorn = function () {
-    if (this.phase !== "fight" || !this.warhornReady) return false;
+    if (this.phase !== "fight") return false;
+    var charges = this.warhornCharges != null ? this.warhornCharges : (this.warhornReady ? 1 : 0);
+    if (charges <= 0 && !this.warhornReady) return false;
+    if (charges <= 0) return false;
     var dur = (GS.CONFIG.battle && GS.CONFIG.battle.warhornDuration) || 6.5;
-    this.warhornReady = false;
+    this.warhornCharges = charges - 1;
+    this.warhornReady = this.warhornCharges > 0;
     this.warhornT = dur;
     this.announce("号角震天！北蛮脚步乱了片刻。", C.YELLOW);
     if (GS.audio) GS.audio.horn();
@@ -460,6 +471,7 @@
       house.villagers || 2,
       (GS.CONFIG.battle && GS.CONFIG.battle.militiaPerHouse) || 2
     );
+    if (this.mods && this.mods.militiaBonus) n += this.mods.militiaBonus;
     if (n <= 0) return;
     house.militiaSpawned = true;
     var def = GS.ROLES.militia;
@@ -499,6 +511,7 @@
         alive: true,
         militia: true,
       });
+      if (this.mods && GS.Meta) GS.Meta.applyToSoldier(this.entities[this.entities.length - 1], this.mods);
       spawned++;
     }
     if (spawned) this.announce(house.name + "的乡勇拿起了农具！", C.LGREEN);
@@ -545,7 +558,7 @@
       y: spawn.y + 0.5,
       hp: 40,
       maxHp: 40,
-      speed: 1.22,
+      speed: 1.22 * ((this.mods && this.mods.shipSpeed) || 1),
       dir: dir,
       beachX: beach.x,
       beachY: beach.y,
@@ -588,6 +601,7 @@
       facing: 0,
       alive: true,
     });
+    if (this.mods && GS.Meta) GS.Meta.applyToEnemy(e, this.mods);
     return e;
   };
 
@@ -667,6 +681,9 @@
       if (this.squads[i].moveCd > 0) this.squads[i].moveCd -= dt;
     }
     if (this.warhornT > 0) this.warhornT -= dt;
+    for (i = 0; i < this.entities.length; i++) {
+      if (this.entities[i].hexT > 0) this.entities[i].hexT -= dt;
+    }
     if (!this.sandbox) this._launchWaves();
     this._tickShips(dt);
     this._tickProjectiles(dt);
@@ -831,7 +848,7 @@
     var W = (GS.CONFIG.battle && GS.CONFIG.battle.hunt) || {};
     var d = dist(e, foe);
     var score = 8;
-    var distW = e.role === "archer" ? (W.distArcher || 0.16) : (W.distMelee || 0.42);
+    var distW = (e.range > 1.8) ? (W.distArcher || 0.16) : (W.distMelee || 0.42);
     score -= d * distW;
     var houseP = this._housePressure(foe);
     score += houseP * (W.house || 24);
@@ -857,8 +874,8 @@
     if (e.role === "infantry" && (foe.role === "brute" || foe.role === "jarl" || foe.role === "shield")) {
       score += 5;
     }
-    if (e.role === "archer") {
-      if (foe.kind === "ship" || foe.role === "thrower") score += 4;
+    if (e.role === "archer" || e.role === "skirmisher") {
+      if (foe.kind === "ship" || foe.role === "thrower" || foe.role === "shaman") score += 4;
       if (d < 2.2 && foe.range <= 1.8) score -= 3;
     }
     if (e.militia) {
@@ -867,7 +884,7 @@
       if (d > 10) score -= 20;
     }
     score -= (pile || 0) * (W.pile || 5);
-    if (e.hp < e.maxHp * 0.35 && d < 3 && e.role !== "archer") score -= 4;
+    if (e.hp < e.maxHp * 0.35 && d < 3 && e.range <= 1.8) score -= 4;
     return score;
   };
 
@@ -1015,8 +1032,8 @@
       dmg: dmg,
       from: from,
       targetId: to.id,
-      ch: from.role === "thrower" ? "*" : "·",
-      fg: from.role === "thrower" ? C.BROWN : C.WHITE,
+      ch: from.role === "thrower" ? "*" : from.role === "shaman" ? "*" : from.role === "skirmisher" ? "/" : "·",
+      fg: from.role === "thrower" ? C.BROWN : from.role === "shaman" ? C.LMAGENTA : C.WHITE,
     });
     from.cooldown = from.cd;
     if (GS.audio) GS.audio.bow();
@@ -1042,6 +1059,10 @@
     dmg = Math.max(1, dmg);
     target.hp -= dmg;
     this.floater(target.x, target.y - 0.2, String(-Math.round(dmg)), target.team === "player" ? C.LRED : C.YELLOW);
+    if (from && from.role === "shaman" && target.team === "player") {
+      target.hexT = 4.2;
+      this.floater(target.x, target.y + 0.3, "咒", C.LMAGENTA);
+    }
     if (target.hp <= 0) this._kill(target, from);
   };
 
@@ -1101,7 +1122,7 @@
     var d = Math.sqrt(dx * dx + dy * dy);
     if (d < 0.05) return;
     dx /= d; dy /= d;
-    var sp = e.speed * dt;
+    var sp = e.speed * dt * (e.hexT > 0 ? 0.55 : 1);
     var nx = e.x + dx * sp;
     var ny = e.y + dy * sp;
     var blocker = this._occAt(nx, ny);
@@ -1184,6 +1205,9 @@
       if (!e.alive) continue;
       e.cooldown -= dt;
       var foe = this._bestSoldierFor(e);
+      if (e.role === "hound") {
+        foe = this._nearestThreat(e, this._livingSoldiers, 18) || foe;
+      }
       if (foe && dist(e, foe) <= e.range + 0.15) {
         if (e.cooldown <= 0) {
           if (e.range > 1.8) {
@@ -1192,6 +1216,10 @@
             else this._steer(e, foe.x, foe.y, step);
           } else this._melee(e, foe);
         }
+        continue;
+      }
+      if (e.role === "hound" && foe) {
+        this._steer(e, foe.x, foe.y, step);
         continue;
       }
       var house = this.nearestHouse(e.x, e.y);
@@ -1259,7 +1287,7 @@
         else this._melee(e, attack);
       }
 
-      if (e.role === "archer" && close && close.range <= 1.8 && dist(e, close) < 2.15) {
+      if ((e.role === "archer" || e.role === "skirmisher") && close && close.range <= 1.8 && dist(e, close) < 2.15) {
         this._steer(e, e.x * 2 - close.x, e.y * 2 - close.y, dt);
         continue;
       }
@@ -1283,7 +1311,7 @@
   Battle.prototype._chase = function (e, foe, dt, refresh) {
     var goal = this._huntGoal(foe) || { x: foe.x | 0, y: foe.y | 0 };
     var tx = goal.x + 0.5, ty = goal.y + 0.5;
-    if (e.role === "archer" && foe.kind !== "soldier") {
+    if (e.range > 1.8 && e.kind === "soldier" && foe.kind !== "soldier") {
       var want = Math.max(2.4, (e.range || 6) * 0.72);
       var d = dist(e, foe) || 1;
       if (d > 0.2 && this.passable(foe.x | 0, foe.y | 0)) {
@@ -1397,6 +1425,8 @@
       housesTotal: this.houses.length,
       coins: 0,
       survivors: this.syncArmy(),
+      promotions: (this.promotions || []).slice(),
+      wheatCoins: (this.mods && this.mods.wheatCoins) || 0,
     };
     if (kind === "victory") {
       this.outcome.coins = this.outcome.housesLeft;
@@ -1434,6 +1464,7 @@
           cmd.level++;
           cmd.maxSoldiers = Math.min(16, cmd.maxSoldiers + 2);
           cmd.soldiers = Math.min(cmd.maxSoldiers, cmd.soldiers + 2);
+          this.promotions.push(cmd.name + " 升至 Lv" + cmd.level);
         }
       }
       result.push(cmd);
@@ -1518,7 +1549,9 @@
       cursor: battle.cursor,
       look: battle.look,
       sandbox: battle.sandbox,
+      omen: battle.omen || "calm",
       warhornReady: battle.warhornReady !== false,
+      warhornCharges: battle.warhornCharges,
       warhornT: battle.warhornT || 0,
       terrainGen: battle.terrainGen || 0,
       waves: battle.waves,
@@ -1539,7 +1572,7 @@
           wrath: !!e.wrath, front: e.front || 1, facing: e.facing || 0, cooldown: e.cooldown || 0,
           slotX: e.slotX, slotY: e.slotY, commander: !!e.commander,
           dir: e.dir, beachX: e.beachX, beachY: e.beachY, cargo: e.cargo, landing: e.landing,
-          militia: !!e.militia, houseId: e.houseId,
+          militia: !!e.militia, houseId: e.houseId, hexT: e.hexT || 0,
         };
       }),
       corpses: (battle.corpses || []).slice(-40),
@@ -1582,7 +1615,10 @@
     battle.houses = snap.houses || island.houses;
     battle.beacons = snap.beacons || island.beacons || [];
     battle.warhornReady = snap.warhornReady !== false;
+    battle.warhornCharges = snap.warhornCharges != null ? snap.warhornCharges : (battle.warhornReady ? 1 : 0);
     battle.warhornT = snap.warhornT || 0;
+    battle.omen = snap.omen || island.omen || "calm";
+    if (GS.Meta) battle.mods = GS.Meta.modsFrom((army && army.relics) || [], battle.omen);
     battle.terrainGen = snap.terrainGen || 0;
     battle.log = snap.log || [];
     battle.corpses = snap.corpses || [];
@@ -1607,7 +1643,7 @@
         wrath: !!e.wrath, front: e.front || 1, facing: e.facing || 0, cooldown: e.cooldown || 0,
         slotX: e.slotX, slotY: e.slotY, commander: !!e.commander,
         path: null, targetId: 0, houseId: e.houseId != null ? e.houseId : -1, alive: true,
-        militia: !!e.militia,
+        militia: !!e.militia, hexT: e.hexT || 0,
         dir: e.dir, beachX: e.beachX, beachY: e.beachY,
         cargo: e.cargo ? e.cargo.slice() : undefined, landing: !!e.landing,
       });

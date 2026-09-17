@@ -49,6 +49,7 @@
           '</span><span class="slot-meta">钱币 ' + sum.coins +
           ' · 收复 ' + sum.cleared + "/" + sum.islandCount +
           ' · 队长 ' + sum.living +
+          (sum.relics ? ' · 圣物 ' + sum.relics : "") +
           (sum.inBattle ? ' · <b class="warn">战斗中</b>' : "") +
           "</span><span class=\"slot-meta\">当前岛 " + GS.util.escapeHtml(sum.currentName) + "</span>";
       var act = mode === "save" ? "save-slot" : "load-slot";
@@ -79,7 +80,7 @@
       "  ╚═════╝  ╚═════╝  ╚═════╝ ╚═════╝     ╚══════╝ ╚═════╝  ╚═════╝    ╚═╝   ╚═╝  ╚═╝\n" +
       "</pre>" +
       '<div class="sub">南 境 据 点  ·  矮人要塞风格 ASCII 塔防沙盒</div>' +
-      '<div class="flavor">北蛮的长船正在南下。你是南境的寨主。守住屋舍，别让盐风草被烧成灰。</div>' +
+      '<div class="flavor">北蛮的长船正在南下。你是南境的寨主。守住屋舍，收集圣物，在航程里做出抉择。</div>' +
       '<div class="menu">' +
       cont +
       '<button data-act="load-menu"><kbd>L</kbd> 读取存档 — 多槽位</button>' +
@@ -166,10 +167,11 @@
       "<h3>战地技巧</h3>" +
       "<ul>" +
       "<li>布置只是<strong>就位点</strong>：开战后天兵整团去<strong>歼灭北蛮</strong>（优先保屋舍）。朝向用箭头画在就位点上，右键 / R / 转向按钮 / Shift+滚轮旋转；未落子也可以先转向。</li>" +
-      "<li>每局默认四支部队（两盾、一弓、一枪）。弓手会拉开身位射击；盾兵/枪兵会冲向威胁屋舍的北蛮。无敌人时回到就位点。</li>" +
-      "<li><b>U 号角</b>：每场一次，短时减缓全部北蛮。</li>" +
+      "<li>每局默认四支部队（两盾、一弓、一枪）。可再招募<strong>投矛手 ‡</strong>。弓手/投矛会拉开身位；盾兵/枪兵冲向威胁屋舍的北蛮。</li>" +
+      "<li><b>U 号角</b>：每场一次（持有号角石可两次），短时减缓全部北蛮。</li>" +
       "<li><b>烽火台 ¥</b>：弓手靠近可提升射程与伤害。</li>" +
-      "<li>屋舍遇袭时会冲出<strong>乡勇</strong>拖延敌人。</li>" +
+      "<li>屋舍遇袭时会冲出<strong>乡勇</strong>拖延敌人。持南灯则多一人。</li>" +
+      "<li>每座岛有<strong>征兆</strong>（本场）与<strong>圣物</strong>（守住后永久）。航程中会遇到抉择事件。</li>" +
       "<li>点击己方士兵只选中该兵团；再点空地才布置/换阵。点到乡勇不会取消选中。</li>" +
       "<li><b>左键点</b>就位/选中，<b>左键拖</b>平移镜头。滚轮缩放；<b>,</b> / <b>.</b> 也可缩放。</li>" +
       "<li>北蛮一律乘长船从深海驶向海滩，靠岸后才下船。</li>" +
@@ -190,12 +192,20 @@
       ", . 或 =        缩放　　F / Home 对准选中兵团\n" +
       "[  ]            变速　　G 开战　　E 撤退　　U 号角\n" +
       "</pre>" +
+      "<h3>圣物与征兆</h3>" +
+      "<ul>" +
+      "<li>海图上每座岛藏一件圣物。守住后加入编制，全军常驻（南灯、盐风旗、鹰巢石、号角石等）。</li>" +
+      "<li>登岛前会看到本场征兆：海雾、风暴、昏暮、大潮、收获月、鸦群。</li>" +
+      "<li>生态含沃野、岩礁、泽地、霜岛、火山与<strong>松林</strong>。北蛮新增<strong>潮萨满 Ψ</strong>（远程诅咒减速）与<strong>猎犬 d</strong>（追兵不追屋）。</li>" +
+      "</ul>" +
       '<div class="menu"><button data-act="resume-or-title"><kbd>Q</kbd> 返回</button></div></div>'
     );
   };
 
   Screens.prototype.preview = function (island, army) {
     var landings = island.landingDirs.map(function (d) { return GS.DIRS[d].name; }).join("、");
+    var om = island.omen && GS.Meta ? GS.Meta.omen(island.omen) : null;
+    var relic = island.relic && GS.Meta ? GS.Meta.relic(island.relic) : null;
     this.show(
       '<div class="panel preview-panel">' +
       "<h2>将至 · " + island.name + "</h2>" +
@@ -205,6 +215,8 @@
       "<p>屋舍 " + island.houses.length + " 座 · 版图 " + island.w + "×" + island.h +
       (island.beacons && island.beacons.length ? " · 烽火台 " + island.beacons.length : "") +
       "。登陆方向：<b>" + landings + "</b>。</p>" +
+      (om && om.id !== "calm" ? "<p class=\"omen\">征兆 <b>" + om.name + "</b> — " + om.desc + "</p>" : "") +
+      (relic ? "<p class=\"relic-line\">据点圣物 <b>" + relic.ch + " " + relic.name + "</b> — 守住后获得：" + relic.desc + "</p>" : "") +
       "<p>民居：" + island.houses.map(function (h) { return h.name; }).join("、") + "。</p>" +
       '<div class="menu">' +
       '<button data-act="fight"><kbd>G</kbd> 登陆布置兵团</button>' +
@@ -234,13 +246,20 @@
       '<button data-act="buy" data-arg="infantry">招募盾兵  (' + H.infantry.cost + ")</button>" +
       '<button data-act="buy" data-arg="archer">招募弓手  (' + H.archer.cost + ")</button>" +
       '<button data-act="buy" data-arg="pike">招募枪兵  (' + H.pike.cost + ")</button>" +
+      '<button data-act="buy" data-arg="skirmisher">招募投矛手  (' + H.skirmisher.cost + ")</button>" +
       '<button data-act="back-camp"><kbd>Q</kbd> 返回</button>' +
-      "</div><p class=\"hint\">阵亡队长无法复活。胜利按残存屋舍得钱。</p></div>"
+      "</div><p class=\"hint\">阵亡队长无法复活。胜利按残存屋舍得钱；圣物守岛后永久生效。</p></div>"
     );
   };
 
   Screens.prototype.result = function (island, army, outcome) {
     var living = GS.Army.living(army).length;
+    var extra = "";
+    if (outcome.relic) extra += "<p class=\"relic-line\">获得圣物 <b>" + outcome.relic.ch + " " + outcome.relic.name + "</b> — " + outcome.relic.desc + "</p>";
+    if (outcome.wheatCoins) extra += "<p>麦仓印额外 +" + outcome.wheatCoins + " 钱币。</p>";
+    if (outcome.promotions && outcome.promotions.length) {
+      extra += "<p>" + outcome.promotions.join("；") + "</p>";
+    }
     this.show(
       '<div class="panel">' +
       "<h2>" + (outcome.kind === "victory" ? "胜利" : outcome.kind === "retreat" ? "撤退" : "陷落") +
@@ -248,7 +267,8 @@
       "<p>" + outcome.msg + "</p>" +
       "<p>残存屋舍 " + outcome.housesLeft + "/" + outcome.housesTotal +
       "　获得钱币 " + outcome.coins + "　现有 " + army.coins + "</p>" +
-      "<p>仍可作战的队长：" + living + "</p>" +
+      extra +
+      "<p>仍可作战的队长：" + living + (army.relics && army.relics.length ? "　圣物 " + army.relics.length : "") + "</p>" +
       '<div class="menu">' +
       (living ? '<button data-act="next">继续海图</button>' : '<button data-act="title">南境沦陷 · 返回标题</button>') +
       (outcome.kind !== "victory" && living ? '<button data-act="retry">再攻此岛</button>' : "") +
@@ -256,10 +276,31 @@
     );
   };
 
+  Screens.prototype.voyage = function (ev) {
+    if (!ev) {
+      this.hide();
+      return;
+    }
+    this.show(
+      '<div class="panel voyage-panel">' +
+      "<h2>航程 · " + ev.title + "</h2>" +
+      "<p>" + ev.text + "</p>" +
+      '<div class="menu">' +
+      '<button data-act="voyage-pick" data-arg="a"><kbd>1</kbd> ' + ev.a.label + "</button>" +
+      '<button data-act="voyage-pick" data-arg="b"><kbd>2</kbd> ' + ev.b.label + "</button>" +
+      "</div></div>"
+    );
+  };
+
   Screens.prototype.finale = function (army) {
+    var relics = (army.relics || []).map(function (id) {
+      var r = GS.Meta && GS.Meta.relic(id);
+      return r ? r.name : id;
+    }).join("、");
     this.show(
       '<div class="panel"><h2>群岛纪事终章</h2><p>南境的岛链或守或弃，潮水暂时平了。收复 ' +
-      army.islandsCleared + " 座岛。钱币 " + army.coins + "。</p>" +
+      army.islandsCleared + " 座岛。钱币 " + army.coins +
+      (relics ? "。圣物：" + relics : "") + "。</p>" +
       '<div class="menu"><button data-act="title">返回标题</button></div></div>'
     );
   };

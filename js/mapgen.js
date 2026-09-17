@@ -79,7 +79,7 @@
   function generateIsland(seed, opts) {
     opts = opts || {};
     var rng = GS.rng(typeof seed === "number" ? seed : GS.hashStr(String(seed)));
-    var biomeId = opts.biome || rng.pick(["verdant", "verdant", "rocky", "marsh", "snow", "ash"]);
+    var biomeId = opts.biome || rng.pick(["verdant", "verdant", "rocky", "marsh", "snow", "ash", "pine"]);
     var biome = GS.BIOMES[biomeId] || GS.BIOMES.verdant;
     var difficulty = opts.difficulty || 1;
     var size = pickSize(rng, difficulty, opts);
@@ -542,7 +542,7 @@
       for (var x = 0; x < w; x++) {
         var t = tiles[y][x].type;
         if (t === T.GRASS || t === T.SNOW || t === T.ASH) {
-          if (rng.chance(biomeId === "verdant" ? 0.08 : 0.04)) {
+          if (rng.chance(biomeId === "pine" ? 0.18 : biomeId === "verdant" ? 0.08 : 0.04)) {
             tiles[y][x] = makeTile(T.TREE, tiles[y][x].height);
           } else if (rng.chance(0.06)) {
             tiles[y][x] = makeTile(T.SHRUB, tiles[y][x].height);
@@ -788,9 +788,9 @@
       difficulty = Math.max(1, Math.min(8, difficulty));
       var biome;
       if (difficulty >= 7) biome = rng.chance(0.5) ? "ash" : "snow";
-      else if (difficulty >= 5) biome = rng.pick(["rocky", "snow", "marsh"]);
-      else if (difficulty >= 3) biome = rng.pick(["rocky", "verdant", "marsh"]);
-      else biome = rng.pick(["verdant", "verdant", "marsh"]);
+      else if (difficulty >= 5) biome = rng.pick(["rocky", "snow", "marsh", "pine"]);
+      else if (difficulty >= 3) biome = rng.pick(["rocky", "verdant", "marsh", "pine"]);
+      else biome = rng.pick(["verdant", "verdant", "marsh", "pine"]);
       var isleSeed = rng.int(1, 0x7fffffff);
       islands.push({
         id: islands.length,

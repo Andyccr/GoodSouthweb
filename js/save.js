@@ -54,19 +54,26 @@
       inBattle: !!(payload.battle && payload.battle.snapshot),
       label: payload.label || "",
       seed: payload.campaign.seed,
+      relics: (payload.army.relics || []).length,
     };
   }
 
   function migrate(raw) {
     if (!raw) return null;
-    if ((raw.v === 2 || raw.v === 3) && raw.army && raw.campaign) {
+    if ((raw.v === 2 || raw.v === 3 || raw.v === 4) && raw.army && raw.campaign) {
+      var army = GS.Army.deserialize(raw.army);
+      var camp = GS.Campaign.deserialize(raw.campaign);
+      if (camp && camp.islands && camp.islands[0] && GS.Meta && !camp.islands[0].relic) {
+        var seed = camp.seed || 1;
+        GS.Meta.decorateCampaign(camp, GS.rng(seed));
+      }
       return {
-        v: raw.v,
+        v: 4,
         gameVersion: raw.gameVersion,
         savedAt: raw.savedAt,
         label: raw.label,
-        army: GS.Army.deserialize(raw.army),
-        campaign: GS.Campaign.deserialize(raw.campaign),
+        army: army,
+        campaign: camp,
         battle: raw.battle || null,
       };
     }

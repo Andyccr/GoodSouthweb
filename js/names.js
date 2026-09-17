@@ -59,6 +59,7 @@
         infantry: ["盾卫", "列兵长", "寨卫"],
         archer: ["弓长", "哨弓", "崖射"],
         pike: ["枪阵", "岸刺", "矛卫"],
+        skirmisher: ["投矛", "滩刺", "散猎"],
       };
       return rng.pick(titles[role] || ["队长"]);
     },

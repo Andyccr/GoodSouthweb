@@ -74,8 +74,9 @@
     }
     if (mode === "help") { this.screens.help(); return; }
     if (mode === "hire") { this.screens.hire(this.army); return; }
-    if (mode === "preview") { this.screens.preview(this.island, this.army); return; }
+    if (mode === "preview") { this.screens.preview(this.island, this.army, this.campaign); return; }
     if (mode === "result") { this.screens.result(this.island, this.army, data || this.battle.outcome); return; }
+    if (mode === "voyage") { this.screens.voyage(this.pendingVoyage); return; }
     if (mode === "campaign") {
       this.battle = null;
       this.screens.hide();
@@ -240,7 +241,8 @@
       "zoom", "center-cam",
       "toggle-sheet",
       "save-menu", "load-menu", "save-slot", "load-slot", "quicksave", "quickload",
-      "resume-or-title", "confirm-new-campaign", "warhorn",
+      "resume-or-title", "confirm-new-campaign", "warhorn", "voyage-pick",
+      "spawn-shaman", "spawn-hound",
     ];
     acts.forEach(function (a) {
       self.ui.on(a, function (arg) { self.dispatch(a, arg); });
@@ -446,7 +448,7 @@
       case "warhorn":
         if (!this.battle) return;
         if (this.battle.blowWarhorn()) {
-          this.ui.toast("号角！北蛮减速", "warn");
+          this.ui.toast(this.battle.warhornReady ? "号角！还可再吹一次" : "号角！北蛮减速", "warn");
           this.hudDirty = true;
         } else {
           this.ui.toast(this.battle.warhornReady ? "开战后方可吹号" : "本场号角已用过", "info");
@@ -521,8 +523,8 @@
         return;
       case "spawn-ally":
         if (!this.battle) return;
-        var roles = ["infantry", "archer", "pike"];
-        this.battle.spawnPlayerUnit(roles[(Math.random() * 3) | 0], this.battle.cursor.x, this.battle.cursor.y);
+        var roles = ["infantry", "archer", "pike", "skirmisher"];
+        this.battle.spawnPlayerUnit(roles[(Math.random() * 4) | 0], this.battle.cursor.x, this.battle.cursor.y);
         this.hudDirty = true;
         return;
       case "spawn-jarl":
@@ -533,6 +535,16 @@
         if (this.battle) this.battle.spawnShip(null, ["thrower", "thrower", "raider"]);
         this.hudDirty = true;
         return;
+      case "spawn-shaman":
+        if (this.battle) this.battle.spawnShip(null, ["shaman", "raider", "hound"]);
+        this.hudDirty = true;
+        return;
+      case "spawn-hound":
+        if (this.battle) this.battle.spawnShip(null, ["hound", "hound", "raider", "raider"]);
+        this.hudDirty = true;
+        return;
+      case "voyage-pick":
+        return this._applyVoyage(arg);
       case "gen": return this.regenSandbox();
       default:
         return;
@@ -726,6 +738,10 @@
     var id = this.campaign.current;
     if (o.kind === "victory") {
       GS.Campaign.markCleared(this.campaign, id);
+      var node = GS.Campaign.getNode(this.campaign, id);
+      if (node && node.relic && GS.Army.grantRelic(this.army, node.relic)) {
+        o.relic = GS.Meta.relic(node.relic);
+      }
       GS.Army.applyBattleOutcome(this.army, o);
     } else if (o.kind === "defeat") {
       GS.Campaign.markLost(this.campaign, id);
@@ -749,6 +765,29 @@
       this.screens.finale(this.army);
       return;
     }
+    if (this.battle && this.battle.outcome && this.battle.outcome.kind === "victory") {
+      var ev = GS.Meta && GS.Meta.rollVoyage(this.rng || GS.rng(Date.now()), this.army, this.campaign);
+      if (ev) {
+        this.pendingVoyage = ev;
+        this.setMode("voyage");
+        return;
+      }
+    }
+    this.setMode("campaign");
+  };
+
+  Game.prototype._applyVoyage = function (pick) {
+    var ev = this.pendingVoyage;
+    if (ev && GS.Meta) {
+      GS.Meta.applyVoyage(ev, pick, {
+        army: this.army,
+        campaign: this.campaign,
+        rng: this.rng || GS.rng(1),
+      });
+      this.ui.toast("航程决议已记下。", "ok");
+      this.autosave("航程");
+    }
+    this.pendingVoyage = null;
     this.setMode("campaign");
   };
 
