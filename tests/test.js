@@ -24,7 +24,7 @@ vm.createContext(context);
 
 var files = [
   "events.js", "config.js", "util.js", "rng.js",
-  "tiles.js", "names.js", "content.js", "pathfind.js", "mapgen.js",
+  "tiles.js", "names.js", "content.js", "i18n.js", "pathfind.js", "mapgen.js",
   "army.js", "campaign.js", "save.js", "waves.js", "sim.js",
 ];
 files.forEach(function (f) {
@@ -152,6 +152,22 @@ ok(latest && latest.summary && latest.summary.cleared >= 1, "latest summary");
 GS.Save.saveSettings({ palette: "amber", muted: true });
 var st = GS.Save.loadSettings();
 ok(st.palette === "amber" && st.muted === true, "settings persist");
+GS.Save.saveSettings({ palette: "df", muted: false, lang: "en" });
+st = GS.Save.loadSettings();
+ok(st.lang === "en", "settings persist language");
+
+console.log("I18n");
+ok(typeof GS.t === "function" && typeof GS.setLang === "function", "i18n API");
+ok(GS.t("pause") === "暂停", "default language is Chinese");
+GS.setLang("en");
+ok(GS.LANG === "en" && GS.t("pause") === "Paused", "switch to English");
+ok(GS.loc(GS.BIOMES.pine) === "Pine", "catalog English via loc");
+ok(GS.loc(GS.ROLES.infantry) === "Shields", "role English name");
+ok(GS.t("toastLang") === "Language: English", "toast follows language");
+GS.setLang("zh");
+ok(GS.t("pause") === "暂停" && GS.loc(GS.BIOMES.pine) === "松林", "switch back to Chinese");
+var nm = GS.names.islandPair(GS.rng(9));
+ok(nm.name && nm.nameEn && nm.name !== nm.nameEn, "island names are bilingual pairs");
 
 // legacy migrate
 store["goodsouth-save"] = JSON.stringify({ army: army, campaign: camp });
@@ -226,6 +242,15 @@ if (pineIsle) {
   }
 }
 ok(pineTrees >= 8, "pine island is wooded, trees=" + pineTrees);
+ok(pineIsle && pineIsle.nameEn, "generated island stores English name");
+ok(pineIsle.houses[0] && pineIsle.houses[0].nameEn, "houses store English names");
+var shapes = {};
+for (var sh = 200; sh < 260; sh++) {
+  var shaped = GS.mapgen.island(sh, { difficulty: 2, size: "small" });
+  if (shaped && shaped.shape) shapes[shaped.shape] = (shapes[shaped.shape] || 0) + 1;
+}
+ok(!!shapes.isthmus, "isthmus shape appears in mapgen, shapes=" + Object.keys(shapes).join(","));
+ok(GS.CONFIG.battle.hunt.sticky >= 4 && GS.CONFIG.battle.hunt.cohesion === 8, "hunt stickiness + cohesion knobs");
 
 console.log("Campaign graph");
 function connected(camp) {

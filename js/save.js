@@ -160,7 +160,7 @@
       return {
         slot: slot,
         empty: !data,
-        name: slot === "auto" ? "自动存档" : ("存档位 " + slot),
+        name: slot === "auto" ? (GS.t ? GS.t("slotAuto") : "自动存档") : (GS.t ? GS.t("slotManual", slot) : ("存档位 " + slot)),
         summary: data ? summarize(data) : null,
         data: data,
       };
@@ -187,6 +187,7 @@
     return {
       palette: raw.palette || "df",
       muted: !!raw.muted,
+      lang: raw.lang === "en" ? "en" : "zh",
     };
   }
 
@@ -194,6 +195,7 @@
     return writeRaw(settingsKey(), {
       palette: settings.palette || "df",
       muted: !!settings.muted,
+      lang: settings.lang === "en" ? "en" : "zh",
       savedAt: Date.now(),
     });
   }

@@ -180,10 +180,10 @@
     else battle.warhornCharges = 1;
     var om = omen(omenId);
     if (om && om.id !== "calm") {
-      battle.announce("征兆：" + om.name + " — " + om.desc, om.kind === "bad" ? GS.C.LRED : GS.C.YELLOW);
+      battle.announce((GS.t ? GS.t("omenLine", GS.loc(om), GS.loc(om, "desc")) : ("征兆：" + om.name + " — " + om.desc)), om.kind === "bad" ? GS.C.LRED : GS.C.YELLOW);
     }
     if (army.relics && army.relics.length) {
-      battle.announce("携带圣物 " + army.relics.length + " 件。", GS.C.LCYAN);
+      battle.announce(GS.t ? GS.t("relicsCarry", army.relics.length) : ("携带圣物 " + army.relics.length + " 件。"), GS.C.LCYAN);
     }
     if (battle.mods.extraWave && battle.waves && battle.waves.length && !battle.sandbox) {
       var dirs = (battle.island.landingDirs && battle.island.landingDirs.length)
@@ -239,9 +239,11 @@
     return {
       id: ev.id,
       title: ev.title,
+      titleEn: ev.titleEn,
       text: ev.text,
-      a: { label: ev.a.label },
-      b: { label: ev.b.label },
+      textEn: ev.textEn,
+      a: { label: ev.a.label, labelEn: ev.a.labelEn },
+      b: { label: ev.b.label, labelEn: ev.b.labelEn },
     };
   }
 
