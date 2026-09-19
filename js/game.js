@@ -106,13 +106,34 @@
     this.palette = s.palette || "df";
     this.renderer.setPalette(this.palette);
     if (GS.audio && GS.audio.setMuted) GS.audio.setMuted(!!s.muted);
+    if (s.lang) GS.setLang(s.lang);
+    else if (GS.I18N && GS.I18N.applyChrome) GS.I18N.applyChrome();
   };
 
   Game.prototype._persistSettings = function () {
     GS.Save.saveSettings({
       palette: this.palette,
       muted: GS.audio.muted(),
+      lang: GS.LANG || "zh",
     });
+  };
+
+  Game.prototype.toggleLang = function () {
+    GS.setLang(GS.LANG === "en" ? "zh" : "en");
+    this._persistSettings();
+    this.ui.toast(GS.t("toastLang"), "ok");
+    this.hudDirty = true;
+    if (this.mode === "title") this.screens.title();
+    else if (this.mode === "help" && !this.menuOpen) this.screens.help();
+    else if (this.mode === "hire") this.screens.hire(this.army);
+    else if (this.mode === "preview") this.screens.preview(this.island, this.army, this.campaign);
+    else if (this.mode === "result" && this.battle && this.battle.outcome) this.screens.result(this.island, this.army, this.battle.outcome);
+    else if (this.mode === "voyage") this.screens.voyage(this.pendingVoyage);
+    else if (this.menuKind === "pause") this.openPauseMenu();
+    else if (this.menuKind === "save") this.screens.saveMenu();
+    else if (this.menuKind === "load") this.screens.loadMenu();
+    else if (this.menuKind === "help") this.screens.help();
+    return GS.LANG;
   };
 
   Game.prototype.applyDevice = function () {
@@ -328,10 +349,10 @@
     if (this.battle.speed > 0) {
       this._resumeSpeed = this.battle.speed;
       this.battle.setSpeed(0);
-      this.ui.toast("已暂停（Esc 打开菜单）", "info");
+      this.ui.toast(GS.t("toastPaused"), "info");
     } else {
       this.battle.setSpeed(this._resumeSpeed > 0 ? this._resumeSpeed : 1);
-      this.ui.toast("继续 ×" + this.battle.speed, "ok");
+      this.ui.toast(GS.t("toastResume", this.battle.speed), "ok");
     }
     this.hudDirty = true;
   };
@@ -364,8 +385,8 @@
     GS.bus.on(GS.EV.HUD_DIRTY, function () { self.hudDirty = true; });
     GS.bus.on(GS.EV.BATTLE_ANNOUNCE, function (p) {
       if (!p || !p.msg) return;
-      if (/第 |长船|胜利|陷落|点燃|开战|角声/.test(p.msg)) {
-        self.ui.toast(p.msg, /陷落|点燃/.test(p.msg) ? "bad" : /胜利|守住/.test(p.msg) ? "ok" : "warn");
+      if (/第 |长船|胜利|陷落|点燃|开战|角声|Wave |longship|Victory|Fallen|horn|held /i.test(p.msg)) {
+        self.ui.toast(p.msg, /陷落|点燃|fallen|burn/i.test(p.msg) ? "bad" : /胜利|守住|held|Victory/i.test(p.msg) ? "ok" : "warn");
       }
       self.hudDirty = true;
     });
@@ -440,6 +461,7 @@
       case "confirm-new-campaign": return this._startCampaignNow();
       case "continue": return this.loadLatest();
       case "sandbox": return this.startSandbox();
+      case "lang": return this.toggleLang();
       case "back-camp":
         this.closeMenu();
         return this.setMode("campaign");
@@ -459,14 +481,14 @@
         return this.setMode("title");
       case "save-menu":
         if (!(this.army && this.campaign) && this.mode !== "sandbox") {
-          this.ui.toast("当前没有可保存的战役。", "warn");
+          this.ui.toast(GS.t("toastNoSave"), "warn");
           return;
         }
         this.menuOpen = true;
         this.menuKind = "save";
         // sandbox without campaign: create ephemeral campaign shell? skip — only campaign
         if (!this.campaign) {
-          this.ui.toast("沙盒请用战役存档位：先开始战役。", "warn");
+          this.ui.toast(GS.t("toastSandboxSave"), "warn");
           this.openPauseMenu();
           return;
         }
@@ -512,11 +534,11 @@
         if (!this.battle) return;
         var rsq = this.battle.getSquad(this.battle.selected);
         if (!rsq) {
-          this.ui.toast(this.touch ? "先点选一个兵团。" : "先选中兵团再转向。", "warn");
+          this.ui.toast(this.touch ? GS.t("toastPickSquad") : GS.t("toastPickSquadDesk"), "warn");
           return;
         }
         this.battle.rotateSquad(rsq.id);
-        this.ui.toast("朝向 " + GS.DIRS[rsq.facing].name + " " + GS.DIRS[rsq.facing].ch, "info");
+        this.ui.toast(GS.t("toastFacing", GS.loc(GS.DIRS[rsq.facing]), GS.DIRS[rsq.facing].ch), "info");
         this.hudDirty = true;
         return;
       }
@@ -599,10 +621,10 @@
       case "warhorn":
         if (!this.battle) return;
         if (this.battle.blowWarhorn()) {
-          this.ui.toast(this.battle.warhornReady ? "号角！还可再吹一次" : "号角！北蛮减速", "warn");
+          this.ui.toast(this.battle.warhornReady ? GS.t("toastHornMore") : GS.t("toastHorn"), "warn");
           this.hudDirty = true;
         } else {
-          this.ui.toast(this.battle.warhornReady ? "开战后方可吹号" : "本场号角已用过", "info");
+          this.ui.toast(this.battle.warhornReady ? GS.t("toastHornWait") : GS.t("toastHornSpent"), "info");
         }
         return;
       case "pal":
@@ -613,7 +635,7 @@
       case "mute": {
         var m = GS.audio.toggle();
         this._persistSettings();
-        this.ui.toast(m ? "已静音" : "音效开启", "info");
+        this.ui.toast(m ? GS.t("toastMuted") : GS.t("toastUnmute"), "info");
         this.hudDirty = true;
         if (this.menuKind === "pause") this.openPauseMenu();
         return;
@@ -629,7 +651,7 @@
         var n = +arg;
         if (sqs[n]) {
           this.battle.selected = sqs[n].id;
-          this.ui.toast("选中 " + sqs[n].name, "info");
+          this.ui.toast(GS.t("toastSelect", GS.loc(sqs[n])), "info");
           this._centerSelectedSquad(true);
           this.hudDirty = true;
         }
@@ -649,12 +671,12 @@
       case "place": return this.tryPlace();
       case "tool-place":
         this.sandboxTool = "place";
-        this.ui.toast("布置模式", "info");
+        this.ui.toast(GS.t("toastPlaceMode"), "info");
         this.hudDirty = true;
         return;
       case "tool-paint":
         this.sandboxTool = "paint";
-        this.ui.toast("地形刷：" + GS.tileDef(this.sandboxBrush).name, "info");
+        this.ui.toast(GS.t("toastBrush", GS.loc(GS.tileDef(this.sandboxBrush))), "info");
         this.hudDirty = true;
         return;
       case "brush-next": {
@@ -662,7 +684,7 @@
         var bi = brushes.indexOf(this.sandboxBrush);
         this.sandboxBrush = brushes[(bi + 1) % brushes.length];
         this.sandboxTool = "paint";
-        this.ui.toast("地形刷：" + GS.tileDef(this.sandboxBrush).name, "info");
+        this.ui.toast(GS.t("toastBrush", GS.loc(GS.tileDef(this.sandboxBrush))), "info");
         this.hudDirty = true;
         return;
       }
@@ -711,11 +733,11 @@
       this.menuOpen = true;
       this.menuKind = "confirm";
       this.screens.confirm({
-        title: "开始新战役？",
-        msg: "已有存档。新战役不会立刻覆盖手动档，但自动档会在推进时更新。确定开始？",
-        yes: "开始新战役",
+        title: GS.t("confirmNew"),
+        msg: GS.t("confirmNewMsg"),
+        yes: GS.t("confirmYes"),
         yesAct: "confirm-new-campaign",
-        no: "取消",
+        no: GS.t("cancel"),
         noAct: this.mode === "title" ? "title" : "resume",
       });
       return;
@@ -733,7 +755,7 @@
     this._campArmed = null;
     this._resultShown = false;
     this.autosave("新战役");
-    this.ui.toast("远征开始。西侧家园已侦察。", "ok");
+    this.ui.toast(GS.t("toastVoyageStart"), "ok");
     this.setMode("campaign");
   };
 
@@ -748,7 +770,7 @@
 
   Game.prototype.saveToSlot = function (slot) {
     if (!this.army || !this.campaign) {
-      this.ui.toast("没有可保存的战役。", "warn");
+      this.ui.toast(GS.t("toastNothing"), "warn");
       return false;
     }
     var opts = { label: slot === "auto" ? "自动" : ("手动 " + slot) };
@@ -757,17 +779,17 @@
     }
     var ok = GS.Save.writeSlot(String(slot), this.army, this.campaign, opts);
     if (ok) {
-      this.ui.toast("已保存到" + (slot === "auto" ? "自动档" : ("存档位 " + slot)), "ok");
+      this.ui.toast(slot === "auto" ? GS.t("toastSavedAuto") : GS.t("toastSavedSlot", slot), "ok");
       this.openPauseMenu();
     } else {
-      this.ui.toast("保存失败（存储空间？）", "bad");
+      this.ui.toast(GS.t("toastSaveFail"), "bad");
     }
     return ok;
   };
 
   Game.prototype.quicksave = function () {
     if (!this.army || !this.campaign) {
-      this.ui.toast("当前无法快速存档。", "warn");
+      this.ui.toast(GS.t("toastNoQsave"), "warn");
       return;
     }
     var opts = { label: "快速" };
@@ -775,14 +797,14 @@
       opts.battle = GS.Save.captureBattle(this);
     }
     if (GS.Save.writeSlot("auto", this.army, this.campaign, opts)) {
-      this.ui.toast("快速存档完成（自动档）", "ok");
-    } else this.ui.toast("快速存档失败", "bad");
+      this.ui.toast(GS.t("toastQsave"), "ok");
+    } else this.ui.toast(GS.t("toastQsaveFail"), "bad");
   };
 
   Game.prototype.loadLatest = function () {
     var latest = GS.Save.latest();
     if (!latest) {
-      this.ui.toast("没有可用存档。", "warn");
+      this.ui.toast(GS.t("toastNoLoad"), "warn");
       return false;
     }
     return this.loadFromSlot(latest.slot);
@@ -791,7 +813,7 @@
   Game.prototype.quickload = function () {
     var latest = GS.Save.latest();
     if (!latest) {
-      this.ui.toast("没有可用存档。", "warn");
+      this.ui.toast(GS.t("toastNoLoad"), "warn");
       return false;
     }
     return this.loadFromSlot(latest.slot);
@@ -800,7 +822,7 @@
   Game.prototype.loadFromSlot = function (slot) {
     var data = GS.Save.readSlot(String(slot));
     if (!data) {
-      this.ui.toast("存档为空。", "warn");
+      this.ui.toast(GS.t("toastEmptySlot"), "warn");
       return false;
     }
     this.army = data.army;
@@ -822,7 +844,7 @@
         this.mode = mode;
         this.menuOpen = false;
         this.screens.hide();
-        this.ui.toast("已读取战斗存档 · " + this.island.name, "ok");
+        this.ui.toast(GS.t("toastLoadBattle", GS.loc(this.island)), "ok");
         // keep paused so player can orient
         if (this.battle.phase === "fight") {
           this._resumeSpeed = 1;
@@ -836,7 +858,7 @@
     }
 
     this.battle = null;
-    this.ui.toast("已读取征程。", "ok");
+    this.ui.toast(GS.t("toastLoad"), "ok");
     this.setMode("campaign");
     return true;
   };
@@ -848,7 +870,7 @@
     var node = GS.Campaign.getNode(this.campaign, id);
     if (!node || node.status === "hidden") return;
     if (node.status === "cleared") {
-      this.ui.toast(node.name + " 已经收复。", "info");
+      this.ui.toast(GS.t("toastCleared", GS.loc(node)), "info");
       return;
     }
     this.campaign.current = id;
@@ -863,27 +885,27 @@
     this.sandboxTool = "place";
     this.setMode("battle");
     this._fitBattleCam();
-    this.ui.toast(this.touch ? "点空地就位，拖动画布，双指缩放。" : GS.CONFIG.battle.deployHint, "info");
+    this.ui.toast(this.touch ? GS.t("toastDeployTouch") : (GS.LANG === "en" && GS.CONFIG.battle.deployHintEn ? GS.CONFIG.battle.deployHintEn : GS.CONFIG.battle.deployHint), "info");
     this.autosave("登岛");
   };
 
   Game.prototype.buy = function (cls) {
     var res = GS.Army.hire(this.army, this.rng, cls);
     if (!res.ok) {
-      this.ui.toast(res.reason === "coins" ? "钱币不够。" : "无法招募。", "bad");
+      this.ui.toast(res.reason === "coins" ? GS.t("toastNoCoins") : GS.t("toastNoHire"), "bad");
       this.setMode("hire");
       return;
     }
     if (GS.audio) GS.audio.coin();
     this.autosave("招募");
-    this.ui.toast("新队长入列。", "ok");
+    this.ui.toast(GS.t("toastHired"), "ok");
     this.setMode("hire");
   };
 
   Game.prototype._startFight = function () {
     if (!this.battle) return;
     this.battle.startFight();
-    this.ui.toast("角声响起。", "warn");
+    this.ui.toast(GS.t("toastHornStart"), "warn");
     this.hudDirty = true;
   };
 
@@ -940,7 +962,7 @@
         campaign: this.campaign,
         rng: this.rng || GS.rng(1),
       });
-      this.ui.toast("航程决议已记下。", "ok");
+      this.ui.toast(GS.t("toastVoyageOk"), "ok");
       this.autosave("航程");
     }
     this.pendingVoyage = null;
@@ -970,7 +992,7 @@
     this.sandboxTool = "place";
     this.setMode("sandbox");
     this._fitBattleCam();
-    this.ui.toast("沙盒就绪 " + this.island.w + "×" + this.island.h + (this.touch ? "。点地布置，拖动画布。" : "。滚轮缩放，中键拖镜头。"), "info");
+    this.ui.toast(this.touch ? GS.t("toastSandboxReadyTouch", this.island.w, this.island.h) : GS.t("toastSandboxReady", this.island.w, this.island.h), "info");
   };
 
   Game.prototype.regenSandbox = function () {
@@ -987,7 +1009,7 @@
     this.battle = new GS.Battle(this.island, this.army, { sandbox: true });
     this.setMode("sandbox");
     this._fitBattleCam();
-    this.ui.toast("新岛：" + this.island.name + "（" + this.island.w + "×" + this.island.h + "）", "ok");
+    this.ui.toast(GS.t("toastNewIsle", GS.loc(this.island), this.island.w, this.island.h), "ok");
   };
 
   Game.prototype._centerSelectedSquad = function (force) {
@@ -1007,8 +1029,10 @@
       if (this.sandboxBrush === GS.T.HOUSE) {
         var exists = b.houses.some(function (h) { return h.x === b.cursor.x && h.y === b.cursor.y; });
         if (!exists) {
+          var hn = GS.names.housePair ? GS.names.housePair(b.rng) : { name: GS.names.house(b.rng) };
           b.houses.push({
-            id: b.houses.length, x: b.cursor.x, y: b.cursor.y, name: GS.names.house(b.rng),
+            id: b.houses.length, x: b.cursor.x, y: b.cursor.y,
+            name: hn.name, nameEn: hn.nameEn || hn.name,
             hp: 100, maxHp: 100, coins: 1, alive: true, villagers: 3, burning: 0,
           });
         }
@@ -1017,15 +1041,15 @@
       return true;
     }
     if (!b.selected) {
-      this.ui.toast(this.touch ? "先点选一个兵团。" : "先点选一个兵团（1–9 或点击士兵）。", "warn");
+      this.ui.toast(this.touch ? GS.t("toastPickSquad") : GS.t("toastNeedSquad"), "warn");
       return false;
     }
     var ok = b.placeSquad(b.selected, b.cursor.x, b.cursor.y);
     if (!ok) {
       var why = b.placeError;
-      if (why === "cooldown") this.ui.toast("换阵冷却中。", "warn");
-      else if (why === "house") this.ui.toast("屋舍上无法列阵。", "bad");
-      else this.ui.toast("无法落在此处。", "bad");
+      if (why === "cooldown") this.ui.toast(GS.t("toastCd"), "warn");
+      else if (why === "house") this.ui.toast(GS.t("toastOnHouse"), "bad");
+      else this.ui.toast(GS.t("toastBadTile"), "bad");
     }
     this.hudDirty = true;
     return ok;
@@ -1036,7 +1060,9 @@
     var i = list.indexOf(this.palette);
     this.palette = list[(i + 1) % list.length];
     this.renderer.setPalette(this.palette);
-    this.ui.toast("调色：" + GS.CONFIG.ui.paletteNames[this.palette], "info");
+    var pal = (GS.LANG === "en" && GS.CONFIG.ui.paletteNamesEn && GS.CONFIG.ui.paletteNamesEn[this.palette])
+      || GS.CONFIG.ui.paletteNames[this.palette];
+    this.ui.toast(GS.t("toastPal", pal), "info");
   };
 
   /* ---------- pointer helpers used by Input ---------- */
@@ -1064,22 +1090,22 @@
     }
     this._campArmed = hit.island.id;
     this._focusIsland(hit.island.id);
-    if (intent.hint) this.ui.toast(hit.island.name + " · 再点一次登陆", "info");
+    if (intent.hint) this.ui.toast(GS.t("toastArm", GS.loc(hit.island)), "info");
   };
 
   Game.prototype.hoverCampaign = function (tile, cx, cy) {
     var hit = GS.Campaign.pickAt(this.campaign, tile.x, tile.y, (GS.CONFIG.campaign && GS.CONFIG.campaign.pickRadius) || 4);
     if (hit) {
       var best = hit.island;
-      var st = { scouted: "未攻", cleared: "已收复", lost: "已陷" }[best.status] || best.status;
+      var st = { scouted: GS.t("unfought"), cleared: GS.t("recovered"), lost: GS.t("fallen") }[best.status] || best.status;
       var om = best.omen && GS.Meta ? GS.Meta.omen(best.omen) : null;
       var landHint = best.status !== "scouted"
-        ? "已" + st
-        : (this.touch ? "再点一次登陆 · 长按立刻登" : "再点一次登陆 · 右键立刻登");
+        ? GS.t("already", st)
+        : (this.touch ? GS.t("hoverLandTouch") : GS.t("hoverLand"));
       this.ui.setTooltip(
-        '<div class="tt-title">' + best.name + "</div>" +
-        '<div class="tt-sub">' + GS.BIOMES[best.biome].name + " · 威胁 " + best.difficulty + " · " + st +
-        (om && om.id !== "calm" ? " · " + om.name : "") + "</div>" +
+        '<div class="tt-title">' + GS.loc(best) + "</div>" +
+        '<div class="tt-sub">' + GS.loc(GS.BIOMES[best.biome]) + " · " + GS.t("threat") + " " + best.difficulty + " · " + st +
+        (om && om.id !== "calm" ? " · " + GS.loc(om) : "") + "</div>" +
         "<div>" + landHint + "</div>",
         cx, cy
       );
@@ -1097,25 +1123,25 @@
     var cell = b.island.tiles[tile.y] && b.island.tiles[tile.y][tile.x];
     if (cell) {
       var def = GS.tileDef(cell.type);
-      lines.push('<div class="tt-title">' + def.ch + " " + def.name + "</div>");
-      lines.push('<div class="tt-sub">' + def.look + "</div>");
+      lines.push('<div class="tt-title">' + def.ch + " " + GS.loc(def) + "</div>");
+      lines.push('<div class="tt-sub">' + (GS.loc(def, "look") || def.look) + "</div>");
     }
     for (var i = 0; i < b.entities.length; i++) {
       var e = b.entities[i];
       if (!e.alive) continue;
       if ((e.x | 0) === tile.x && (e.y | 0) === tile.y) {
-        var role = (GS.ROLES[e.role] || {}).name || e.kind;
-        lines.push("<div>" + e.ch + " <b>" + e.name + "</b> " + role + " " + Math.ceil(e.hp) + "/" + e.maxHp + "</div>");
+        var role = GS.loc(GS.ROLES[e.role] || { name: e.kind }) || e.kind;
+        lines.push("<div>" + e.ch + " <b>" + GS.loc(e) + "</b> " + role + " " + Math.ceil(e.hp) + "/" + e.maxHp + "</div>");
       }
     }
     for (i = 0; i < b.houses.length; i++) {
       var h = b.houses[i];
       if (h.x === tile.x && h.y === tile.y) {
-        lines.push("<div>⌂ " + h.name + " " + Math.max(0, h.hp | 0) + "/" + h.maxHp + (h.alive ? "" : " 已焚") + "</div>");
+        lines.push("<div>⌂ " + GS.houseName(h, b) + " " + Math.max(0, h.hp | 0) + "/" + h.maxHp + (h.alive ? "" : " " + GS.t("burnedShort")) + "</div>");
       }
     }
     if (this.mode === "sandbox" && this.sandboxTool === "paint") {
-      lines.push("<div>刷：" + GS.tileDef(this.sandboxBrush).name + "（拖拽连涂）</div>");
+      lines.push("<div>" + GS.t("paintBrush", GS.loc(GS.tileDef(this.sandboxBrush))) + "</div>");
     }
     this.ui.setTooltip(lines.join(""), cx, cy);
   };

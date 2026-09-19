@@ -114,7 +114,7 @@
     var innerH = Math.max(10, h - margin * 2);
     var cx = margin + innerW * rng.float(0.36, 0.64);
     var cy = margin + innerH * rng.float(0.36, 0.64);
-    var kind = rng.pick(["blob", "twin", "crescent", "ridge", "bay", "split"]);
+    var kind = rng.pick(["blob", "twin", "crescent", "ridge", "bay", "split", "isthmus"]);
     var blobs = [];
     var holes = [];
     if (kind === "blob") {
@@ -169,6 +169,25 @@
         y: cy + (ang === 2 ? innerH * 0.30 : ang === 0 ? -innerH * 0.30 : rng.float(-3, 3)),
         rx: innerW * rng.float(0.14, 0.24),
         ry: innerH * rng.float(0.14, 0.24),
+      });
+    } else if (kind === "isthmus") {
+      blobs.push({
+        x: cx - innerW * rng.float(0.18, 0.26),
+        y: cy + rng.float(-4, 4),
+        rx: innerW * rng.float(0.18, 0.28),
+        ry: innerH * rng.float(0.22, 0.36),
+      });
+      blobs.push({
+        x: cx + innerW * rng.float(0.18, 0.26),
+        y: cy + rng.float(-4, 4),
+        rx: innerW * rng.float(0.18, 0.28),
+        ry: innerH * rng.float(0.22, 0.36),
+      });
+      blobs.push({
+        x: cx + rng.float(-2, 2),
+        y: cy + rng.float(-2, 2),
+        rx: innerW * rng.float(0.07, 0.12),
+        ry: innerH * rng.float(0.08, 0.14),
       });
     } else {
       blobs.push({
@@ -271,12 +290,7 @@
     // ramps between grass and hill
     placeRamps(tiles, w, h);
 
-    // decorative scatter
-    decorate(tiles, w, h, rng, biomeId, biome);
-
-    // paths later after houses
-
-    // houses
+    // houses first so paths and later deco skip them
     var cfgH = GS.CONFIG.map || {};
     var houseTarget = opts.houses != null ? opts.houses
       : Math.round((cfgH.houseBase || 3) + difficulty * (cfgH.housePerDifficulty || 0.85) + (w * h) / 2200);
@@ -285,6 +299,9 @@
     if (houses.length < 2) return null;
 
     carvePaths(tiles, w, h, houses, rng);
+
+    // decorative scatter after paths so tracks stay clear
+    decorate(tiles, w, h, rng, biomeId, biome);
 
     var landings = findLandings(tiles, w, h);
     if (landings.dirs.length < 2 || landings.spots.length < 4) {
@@ -310,14 +327,33 @@
       if (!ok) return null;
     }
 
-    // optional remnant wall on rocky / high difficulty
+    function housesReachable() {
+      var hi, si, okH;
+      for (hi = 0; hi < houses.length; hi++) {
+        okH = false;
+        for (si = 0; si < landings.spots.length && !okH; si++) {
+          if (GS.path.astar(pass, cost, w, h, landings.spots[si].x, landings.spots[si].y, houses[hi].x, houses[hi].y, { diag: true, limit: w * h * 8 })) okH = true;
+        }
+        if (!okH) return false;
+      }
+      return true;
+    }
+
+    // optional remnant wall on rocky / high difficulty — revert if it seals a house
     if (biomeId === "rocky" || difficulty >= 4) {
-      sprinkleWalls(tiles, w, h, rng, houses);
+      var wallUndo = sprinkleWalls(tiles, w, h, rng, houses);
+      if (wallUndo && !housesReachable()) {
+        for (i = 0; i < wallUndo.length; i++) {
+          tiles[wallUndo[i].y][wallUndo[i].x] = wallUndo[i].prev;
+        }
+      }
     }
 
     var beacons = placeBeacons(tiles, w, h, rng, houses, difficulty);
 
-    var name = opts.name || GS.names.island(rng);
+    var nm = (GS.names.islandPair && GS.names.islandPair(rng)) || { name: GS.names.island(rng) };
+    var name = opts.name || nm.name;
+    var nameEn = opts.nameEn || nm.nameEn || name;
     var landCount = 0;
     for (y = 0; y < h; y++) for (x = 0; x < w; x++) if (tiles[y][x].walk) landCount++;
 
@@ -334,6 +370,7 @@
       biomeName: biome.name,
       flavor: biome.flavor,
       name: name,
+      nameEn: nameEn,
       difficulty: difficulty,
       landCount: landCount,
     };
@@ -364,8 +401,9 @@
   function carveNotch(tiles, w, h, biome, dir) {
     var d = GS.DIRS[dir] || GS.DIRS[2];
     var px = -d.dy, py = d.dx;
-    var x = (w / 2) | 0;
-    var y = (h / 2) | 0;
+    var c = landCentroid(tiles, w, h);
+    var x = c.x;
+    var y = c.y;
     var lastLand = null;
     var steps, k, bx, by, t;
     for (steps = 0; steps < Math.max(w, h); steps++) {
@@ -456,6 +494,21 @@
     return last;
   }
 
+  function landCentroid(tiles, w, h) {
+    var sx = 0, sy = 0, n = 0, x, y;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        if (landish(tiles[y][x].type)) {
+          sx += x;
+          sy += y;
+          n++;
+        }
+      }
+    }
+    if (!n) return { x: (w / 2) | 0, y: (h / 2) | 0 };
+    return { x: (sx / n) | 0, y: (sy / n) | 0 };
+  }
+
   function fillSmallWater(tiles, w, h, rng) {
     var water = function (x, y) {
       var t = tiles[y][x].type;
@@ -463,9 +516,9 @@
     };
     var comps = connectedComponents(w, h, water);
     for (var i = 0; i < comps.length; i++) {
-      if (comps[i].length <= 10) {
-        // inland pond: keep some as flavor if not tiny
-        var pond = comps[i].length >= 4 && rng.chance(0.4);
+      if (comps[i].length <= 8) {
+        // inland pond: keep a few as flavor, fill the rest so paths stay open
+        var pond = comps[i].length >= 6 && rng.chance(0.22);
         for (var j = 0; j < comps[i].length; j++) {
           var c = comps[i][j];
           if (pond) {
@@ -541,12 +594,18 @@
     for (var y = 0; y < h; y++) {
       for (var x = 0; x < w; x++) {
         var t = tiles[y][x].type;
-        if (t === T.GRASS || t === T.SNOW || t === T.ASH) {
-          if (rng.chance(biomeId === "pine" ? 0.18 : biomeId === "verdant" ? 0.08 : 0.04)) {
+        if (t === T.PATH || t === T.HOUSE || t === T.BEACH || t === T.ICE || t === T.BEACON) continue;
+        if (t === T.GRASS || t === T.SNOW || t === T.ASH || t === T.HILL) {
+          var pine = biomeId === "pine";
+          var treeChance = pine
+            ? (t === T.HILL ? 0.14 : 0.28)
+            : (biomeId === "verdant" ? 0.08 : 0.04);
+          if (t === T.HILL && !pine) treeChance *= 0.5;
+          if (rng.chance(treeChance)) {
             tiles[y][x] = makeTile(T.TREE, tiles[y][x].height);
-          } else if (rng.chance(0.06)) {
+          } else if (rng.chance(0.06) && t !== T.HILL) {
             tiles[y][x] = makeTile(T.SHRUB, tiles[y][x].height);
-          } else if (biomeId === "verdant" && rng.chance(0.05)) {
+          } else if (biomeId === "verdant" && t === T.GRASS && rng.chance(0.05)) {
             tiles[y][x] = makeTile(T.CROPS, 2);
           }
         }
@@ -588,13 +647,15 @@
       if (!far) continue;
       var id = houses.length;
       var hp = 90 + rng.int(0, 40);
+      var hn = GS.names.housePair ? GS.names.housePair(rng) : { name: GS.names.house(rng) };
       tiles[c.y][c.x] = makeTile(T.HOUSE, tiles[c.y][c.x].height);
       tiles[c.y][c.x].houseId = id;
       houses.push({
         id: id,
         x: c.x,
         y: c.y,
-        name: GS.names.house(rng),
+        name: hn.name,
+        nameEn: hn.nameEn || hn.name,
         hp: hp,
         maxHp: hp,
         coins: 1,
@@ -639,24 +700,53 @@
 
   function carvePaths(tiles, w, h, houses, rng) {
     if (houses.length < 2) return;
-    var pass = function (x, y) {
-      var t = tiles[y][x].type;
-      return walkType(t) && t !== T.HOUSE;
-    };
     var cost = function (x, y) {
       return tiles[y][x].cost;
     };
-    for (var i = 1; i < houses.length; i++) {
-      var p = GS.path.astar(function (x, y) {
+    var i, j, a, b, p, k, t;
+    var used = [0];
+    var left = [];
+    for (i = 1; i < houses.length; i++) left.push(i);
+    function hdist(ia, ib) {
+      var dx = houses[ia].x - houses[ib].x;
+      var dy = houses[ia].y - houses[ib].y;
+      return dx * dx + dy * dy;
+    }
+    function paintPath(from, to) {
+      p = GS.path.astar(function (x, y) {
         return tiles[y][x].walk;
-      }, cost, w, h, houses[0].x, houses[0].y, houses[i].x, houses[i].y, { diag: false });
-      if (!p) continue;
-      for (var k = 1; k < p.length - 1; k++) {
-        var t = tiles[p[k].y][p[k].x];
+      }, cost, w, h, from.x, from.y, to.x, to.y, { diag: false });
+      if (!p) return;
+      for (k = 1; k < p.length - 1; k++) {
+        t = tiles[p[k].y][p[k].x];
         if (t.type === T.GRASS || t.type === T.SNOW || t.type === T.ASH || t.type === T.SHRUB || t.type === T.CROPS) {
           tiles[p[k].y][p[k].x] = makeTile(T.PATH, t.height);
         }
       }
+    }
+    while (left.length) {
+      var bestI = 0, bestJ = 0, bestD = 1e12, li, ui;
+      for (ui = 0; ui < used.length; ui++) {
+        for (li = 0; li < left.length; li++) {
+          var dd = hdist(used[ui], left[li]);
+          if (dd < bestD) {
+            bestD = dd;
+            bestI = used[ui];
+            bestJ = li;
+          }
+        }
+      }
+      a = houses[bestI];
+      b = houses[left[bestJ]];
+      paintPath(a, b);
+      used.push(left[bestJ]);
+      left.splice(bestJ, 1);
+    }
+    // a couple of extra tracks so the village is not a pure tree
+    for (i = 0; i < houses.length && i < 2; i++) {
+      j = (i + 2) % houses.length;
+      if (j === i) continue;
+      if (rng.chance(0.45)) paintPath(houses[i], houses[j]);
     }
   }
 
@@ -715,16 +805,19 @@
     var dir = rng.int(0, 4);
     var x = hx + rng.int(-3, 4);
     var y = hy + rng.int(-3, 4);
+    var undo = [];
     for (var k = 0; k < len; k++) {
       if (!inb(x, y, w, h)) break;
       var t = tiles[y][x].type;
       if (t === T.GRASS || t === T.HILL || t === T.PATH || t === T.ASH || t === T.SNOW) {
+        undo.push({ x: x, y: y, prev: tiles[y][x] });
         if (k === (len / 2) | 0) tiles[y][x] = makeTile(T.FLOOR, 2);
         else tiles[y][x] = makeTile(T.WALL, 3);
       }
       x += GS.DIRS[dir].dx;
       y += GS.DIRS[dir].dy;
     }
+    return undo;
   }
 
   function forceIsland(rng, w, h, biome, biomeId, difficulty) {
@@ -751,17 +844,18 @@
     var houses = placeHouses(tiles, w, h, rng, 3, 12);
     if (!houses.length) {
       tiles[(h / 2) | 0][(w / 2) | 0] = makeTile(T.HOUSE, 2);
-      houses = [{ id: 0, x: (w / 2) | 0, y: (h / 2) | 0, name: "厅堂", hp: 100, maxHp: 100, coins: 1, alive: true, villagers: 4 }];
+      houses = [{ id: 0, x: (w / 2) | 0, y: (h / 2) | 0, name: "厅堂", nameEn: "Hall", hp: 100, maxHp: 100, coins: 1, alive: true, villagers: 4 }];
       tiles[(h / 2) | 0][(w / 2) | 0].houseId = 0;
     }
     var landings = findLandings(tiles, w, h);
     var beacons = placeBeacons(tiles, w, h, rng, houses, difficulty);
+    var fnm = GS.names.islandPair ? GS.names.islandPair(rng) : { name: GS.names.island(rng) };
     return {
       w: w, h: h, tiles: tiles, houses: houses, beacons: beacons,
       landings: landings.spots, landingDirs: landings.dirs.length ? landings.dirs : [2],
       shape: "forced",
       biome: biomeId, biomeName: biome.name, flavor: biome.flavor,
-      name: GS.names.island(rng), difficulty: difficulty, landCount: w * h, forced: true,
+      name: fnm.name, nameEn: fnm.nameEn || fnm.name, difficulty: difficulty, landCount: w * h, forced: true,
     };
   }
 
@@ -792,6 +886,7 @@
       else if (difficulty >= 3) biome = rng.pick(["rocky", "verdant", "marsh", "pine"]);
       else biome = rng.pick(["verdant", "verdant", "marsh", "pine"]);
       var isleSeed = rng.int(1, 0x7fffffff);
+      var iname = GS.names.islandPair ? GS.names.islandPair(rng) : { name: GS.names.island(rng) };
       islands.push({
         id: islands.length,
         mx: x,
@@ -799,7 +894,8 @@
         seed: isleSeed,
         biome: biome,
         difficulty: difficulty,
-        name: GS.names.island(rng),
+        name: iname.name,
+        nameEn: iname.nameEn || iname.name,
         status: "hidden", // hidden | scouted | cleared | lost
         edges: [],
       });

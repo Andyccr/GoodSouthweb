@@ -44,14 +44,14 @@
     return slots.map(function (s) {
       var sum = s.summary;
       var body = s.empty
-        ? '<span class="slot-empty">空</span>'
+        ? '<span class="slot-empty">' + GS.t("empty") + "</span>"
         : '<span class="slot-meta">' + sum.time +
-          '</span><span class="slot-meta">钱币 ' + sum.coins +
-          ' · 收复 ' + sum.cleared + "/" + sum.islandCount +
-          ' · 队长 ' + sum.living +
-          (sum.relics ? ' · 圣物 ' + sum.relics : "") +
-          (sum.inBattle ? ' · <b class="warn">战斗中</b>' : "") +
-          "</span><span class=\"slot-meta\">当前岛 " + GS.util.escapeHtml(sum.currentName) + "</span>";
+          '</span><span class="slot-meta">' + GS.t("slotCoins", sum.coins) +
+          " · " + GS.t("slotCleared", sum.cleared, sum.islandCount) +
+          " · " + GS.t("slotCaps", sum.living) +
+          (sum.relics ? " · " + GS.t("slotRelics", sum.relics) : "") +
+          (sum.inBattle ? ' · <b class="warn">' + GS.t("inBattle") + "</b>" : "") +
+          "</span><span class=\"slot-meta\">" + GS.t("slotIsland", GS.util.escapeHtml(GS.loc({ name: sum.currentName, nameEn: sum.currentNameEn }) || sum.currentName)) + "</span>";
       var act = mode === "save" ? "save-slot" : "load-slot";
       var disabled = mode === "load" && s.empty ? " disabled" : "";
       return '<button class="slot-btn" data-act="' + act + '" data-arg="' + s.slot + '"' + disabled + ">" +
@@ -65,9 +65,9 @@
     if (latest && latest.summary) {
       var s = latest.summary;
       cont =
-        '<button data-act="continue"><kbd>D</kbd> 继续征程 — ' + latest.name +
-        "　" + s.time + "　收复 " + s.cleared + "　钱币 " + s.coins +
-        (s.inBattle ? "　(战斗中)" : "") + "</button>";
+        '<button data-act="continue"><kbd>D</kbd> ' + GS.t("continueAs", latest.name) +
+        "　" + s.time + "　" + GS.t("cleared") + " " + s.cleared + "　" + GS.t("coins") + " " + s.coins +
+        (s.inBattle ? "　" + GS.t("inBattleMark") : "") + "</button>";
     }
     this.show(
       '<div class="panel title-panel">' +
@@ -79,16 +79,17 @@
       " ╚██████╔╝╚██████╔╝╚██████╔╝██████╔╝    ███████║╚██████╔╝╚██████╔╝   ██║   ██║  ██║\n" +
       "  ╚═════╝  ╚═════╝  ╚═════╝ ╚═════╝     ╚══════╝ ╚═════╝  ╚═════╝    ╚═╝   ╚═╝  ╚═╝\n" +
       "</pre>" +
-      '<div class="sub">南 境 据 点  ·  矮人要塞风格 ASCII 塔防沙盒</div>' +
-      '<div class="flavor">北蛮的长船正在南下。你是南境的寨主。守住屋舍，收集圣物，在航程里做出抉择。</div>' +
+      '<div class="sub">' + GS.t("subtitle") + "</div>" +
+      '<div class="flavor">' + GS.t("flavor") + "</div>" +
       '<div class="menu">' +
       cont +
-      '<button data-act="load-menu"><kbd>L</kbd> 读取存档 — 多槽位</button>' +
-      '<button data-act="campaign"><kbd>A</kbd> 新的战役 — 群岛远征</button>' +
-      '<button data-act="sandbox"><kbd>B</kbd> 沙盒模式 — 随机构图 / 刷子 / 刷兵</button>' +
-      '<button data-act="help"><kbd>C</kbd> / <kbd>F1</kbd> 手册</button>' +
+      '<button data-act="load-menu"><kbd>L</kbd> ' + GS.t("loadSlots") + "</button>" +
+      '<button data-act="campaign"><kbd>A</kbd> ' + GS.t("newCampaign") + "</button>" +
+      '<button data-act="sandbox"><kbd>B</kbd> ' + GS.t("sandbox") + "</button>" +
+      '<button data-act="help"><kbd>C</kbd> / <kbd>F1</kbd> ' + GS.t("handbook") + "</button>" +
+      '<button data-act="lang"><kbd>I</kbd> ' + GS.t("langToggle") + "</button>" +
       "</div>" +
-      '<div class="hint">Esc 暂停菜单 · F5 快速存档 · F9 快速读档 · 空格战斗内暂停</div>' +
+      '<div class="hint">' + GS.t("titleHint") + "</div>" +
       "</div>"
     );
   };
@@ -99,22 +100,23 @@
     var canSave = !!ctx.canSave;
     this.show(
       '<div class="panel pause-panel">' +
-      "<h2>暂停</h2>" +
-      '<p class="flavor">' + (inBattle ? "战斗已冻结。可存档后离开，稍后从同一战局继续。" : "海图暂停。") + "</p>" +
+      "<h2>" + GS.t("pause") + "</h2>" +
+      '<p class="flavor">' + (inBattle ? GS.t("pauseBattle") : GS.t("pauseChart")) + "</p>" +
       '<div class="menu">' +
-      '<button data-act="resume"><kbd>Esc</kbd> 继续</button>' +
-      (canSave ? '<button data-act="save-menu"><kbd>F5</kbd> 保存进度</button>' : "") +
-      '<button data-act="load-menu"><kbd>F9</kbd> 读取存档</button>' +
-      '<button data-act="pal">调色板</button>' +
-      '<button data-act="mute">' + (GS.audio.muted() ? "开启音效" : "静音") + "</button>" +
+      '<button data-act="resume"><kbd>Esc</kbd> ' + GS.t("resume") + "</button>" +
+      (canSave ? '<button data-act="save-menu"><kbd>F5</kbd> ' + GS.t("saveProgress") + "</button>" : "") +
+      '<button data-act="load-menu"><kbd>F9</kbd> ' + GS.t("loadSave") + "</button>" +
+      '<button data-act="pal">' + GS.t("palette") + "</button>" +
+      '<button data-act="mute">' + (GS.audio.muted() ? GS.t("muteOn") : GS.t("muteOff")) + "</button>" +
+      '<button data-act="lang"><kbd>I</kbd> ' + GS.t("langToggle") + "</button>" +
       (inBattle && ctx.mode === "battle"
-        ? '<button data-act="evac" class="danger-outline">弃岛撤退（保兵）</button>' +
-          '<button data-act="back-camp">返回海图（不存战斗）</button>'
+        ? '<button data-act="evac" class="danger-outline">' + GS.t("evac") + "</button>" +
+          '<button data-act="back-camp">' + GS.t("backChart") + "</button>"
         : "") +
-      (ctx.mode === "sandbox" ? '<button data-act="title">返回标题</button>' : "") +
-      (ctx.mode === "campaign" ? '<button data-act="title">返回标题</button>' : "") +
+      (ctx.mode === "sandbox" ? '<button data-act="title">' + GS.t("backTitle") + "</button>" : "") +
+      (ctx.mode === "campaign" ? '<button data-act="title">' + GS.t("backTitle") + "</button>" : "") +
       (inBattle && ctx.mode === "battle" ? "" : "") +
-      '<button data-act="help">手册</button>' +
+      '<button data-act="help">' + GS.t("handbook") + "</button>" +
       "</div></div>"
     );
   };
@@ -122,20 +124,20 @@
   Screens.prototype.saveMenu = function () {
     this.show(
       '<div class="panel save-panel">' +
-      "<h2>保存进度</h2>" +
-      '<p class="hint">自动档会在关键节点写入；手动档不会被自动覆盖。战斗中存档可恢复战局。</p>' +
+      "<h2>" + GS.t("saveProgress") + "</h2>" +
+      '<p class="hint">' + GS.t("saveHint") + "</p>" +
       '<div class="slot-list">' + this._slotRows("save") + "</div>" +
-      '<div class="menu"><button data-act="resume"><kbd>Esc</kbd> 返回</button></div></div>'
+      '<div class="menu"><button data-act="resume"><kbd>Esc</kbd> ' + GS.t("back") + "</button></div></div>"
     );
   };
 
   Screens.prototype.loadMenu = function () {
     this.show(
       '<div class="panel save-panel">' +
-      "<h2>读取存档</h2>" +
-      '<p class="hint">选择一个槽位。若存档含战斗快照，将直接回到该战局。</p>' +
+      "<h2>" + GS.t("loadSave") + "</h2>" +
+      '<p class="hint">' + GS.t("loadHint") + "</p>" +
       '<div class="slot-list">' + this._slotRows("load") + "</div>" +
-      '<div class="menu"><button data-act="resume-or-title"><kbd>Esc</kbd> 返回</button></div></div>'
+      '<div class="menu"><button data-act="resume-or-title"><kbd>Esc</kbd> ' + GS.t("back") + "</button></div></div>"
     );
   };
 
@@ -143,89 +145,39 @@
     opts = opts || {};
     this.show(
       '<div class="panel confirm-panel">' +
-      "<h2>" + (opts.title || "确认") + "</h2>" +
+      "<h2>" + (opts.title || GS.t("confirm")) + "</h2>" +
       "<p>" + (opts.msg || "") + "</p>" +
       '<div class="menu row">' +
-      '<button data-act="' + (opts.yesAct || "confirm-yes") + '" data-arg="' + (opts.yesArg || "") + '">' + (opts.yes || "确定") + "</button>" +
-      '<button data-act="' + (opts.noAct || "resume") + '">' + (opts.no || "取消") + "</button>" +
+      '<button data-act="' + (opts.yesAct || "confirm-yes") + '" data-arg="' + (opts.yesArg || "") + '">' + (opts.yes || GS.t("ok")) + "</button>" +
+      '<button data-act="' + (opts.noAct || "resume") + '">' + (opts.no || GS.t("cancel")) + "</button>" +
       "</div></div>"
     );
   };
 
   Screens.prototype.help = function () {
-    this.show(
-      '<div class="panel help-panel"><h2>南境手册</h2>' +
-      "<h3>保存与暂停</h3>" +
-      "<ul>" +
-      "<li><b>Esc</b> 打开/关闭暂停菜单（战役、战斗、沙盒）。</li>" +
-      "<li><b>空格</b> 战斗中软暂停；海图上空格登陆当前岛。</li>" +
-      "<li><b>F5</b> 快速写入自动档；暂停菜单可写入 1–3 号手动档。</li>" +
-      "<li><b>F9</b> 快速读取最近存档；亦可在读档界面选槽。</li>" +
-      "<li>战斗中存档会保存岛屿战局，读档后可继续同一场。</li>" +
-      "<li>切换浏览器标签会自动暂停战斗。</li>" +
-      "</ul>" +
-      "<h3>战地技巧</h3>" +
-      "<ul>" +
-      "<li>布置只是<strong>就位点</strong>：开战后天兵整团去<strong>歼灭北蛮</strong>（优先保屋舍）。朝向用箭头画在就位点上，右键 / R / 转向按钮 / Shift+滚轮旋转；未落子也可以先转向。</li>" +
-      "<li>每局默认四支部队（两盾、一弓、一枪）。可再招募<strong>投矛手 ‡</strong>。弓手/投矛会拉开身位；盾兵/枪兵冲向威胁屋舍的北蛮。</li>" +
-      "<li><b>U 号角</b>：每场一次（持有号角石可两次），短时减缓全部北蛮。</li>" +
-      "<li><b>烽火台 ¥</b>：弓手靠近可提升射程与伤害。</li>" +
-      "<li>屋舍遇袭时会冲出<strong>乡勇</strong>拖延敌人。持南灯则多一人。</li>" +
-      "<li>每座岛有<strong>征兆</strong>（本场）与<strong>圣物</strong>（守住后永久）。航程中会遇到抉择事件。</li>" +
-      "<li>点击己方士兵选中该兵团；再点同一兵团会旋转朝向。点空地才布置/换阵。</li>" +
-      "<li><b>左键点</b>就位/选中，<b>左键拖</b>平移镜头。<b>WASD</b> 持续平移；方向键 / HJKL 移光标。滚轮缩放。画布边缘会慢速推镜。</li>" +
-      "<li>北蛮一律乘长船从深海驶向海滩，靠岸后才下船。</li>" +
-      "</ul>" +
-      "<h3>手机</h3>" +
-      "<ul>" +
-      "<li>点空地就位；点士兵选中，再点同一兵团转向。拖动画布平移，双指缩放。海图点岛选中，再点或长按登陆。</li>" +
-      "<li>转向（底栏或长按）会弹出朝向。底栏打开情报 / 部队抽屉，点开战。条上可缩放与变速。</li>" +
-      "<li>沙盒的刷地 / 刷兵 / 新岛在「情报」抽屉里，避免挡住地图。</li>" +
-      "<li>窄屏会自动用较小岛屿、降低特效，避免卡顿。</li>" +
-      "</ul>" +
-      "<h3>桌面操作</h3>" +
-      "<pre class=\"keys\">" +
-      "鼠标左键        点＝选中/就位　　拖＝平移镜头\n" +
-      "鼠标右键        点＝转向　　拖＝平移　　滚轮缩放\n" +
-      "Shift+滚轮      旋转朝向　　中键 / Alt+左键也可拖镜\n" +
-      "WASD            平移镜头（按住）　　Shift 加速\n" +
-      "方向键 / HJKL   移动光标（键盘落子）\n" +
-      ", . 或 =        缩放　　F / Home 对准选中兵团\n" +
-      "[  ]            变速　　G 开战　　E 撤退　　U 号角\n" +
-      "海图            拖/滚轮/WASD 平移缩放　　点岛选中，再点登陆\n" +
-      "                右键立刻登陆　　Tab 换岛　　Enter / 空格登陆\n" +
-      "                F 对准　　0 / End 看全图　　Q / Esc 暂停\n" +
-      "</pre>" +
-      "<h3>圣物与征兆</h3>" +
-      "<ul>" +
-      "<li>海图上每座岛藏一件圣物。守住后加入编制，全军常驻（南灯、盐风旗、鹰巢石、号角石等）。</li>" +
-      "<li>登岛前会看到本场征兆：海雾、风暴、昏暮、大潮、收获月、鸦群。</li>" +
-      "<li>生态含沃野、岩礁、泽地、霜岛、火山与<strong>松林</strong>。北蛮新增<strong>潮萨满 Ψ</strong>（远程诅咒减速）与<strong>猎犬 d</strong>（追兵不追屋）。</li>" +
-      "</ul>" +
-      '<div class="menu"><button data-act="resume-or-title"><kbd>Q</kbd> 返回</button></div></div>'
-    );
+    this.show(GS.I18N.helpHtml());
   };
 
   Screens.prototype.preview = function (island, army) {
-    var landings = island.landingDirs.map(function (d) { return GS.DIRS[d].name; }).join("、");
+    var landings = GS.joinList(island.landingDirs.map(function (d) { return GS.loc(GS.DIRS[d]); }));
     var om = island.omen && GS.Meta ? GS.Meta.omen(island.omen) : null;
     var relic = island.relic && GS.Meta ? GS.Meta.relic(island.relic) : null;
+    var biome = GS.BIOMES[island.biome] || {};
     this.show(
       '<div class="panel preview-panel">' +
-      "<h2>将至 · " + island.name + "</h2>" +
-      '<div class="flavor">' + island.flavor + "  ·  " + GS.BIOMES[island.biome].name +
-      "  ·  威胁 " + "▲".repeat(island.difficulty) + "</div>" +
+      "<h2>" + GS.t("arrivingIsle", GS.loc(island)) + "</h2>" +
+      '<div class="flavor">' + GS.t("previewMeta", GS.loc(biome, "flavor") || island.flavor, GS.loc(biome), "▲".repeat(island.difficulty)) + "</div>" +
       "<pre class=\"mini\">" + GS.util.asciiMini(island) + "</pre>" +
-      "<p>屋舍 " + island.houses.length + " 座 · 版图 " + island.w + "×" + island.h +
-      (island.beacons && island.beacons.length ? " · 烽火台 " + island.beacons.length : "") +
-      "。登陆方向：<b>" + landings + "</b>。</p>" +
-      (om && om.id !== "calm" ? "<p class=\"omen\">征兆 <b>" + om.name + "</b> — " + om.desc + "</p>" : "") +
-      (relic ? "<p class=\"relic-line\">据点圣物 <b>" + relic.ch + " " + relic.name + "</b> — 守住后获得：" + relic.desc + "</p>" : "") +
-      "<p>民居：" + island.houses.map(function (h) { return h.name; }).join("、") + "。</p>" +
+      "<p>" + GS.t("previewCounts", island.houses.length, island.w, island.h) +
+      (island.beacons && island.beacons.length ? GS.t("previewBeacons", island.beacons.length) : "") +
+      GS.t("previewLand") + "<b>" + landings + "</b>。</p>" +
+      (om && om.id !== "calm" ? "<p class=\"omen\">" + GS.t("omenP", GS.loc(om), GS.loc(om, "desc")) + "</p>" : "") +
+      (relic ? "<p class=\"relic-line\">" + GS.t("relicP", relic.ch, GS.loc(relic), GS.loc(relic, "desc")) + "</p>" : "") +
+      "<p>" + GS.t("previewHomes") + GS.joinList(island.houses.map(function (h) { return GS.houseName ? GS.houseName(h, { island: island }) : GS.loc(h); })) + ".</p>" +
       '<div class="menu">' +
-      '<button data-act="fight"><kbd>G</kbd> 登陆布置兵团</button>' +
-      '<button data-act="hire"><kbd>N</kbd> 招募 / 钱币 ' + army.coins + "</button>" +
-      '<button data-act="back-camp"><kbd>Q</kbd> 返回海图</button>' +
+      '<button data-act="fight"><kbd>G</kbd> ' + GS.t("deployG") + "</button>" +
+      '<button data-act="hire"><kbd>N</kbd> ' + GS.t("hireNCoins", army.coins) + "</button>" +
+      '<button data-act="back-camp"><kbd>Q</kbd> ' + GS.t("backChart") + "</button>" +
       "</div></div>"
     );
   };
@@ -235,47 +187,46 @@
       var role = GS.ROLES[c.cls];
       var trait = "";
       if (c.trait) {
-        for (var i = 0; i < GS.TRAITS.length; i++) if (GS.TRAITS[i].id === c.trait) trait = GS.TRAITS[i].name;
+        for (var i = 0; i < GS.TRAITS.length; i++) if (GS.TRAITS[i].id === c.trait) trait = GS.loc(GS.TRAITS[i]);
       }
-      return "<li>" + (c.dead ? "<s>" : "") + role.ch + " " + c.name + "  " + role.name +
-        "  Lv" + c.level + "  兵" + c.soldiers + "/" + c.maxSoldiers +
-        (trait ? "  [" + trait + "]" : "") + (c.dead ? "</s> 阵亡" : "") + "</li>";
+      return "<li>" + (c.dead ? "<s>" : "") + role.ch + " " + GS.loc(c) + "  " + GS.loc(role) +
+        "  Lv" + c.level + "  " + GS.t("troopsN") + " " + c.soldiers + "/" + c.maxSoldiers +
+        (trait ? "  [" + trait + "]" : "") + (c.dead ? "</s>" + GS.t("deadMark") : "") + "</li>";
     }).join("");
     var H = GS.CONFIG.hire;
     this.show(
       '<div class="panel">' +
-      "<h2>招募厅  ·  钱币 " + army.coins + "</h2>" +
+      "<h2>" + GS.t("hireHall", army.coins) + "</h2>" +
       "<ul class=\"roster\">" + list + "</ul>" +
       '<div class="menu">' +
-      '<button data-act="buy" data-arg="infantry">招募盾兵  (' + H.infantry.cost + ")</button>" +
-      '<button data-act="buy" data-arg="archer">招募弓手  (' + H.archer.cost + ")</button>" +
-      '<button data-act="buy" data-arg="pike">招募枪兵  (' + H.pike.cost + ")</button>" +
-      '<button data-act="buy" data-arg="skirmisher">招募投矛手  (' + H.skirmisher.cost + ")</button>" +
-      '<button data-act="back-camp"><kbd>Q</kbd> 返回</button>' +
-      "</div><p class=\"hint\">阵亡队长无法复活。胜利按残存屋舍得钱；圣物守岛后永久生效。</p></div>"
+      '<button data-act="buy" data-arg="infantry">' + GS.t("hireBtn", GS.t("hireInf"), H.infantry.cost) + "</button>" +
+      '<button data-act="buy" data-arg="archer">' + GS.t("hireBtn", GS.t("hireArc"), H.archer.cost) + "</button>" +
+      '<button data-act="buy" data-arg="pike">' + GS.t("hireBtn", GS.t("hirePike"), H.pike.cost) + "</button>" +
+      '<button data-act="buy" data-arg="skirmisher">' + GS.t("hireBtn", GS.t("hireSkirm"), H.skirmisher.cost) + "</button>" +
+      '<button data-act="back-camp"><kbd>Q</kbd> ' + GS.t("back") + "</button>" +
+      "</div><p class=\"hint\">" + GS.t("hireHint") + "</p></div>"
     );
   };
 
   Screens.prototype.result = function (island, army, outcome) {
     var living = GS.Army.living(army).length;
     var extra = "";
-    if (outcome.relic) extra += "<p class=\"relic-line\">获得圣物 <b>" + outcome.relic.ch + " " + outcome.relic.name + "</b> — " + outcome.relic.desc + "</p>";
-    if (outcome.wheatCoins) extra += "<p>麦仓印额外 +" + outcome.wheatCoins + " 钱币。</p>";
+    if (outcome.relic) extra += "<p class=\"relic-line\">" + GS.t("gotRelic") + " <b>" + outcome.relic.ch + " " + GS.loc(outcome.relic) + "</b> — " + GS.loc(outcome.relic, "desc") + "</p>";
+    if (outcome.wheatCoins) extra += "<p>" + GS.t("wheatBonus", outcome.wheatCoins) + "</p>";
     if (outcome.promotions && outcome.promotions.length) {
-      extra += "<p>" + outcome.promotions.join("；") + "</p>";
+      extra += "<p>" + outcome.promotions.join(GS.LANG === "en" ? "; " : "；") + "</p>";
     }
+    var kindLabel = outcome.kind === "victory" ? GS.t("victory") : outcome.kind === "retreat" ? GS.t("retreat") : GS.t("defeat");
     this.show(
       '<div class="panel">' +
-      "<h2>" + (outcome.kind === "victory" ? "胜利" : outcome.kind === "retreat" ? "撤退" : "陷落") +
-      " — " + island.name + "</h2>" +
+      "<h2>" + GS.t("resultHead", kindLabel, GS.loc(island)) + "</h2>" +
       "<p>" + outcome.msg + "</p>" +
-      "<p>残存屋舍 " + outcome.housesLeft + "/" + outcome.housesTotal +
-      "　获得钱币 " + outcome.coins + "　现有 " + army.coins + "</p>" +
+      "<p>" + GS.t("resultStats", outcome.housesLeft, outcome.housesTotal, outcome.coins, army.coins) + "</p>" +
       extra +
-      "<p>仍可作战的队长：" + living + (army.relics && army.relics.length ? "　圣物 " + army.relics.length : "") + "</p>" +
+      "<p>" + GS.t("captainsLeft") + living + (army.relics && army.relics.length ? "　" + GS.t("relics") + " " + army.relics.length : "") + "</p>" +
       '<div class="menu">' +
-      (living ? '<button data-act="next">继续海图</button>' : '<button data-act="title">南境沦陷 · 返回标题</button>') +
-      (outcome.kind !== "victory" && living ? '<button data-act="retry">再攻此岛</button>' : "") +
+      (living ? '<button data-act="next">' + GS.t("nextChart") + "</button>" : '<button data-act="title">' + GS.t("southLost") + "</button>") +
+      (outcome.kind !== "victory" && living ? '<button data-act="retry">' + GS.t("retryIsland") + "</button>" : "") +
       "</div></div>"
     );
   };
@@ -287,11 +238,11 @@
     }
     this.show(
       '<div class="panel voyage-panel">' +
-      "<h2>航程 · " + ev.title + "</h2>" +
-      "<p>" + ev.text + "</p>" +
+      "<h2>" + GS.t("voyageHead", GS.loc(ev, "title") || ev.title) + "</h2>" +
+      "<p>" + (GS.loc(ev, "text") || ev.text) + "</p>" +
       '<div class="menu">' +
-      '<button data-act="voyage-pick" data-arg="a"><kbd>1</kbd> ' + ev.a.label + "</button>" +
-      '<button data-act="voyage-pick" data-arg="b"><kbd>2</kbd> ' + ev.b.label + "</button>" +
+      '<button data-act="voyage-pick" data-arg="a"><kbd>1</kbd> ' + (GS.loc(ev.a, "label") || ev.a.label) + "</button>" +
+      '<button data-act="voyage-pick" data-arg="b"><kbd>2</kbd> ' + (GS.loc(ev.b, "label") || ev.b.label) + "</button>" +
       "</div></div>"
     );
   };
@@ -299,13 +250,13 @@
   Screens.prototype.finale = function (army) {
     var relics = (army.relics || []).map(function (id) {
       var r = GS.Meta && GS.Meta.relic(id);
-      return r ? r.name : id;
-    }).join("、");
+      return r ? GS.loc(r) : id;
+    });
     this.show(
-      '<div class="panel"><h2>群岛纪事终章</h2><p>南境的岛链或守或弃，潮水暂时平了。收复 ' +
-      army.islandsCleared + " 座岛。钱币 " + army.coins +
-      (relics ? "。圣物：" + relics : "") + "。</p>" +
-      '<div class="menu"><button data-act="title">返回标题</button></div></div>'
+      '<div class="panel"><h2>' + GS.t("voyageEnd") + "</h2><p>" + GS.t("voyageEndBody", army.islandsCleared) +
+      " " + GS.t("coins") + " " + army.coins +
+      (relics.length ? GS.t("finaleRelics") + GS.joinList(relics) : "") + ".</p>" +
+      '<div class="menu"><button data-act="title">' + GS.t("backTitle") + "</button></div></div>"
     );
   };
 

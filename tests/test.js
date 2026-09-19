@@ -24,7 +24,7 @@ vm.createContext(context);
 
 var files = [
   "events.js", "config.js", "util.js", "rng.js",
-  "tiles.js", "names.js", "content.js", "pathfind.js", "mapgen.js",
+  "tiles.js", "names.js", "content.js", "i18n.js", "pathfind.js", "mapgen.js",
   "army.js", "campaign.js", "save.js", "waves.js", "sim.js",
 ];
 files.forEach(function (f) {
@@ -148,10 +148,29 @@ var listed = GS.Save.listSlots();
 ok(listed.length === 4 && listed.some(function (s) { return s.slot === "1" && !s.empty; }), "listSlots");
 var latest = GS.Save.latest();
 ok(latest && latest.summary && latest.summary.cleared >= 1, "latest summary");
+ok(latest.summary.currentNameEn, "save summary stores English island name");
 
 GS.Save.saveSettings({ palette: "amber", muted: true });
 var st = GS.Save.loadSettings();
 ok(st.palette === "amber" && st.muted === true, "settings persist");
+GS.Save.saveSettings({ palette: "df", muted: false, lang: "en" });
+st = GS.Save.loadSettings();
+ok(st.lang === "en", "settings persist language");
+
+console.log("I18n");
+ok(typeof GS.t === "function" && typeof GS.setLang === "function", "i18n API");
+ok(GS.t("pause") === "暂停", "default language is Chinese");
+GS.setLang("en");
+ok(GS.LANG === "en" && GS.t("pause") === "Paused", "switch to English");
+ok(GS.loc(GS.BIOMES.pine) === "Pine", "catalog English via loc");
+ok(GS.loc(GS.ROLES.infantry) === "Shields", "role English name");
+ok(GS.t("toastLang") === "Language: English", "toast follows language");
+ok(GS.t("missRanged") === "whiff" && GS.t("hexMark") === "hex", "combat floaters follow English");
+GS.setLang("zh");
+ok(GS.t("pause") === "暂停" && GS.loc(GS.BIOMES.pine) === "松林", "switch back to Chinese");
+ok(GS.t("missRanged") === "偏" && GS.t("miss") === "空", "combat floaters follow Chinese");
+var nm = GS.names.islandPair(GS.rng(9));
+ok(nm.name && nm.nameEn && nm.name !== nm.nameEn, "island names are bilingual pairs");
 
 // legacy migrate
 store["goodsouth-save"] = JSON.stringify({ army: army, campaign: camp });
@@ -226,6 +245,25 @@ if (pineIsle) {
   }
 }
 ok(pineTrees >= 8, "pine island is wooded, trees=" + pineTrees);
+ok(pineIsle && pineIsle.nameEn, "generated island stores English name");
+ok(pineIsle.houses[0] && pineIsle.houses[0].nameEn, "houses store English names");
+var armyLoc = GS.Army.create(GS.rng(3));
+var bLoc = new GS.Battle(pineIsle, armyLoc, { sandbox: true, battleSeed: 1 });
+ok(bLoc.houses[0].nameEn === pineIsle.houses[0].nameEn, "battle copies house English names");
+GS.setLang("en");
+ok(GS.loc(bLoc.houses[0]) === bLoc.houses[0].nameEn, "English HUD uses house nameEn");
+var orphanHouse = { id: bLoc.houses[0].id, name: bLoc.houses[0].name };
+ok(GS.houseName(orphanHouse, bLoc) === bLoc.houses[0].nameEn, "houseName backfills from island if clone dropped nameEn");
+GS.setLang("zh");
+ok(GS.loc(bLoc.houses[0]) === bLoc.houses[0].name, "Chinese HUD uses house name");
+var shapes = {};
+for (var sh = 200; sh < 260; sh++) {
+  var shaped = GS.mapgen.island(sh, { difficulty: 2, size: "small" });
+  if (shaped && shaped.shape) shapes[shaped.shape] = (shapes[shaped.shape] || 0) + 1;
+}
+ok(!!shapes.isthmus, "isthmus shape appears in mapgen, shapes=" + Object.keys(shapes).join(","));
+ok(GS.CONFIG.battle.hunt.sticky >= 4 && GS.CONFIG.battle.hunt.cohesion === 8, "hunt stickiness + cohesion knobs");
+ok(GS.CONFIG.battle.hunt.siege >= 8 && GS.CONFIG.battle.hunt.local >= 2, "hunt siege + local peel knobs");
 
 console.log("Campaign graph");
 function connected(camp) {
@@ -403,6 +441,13 @@ var farE = { x: 1.5, y: 1.5, alive: true, id: 2, hp: 18, maxHp: 18, role: "raide
 var sol = bh.entities.filter(function (e) { return e.kind === "soldier" && e.alive; })[0];
 ok(sol && bh.huntScore(sol, nearE, 0) > bh.huntScore(sol, farE, 0), "house-threat outweighs a far idle raider");
 ok(bh.huntScore(sol, nearE, 6) < bh.huntScore(sol, nearE, 0), "pile-on penalty spreads assignments");
+var hpWas = bh.houses[0].hp;
+bh.houses[0].hp = Math.max(1, (bh.houses[0].maxHp * 0.4) | 0);
+var siegeScore = bh.huntScore(sol, nearE, 0);
+bh.houses[0].hp = bh.houses[0].maxHp;
+var intactScore = bh.huntScore(sol, nearE, 0);
+ok(siegeScore > intactScore, "damaged house raises hunt score for nearby raiders");
+bh.houses[0].hp = hpWas;
 bh._assignSquadHunts(bh._collectThreats());
 var hunts = {};
 var members = [];
@@ -442,6 +487,7 @@ ok(restored && restored.entities.filter(function (e) { return e.alive; }).length
 ok(restored.island.name === island.name, "deserialize keeps island name");
 ok(restored.warhornReady === false, "deserialize warhorn spent");
 ok(restored.flow || restored.phase !== "fight", "deserialize rebuilds flow when fighting");
+ok(restored.houses[0] && restored.houses[0].nameEn, "deserialize keeps house English names");
 
 console.log("Meta relics / omens / voyage");
 ok(GS.Meta && GS.RELICS.hornstone && GS.OMENS.hightide && GS.VOYAGE.length >= 6, "meta catalogs loaded");

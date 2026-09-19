@@ -9,9 +9,11 @@
   function createCommander(rng, cls) {
     var h = hireTable()[cls];
     if (!h) throw new Error("unknown class " + cls);
+    var nm = GS.names.dwarfPair ? GS.names.dwarfPair(rng) : { name: GS.names.dwarf(rng) };
     return {
       id: GS.util.uid("c"),
-      name: GS.names.dwarf(rng),
+      name: nm.name,
+      nameEn: nm.nameEn || nm.name,
       cls: cls,
       level: 1,
       xp: 0,

@@ -107,6 +107,11 @@
     if (k === "F5") { e.preventDefault(); game.dispatch("quicksave"); return; }
     if (k === "F9") { e.preventDefault(); game.dispatch("quickload"); return; }
     if (k === "F1" || k === "?") { e.preventDefault(); game.dispatch("help"); return; }
+    if ((k === "i" || k === "I") && (game.mode !== "sandbox" || game.menuOpen)) {
+      e.preventDefault();
+      game.dispatch("lang");
+      return;
+    }
 
     if (game.menuOpen) {
       if (k === "Escape") {
@@ -129,6 +134,7 @@
       if (k === "c" || k === "C") game.dispatch("help");
       if (k === "d" || k === "D") game.dispatch("continue");
       if (k === "l" || k === "L") game.dispatch("load-menu");
+      if (k === "i" || k === "I") game.dispatch("lang");
       return;
     }
 
