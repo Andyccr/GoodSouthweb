@@ -1029,8 +1029,10 @@
       if (this.sandboxBrush === GS.T.HOUSE) {
         var exists = b.houses.some(function (h) { return h.x === b.cursor.x && h.y === b.cursor.y; });
         if (!exists) {
+          var hn = GS.names.housePair ? GS.names.housePair(b.rng) : { name: GS.names.house(b.rng) };
           b.houses.push({
-            id: b.houses.length, x: b.cursor.x, y: b.cursor.y, name: GS.names.house(b.rng),
+            id: b.houses.length, x: b.cursor.x, y: b.cursor.y,
+            name: hn.name, nameEn: hn.nameEn || hn.name,
             hp: 100, maxHp: 100, coins: 1, alive: true, villagers: 3, burning: 0,
           });
         }

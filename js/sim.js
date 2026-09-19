@@ -71,9 +71,9 @@
     this.outcome = null;
     this.houses = island.houses.map(function (h) {
       return {
-        id: h.id, x: h.x, y: h.y, name: h.name, hp: h.hp, maxHp: h.maxHp,
-        coins: h.coins, alive: true, villagers: h.villagers, burning: 0,
-        militiaSpawned: false,
+        id: h.id, x: h.x, y: h.y, name: h.name, nameEn: h.nameEn || h.name,
+        hp: h.hp, maxHp: h.maxHp, coins: h.coins, alive: true, villagers: h.villagers,
+        burning: 0, militiaSpawned: false,
       };
     });
     this.beacons = (island.beacons || []).slice();
@@ -858,7 +858,12 @@
     var house = this.nearestHouse(foe.x, foe.y);
     if (!house) return 0.15;
     var d = dist(foe, { x: house.x + 0.5, y: house.y + 0.5 });
-    return 1 / (0.6 + d);
+    var p = 1 / (0.6 + d);
+    if (house.hp < house.maxHp) {
+      p *= 1.35;
+      p += (1 - house.hp / Math.max(1, house.maxHp)) * 0.45;
+    }
+    return p;
   };
 
   /**
@@ -907,6 +912,11 @@
     }
     score -= (pile || 0) * (W.pile || 5);
     if (e.hp < e.maxHp * 0.35 && d < 3 && e.range <= 1.8) score -= 4;
+    var house = this.nearestHouse(foe.x, foe.y);
+    if (house && house.hp < house.maxHp) {
+      var hd = dist(foe, { x: house.x + 0.5, y: house.y + 0.5 });
+      if (hd < 2.6) score += W.siege || 10;
+    }
     return score;
   };
 
@@ -1064,7 +1074,7 @@
     }
     if (d > from.range + 0.2 + rangeBonus) return;
     if (this.rng.next() > from.acc) {
-      this.floater(to.x, to.y, "偏", C.DGRAY);
+      this.floater(to.x, to.y, t("missRanged"), C.DGRAY);
       if (GS.audio) GS.audio.bow();
       from.cooldown = from.cd;
       return;
@@ -1087,7 +1097,7 @@
     var dmg = from.dmg * this._facingBonus(from, to);
     if (from.wrath && from.hp < from.maxHp * 0.4) dmg *= 1.35;
     if (this.rng.next() > from.acc) {
-      this.floater(to.x, to.y, "空", C.DGRAY);
+      this.floater(to.x, to.y, t("miss"), C.DGRAY);
       from.cooldown = from.cd * 0.7;
       return;
     }
@@ -1105,7 +1115,7 @@
     this.floater(target.x, target.y - 0.2, String(-Math.round(dmg)), target.team === "player" ? C.LRED : C.YELLOW);
     if (from && from.role === "shaman" && target.team === "player") {
       target.hexT = 4.2;
-      this.floater(target.x, target.y + 0.3, "咒", C.LMAGENTA);
+      this.floater(target.x, target.y + 0.3, t("hexMark"), C.LMAGENTA);
     }
     if (target.hp <= 0) this._kill(target, from);
   };
@@ -1274,12 +1284,12 @@
         continue;
       }
       if (e.role === "hound" && foe) {
-        this._steer(e, foe.x, foe.y, step);
+        this._chase(e, foe, step, (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.55);
         continue;
       }
       var house = this.nearestHouse(e.x, e.y);
       var houseD = house ? dist(e, { x: house.x + 0.5, y: house.y + 0.5 }) : 1e9;
-      if (house && houseD < 2.4 && !house.militiaSpawned && house.hp < house.maxHp) {
+      if (house && houseD < 2.0 && !house.militiaSpawned) {
         this.spawnMilitia(house);
       }
       if (house && houseD < 1.2) {
@@ -1292,7 +1302,7 @@
         }
         continue;
       }
-      var sieging = house && houseD < 2.4 && house.hp < house.maxHp;
+      var sieging = house && houseD < 2.4 && (house.hp < house.maxHp || houseD < 1.85);
       if (sieging) {
         this._steer(e, house.x + 0.5, house.y + 0.5, step);
         continue;
@@ -1335,9 +1345,12 @@
 
       sq = e.squadId ? this.getSquad(e.squadId) : null;
       var close = this._nearestThreat(e, threats, Math.max(range + 0.4, 2.6));
+      var localR = W.local != null ? W.local : 2.15;
       if (e.militia) {
         foe = this._pickHuntTarget(e, threats, militiaClaimed);
         if (foe) militiaClaimed[foe.id] = (militiaClaimed[foe.id] || 0) + 1;
+      } else if (close && dist(e, close) <= localR) {
+        foe = close;
       } else if (sq && sq.huntId) {
         foe = this.byId(sq.huntId);
         if (foe && !foe.alive) foe = null;
@@ -1688,6 +1701,20 @@
     battle.look = !!snap.look;
     battle.waves = snap.waves || [];
     battle.houses = snap.houses || island.houses;
+    if (battle.houses && island.houses) {
+      for (var hi0 = 0; hi0 < battle.houses.length; hi0++) {
+        var hh = battle.houses[hi0];
+        if (hh && !hh.nameEn) {
+          for (var hi = 0; hi < island.houses.length; hi++) {
+            if (island.houses[hi].id === hh.id && island.houses[hi].nameEn) {
+              hh.nameEn = island.houses[hi].nameEn;
+              break;
+            }
+          }
+          if (!hh.nameEn) hh.nameEn = hh.name;
+        }
+      }
+    }
     battle.beacons = snap.beacons || island.beacons || [];
     battle.warhornReady = snap.warhornReady !== false;
     battle.warhornCharges = snap.warhornCharges != null ? snap.warhornCharges : (battle.warhornReady ? 1 : 0);
