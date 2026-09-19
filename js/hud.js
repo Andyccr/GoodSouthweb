@@ -40,15 +40,16 @@
     if (tools) tools.classList.toggle("visible", mode === "sandbox");
 
     if (mode === "title" || mode === "help" || mode === "hire" || mode === "preview" || mode === "result" || mode === "voyage") {
-      this._setTop("GOOD SOUTH", ui.chip("模式", "菜单", "cyan"));
-      this._setHint(game.touch ? "点按钮开始" : "A 战役 · B 沙盒 · C 手册 · F1 帮助");
+      this._setTop("GOOD SOUTH", ui.chip(GS.t("mode"), GS.t("menu"), "cyan"));
+      this._setHint(game.touch ? GS.t("tapStart") : GS.t("hintTitle"));
       ui.setToolbar([]);
       ui.setCommands([]);
       this._dock(game, [
-        { act: "campaign", label: "战役" },
-        { act: "sandbox", label: "沙盒" },
-        { act: "help", label: "手册" },
-        { act: "load-menu", label: "读档" },
+        { act: "campaign", label: GS.t("chart") },
+        { act: "sandbox", label: GS.t("sandboxMode") },
+        { act: "help", label: GS.t("handbook") },
+        { act: "load-menu", label: GS.t("loadSave") },
+        { act: "lang", label: GS.t("langToggle") },
       ]);
       if (banner) banner.classList.add("hidden");
       return;
@@ -69,52 +70,51 @@
     var node = GS.Campaign.getNode(game.campaign, game.campCursor);
     var ui = game.ui;
     this._setTop("GOOD SOUTH",
-      ui.chip("海图", "群岛", "cyan") +
-      ui.chip("钱币", game.army.coins, "hi") +
-      ui.chip("收复", game.army.islandsCleared, "ok") +
-      ui.chip("圣物", (game.army.relics || []).length, "cyan") +
-      ui.chip("调色", game.palette));
+      ui.chip(GS.t("chart"), GS.t("isles"), "cyan") +
+      ui.chip(GS.t("coins"), game.army.coins, "hi") +
+      ui.chip(GS.t("cleared"), game.army.islandsCleared, "ok") +
+      ui.chip(GS.t("relics"), (game.army.relics || []).length, "cyan") +
+      ui.chip(GS.t("palette"), game.palette));
     left.innerHTML = this.campLeft(game, node);
     right.innerHTML = this.roster(game.army) + this.relicList(game.army) + this.islandList(game) + this.legend();
-    this._setHint(game.touch
-      ? "点岛选中 · 再点或长按登陆 · 拖/捏平移缩放"
-      : "WASD/拖平移 · 滚轮缩放 · 点岛再点登陆 · 右键立刻登 · Tab换岛 · Enter登陆");
+    this._setHint(game.touch ? GS.t("hintChartTouch") : GS.t("hintChart"));
     if (game.compact) {
       ui.setToolbar([]);
     } else {
       ui.setToolbar([
-        { act: "pause-menu", label: "菜单", kbd: "Esc" },
-        { act: "save-menu", label: "保存", kbd: "F5" },
-        { act: "hire", label: "招募", kbd: "N" },
-        { act: "pal", label: "调色", kbd: "P" },
-        { act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" },
-        { act: "help", label: "手册", kbd: "?" },
+        { act: "pause-menu", label: GS.t("menu"), kbd: "Esc" },
+        { act: "save-menu", label: GS.t("save"), kbd: "F5" },
+        { act: "hire", label: GS.t("hireTitle"), kbd: "N" },
+        { act: "pal", label: GS.t("palette"), kbd: "P" },
+        { act: "mute", label: GS.audio.muted() ? GS.t("muteOn") : GS.t("muteOff"), kbd: "-" },
+        { act: "lang", label: GS.t("langToggle"), kbd: "I" },
+        { act: "help", label: GS.t("handbook"), kbd: "?" },
         { sep: true },
-        { act: "zoom", arg: "1", label: "+", kbd: ".", title: "放大" },
-        { act: "zoom", arg: "-1", label: "−", kbd: ",", title: "缩小" },
-        { act: "center-cam", label: "对准", kbd: "F" },
-        { act: "fit-cam", label: "全图", kbd: "0" },
+        { act: "zoom", arg: "1", label: "+", kbd: ".", title: GS.t("zoomIn") },
+        { act: "zoom", arg: "-1", label: "−", kbd: ",", title: GS.t("zoomOut") },
+        { act: "center-cam", label: GS.t("center"), kbd: "F" },
+        { act: "fit-cam", label: GS.t("fit"), kbd: "0" },
         { sep: true },
-        { act: "title", label: "标题" },
+        { act: "title", label: GS.t("title") },
       ]);
     }
     var campCmds = node && node.status === "scouted" ? [
-      { act: "open-island", arg: String(node.id), label: "登陆 " + node.name, kbd: "G" },
+      { act: "open-island", arg: String(node.id), label: GS.t("landThisName", GS.loc(node)), kbd: "G" },
     ] : [];
     if (game.compact) {
       campCmds = campCmds.concat([
         { act: "zoom", arg: "1", label: "+" },
         { act: "zoom", arg: "-1", label: "−" },
-        { act: "center-cam", label: "对准" },
-        { act: "fit-cam", label: "全图" },
+        { act: "center-cam", label: GS.t("center") },
+        { act: "fit-cam", label: GS.t("fit") },
       ]);
     }
     ui.setCommands(campCmds);
     this._dock(game, [
-      { act: "toggle-sheet", arg: "left", label: "情报" },
-      { act: "toggle-sheet", arg: "right", label: "编制" },
-      { act: "hire", label: "招募" },
-      { act: "pause-menu", label: "菜单" },
+      { act: "toggle-sheet", arg: "left", label: GS.t("intel") },
+      { act: "toggle-sheet", arg: "right", label: GS.t("roster") },
+      { act: "hire", label: GS.t("hireTitle") },
+      { act: "pause-menu", label: GS.t("menu") },
     ]);
   };
 
@@ -123,45 +123,43 @@
     var ui = game.ui;
     var cnt = b.counts();
     var waveDone = GS.Waves.launchedCount(b.waves);
-    var phaseLabel = b.phase === "deploy" ? "布置" : b.phase === "over" ? "结束" : (b.speed ? "×" + b.speed : "暂停");
+    var phaseLabel = b.phase === "deploy" ? GS.t("phaseDeploy") : b.phase === "over" ? GS.t("phaseOver") : (b.speed ? "×" + b.speed : GS.t("paused"));
 
     if (banner) {
       if (b.phase === "deploy") {
         banner.classList.remove("hidden");
-        banner.textContent = (game.compact || game.touch) ? "点空地放下 · 转向看箭头朝向 · 拖动画布" : "就位 — 点空地放下兵团，R 转向（箭头），开战后天兵整团接战 · G 开战";
+        banner.textContent = (game.compact || game.touch) ? GS.t("bannerDeployTouch") : GS.t("bannerDeploy");
       } else if (b.phase === "fight" && b.speed === 0) {
         banner.classList.remove("hidden");
-        banner.textContent = "暂停";
+        banner.textContent = GS.t("paused");
       } else banner.classList.add("hidden");
     }
 
-    this._setTop(b.island.name,
-      (game.compact ? "" : ui.chip("生态", GS.BIOMES[b.island.biome].name)) +
-      ui.chip("阶段", phaseLabel, b.phase === "deploy" ? "hi" : "cyan") +
+    this._setTop(GS.loc(b.island) || b.island.name,
+      (game.compact ? "" : ui.chip(GS.t("eco"), GS.loc(GS.BIOMES[b.island.biome]))) +
+      ui.chip(GS.t("stage"), phaseLabel, b.phase === "deploy" ? "hi" : "cyan") +
       (function () {
         var sel = b.getSquad(b.selected);
         if (!sel) return "";
         var d = GS.DIRS[sel.facing] || GS.DIRS[2];
-        return ui.chip("朝向", d.name + d.ch, "cyan");
+        return ui.chip(GS.t("facing"), GS.loc(d) + "\u00a0" + d.ch, "cyan");
       }()) +
-      ui.chip("屋舍", cnt.houses + "/" + b.houses.length, cnt.houses < b.houses.length ? "warn" : "ok") +
-      ui.chip("我军", cnt.soldiers) +
-      ui.chip("北蛮", cnt.enemies, cnt.enemies ? "warn" : "") +
+      ui.chip(GS.t("houses"), cnt.houses + "/" + b.houses.length, cnt.houses < b.houses.length ? "warn" : "ok") +
+      ui.chip(GS.t("ours"), cnt.soldiers) +
+      ui.chip(GS.t("northmen"), cnt.enemies, cnt.enemies ? "warn" : "") +
       (function () {
         if (game.mode !== "battle" || !b.omen || b.omen === "calm") return "";
         var om = GS.Meta && GS.Meta.omen(b.omen);
-        return om ? ui.chip("征兆", om.name, om.kind === "bad" ? "warn" : "hi") : "";
+        return om ? ui.chip(GS.t("omen"), GS.loc(om), om.kind === "bad" ? "warn" : "hi") : "";
       }()) +
-      (b.waves.length ? ui.chip("波次", waveDone + "/" + b.waves.length) : ui.chip("模式", "沙盒", "cyan")) +
+      (b.waves.length ? ui.chip(GS.t("waves"), waveDone + "/" + b.waves.length) : ui.chip(GS.t("mode"), GS.t("sandboxMode"), "cyan")) +
       (game.compact ? "" : ui.chip("t", b.t.toFixed(1))));
 
     left.innerHTML = this.battleLeft(game, b);
     right.innerHTML = this.squadList(b) + this.logHtml(b) + this.legend();
     this._setHint((game.touch || game.compact)
-      ? "点空地就位 · 拖平移 · 双指缩放 · 点同一兵团转向"
-      : (game.mode === "sandbox"
-        ? "点空地就位 · 拖/WASD平移 · 滚轮缩放 · 右键转向"
-        : "点空地就位 · 拖/WASD平移 · R或再点兵团转向 · G开战"));
+      ? GS.t("hintBattleTouch")
+      : (game.mode === "sandbox" ? GS.t("hintSandbox") : GS.t("hintBattle")));
 
     this.battleToolbar(game, b);
   };
@@ -170,49 +168,50 @@
     var ui = game.ui;
     var items = [];
     if (b.phase === "deploy") {
-      items.push({ act: "start", label: "开战", kbd: "G", primary: true });
-      items.push({ act: "rotate", label: "转向", kbd: "R" });
-      items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: "放大" });
-      items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: "缩小" });
-      items.push({ act: "center-cam", label: "对准", kbd: "F" });
-      items.push({ act: "look", label: b.look ? "观察中" : "观察", kbd: "'", active: b.look });
+      items.push({ act: "start", label: GS.t("startFight"), kbd: "G", primary: true });
+      items.push({ act: "rotate", label: GS.t("rotate"), kbd: "R" });
+      items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: GS.t("zoomIn") });
+      items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: GS.t("zoomOut") });
+      items.push({ act: "center-cam", label: GS.t("center"), kbd: "F" });
+      items.push({ act: "look", label: b.look ? GS.t("looking") : GS.t("look"), kbd: "'", active: b.look });
     } else if (b.phase === "fight") {
-      items.push({ act: "pause", label: b.speed ? "暂停" : "继续", kbd: "␣", active: !b.speed });
+      items.push({ act: "pause", label: b.speed ? GS.t("pause") : GS.t("resume"), kbd: "␣", active: !b.speed });
       items.push({ act: "spd", arg: "1", label: "1×", active: b.speed === 1 });
       items.push({ act: "spd", arg: "2", label: "2×", active: b.speed === 2 });
       items.push({ act: "spd", arg: "3", label: "3×", active: b.speed === 3 });
       items.push({ sep: true });
-      items.push({ act: "rotate", label: "转向", kbd: "R" });
-      items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: "放大" });
-      items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: "缩小" });
-      items.push({ act: "center-cam", label: "对准", kbd: "F" });
+      items.push({ act: "rotate", label: GS.t("rotate"), kbd: "R" });
+      items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: GS.t("zoomIn") });
+      items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: GS.t("zoomOut") });
+      items.push({ act: "center-cam", label: GS.t("center"), kbd: "F" });
       if (game.mode === "battle") {
         items.push({
           act: "warhorn",
-          label: b.warhornReady ? (b.warhornCharges > 1 ? "号角×" + b.warhornCharges : "号角") : "号角已用",
+          label: b.warhornReady ? (b.warhornCharges > 1 ? GS.t("warhornN", b.warhornCharges) : GS.t("warhorn")) : GS.t("hornUsed"),
           kbd: "U",
           active: b.warhornT > 0,
           disabled: !b.warhornReady && b.warhornT <= 0,
         });
-        items.push({ act: "evac", label: "撤退", kbd: "E", danger: true });
+        items.push({ act: "evac", label: GS.t("evacShort"), kbd: "E", danger: true });
       }
     }
     if (game.mode === "sandbox") {
       items.push({ sep: true });
-      items.push({ act: "tool-place", label: "布置", kbd: "Z", active: game.sandboxTool === "place" });
-      items.push({ act: "tool-paint", label: "刷地", kbd: "T", active: game.sandboxTool === "paint" });
-      items.push({ act: "brush-next", label: GS.tileDef(game.sandboxBrush).name });
-      items.push({ act: "spawn-enemy", label: "蛮兵", kbd: "N" });
-      items.push({ act: "spawn-ship", label: "长船", kbd: "B" });
-      items.push({ act: "spawn-ally", label: "己方", kbd: "C" });
-      items.push({ act: "spawn-shaman", label: "萨满", kbd: "Y" });
-      items.push({ act: "spawn-hound", label: "猎犬", kbd: "I" });
-      items.push({ act: "gen", label: "新岛" });
+      items.push({ act: "tool-place", label: GS.t("place"), kbd: "Z", active: game.sandboxTool === "place" });
+      items.push({ act: "tool-paint", label: GS.t("paint"), kbd: "T", active: game.sandboxTool === "paint" });
+      items.push({ act: "brush-next", label: GS.loc(GS.tileDef(game.sandboxBrush)) });
+      items.push({ act: "spawn-enemy", label: GS.t("raiders"), kbd: "N" });
+      items.push({ act: "spawn-ship", label: GS.t("longship"), kbd: "B" });
+      items.push({ act: "spawn-ally", label: GS.t("allies"), kbd: "C" });
+      items.push({ act: "spawn-shaman", label: GS.t("shaman"), kbd: "Y" });
+      items.push({ act: "spawn-hound", label: GS.t("hound"), kbd: "I" });
+      items.push({ act: "gen", label: GS.t("newIsle") });
     }
     items.push({ sep: true });
-    if (game.army && game.campaign) items.push({ act: "quicksave", label: "快存", kbd: "F5" });
-    items.push({ act: "mute", label: GS.audio.muted() ? "音效" : "静音", kbd: "-" });
-    items.push({ act: "pause-menu", label: "菜单", kbd: "Esc" });
+    if (game.army && game.campaign) items.push({ act: "quicksave", label: GS.t("qsave"), kbd: "F5" });
+    items.push({ act: "mute", label: GS.audio.muted() ? GS.t("muteOn") : GS.t("muteOff"), kbd: "-" });
+    items.push({ act: "lang", label: GS.t("langToggle"), kbd: "I" });
+    items.push({ act: "pause-menu", label: GS.t("menu"), kbd: "Esc" });
     ui.setToolbar(game.compact ? [] : items);
 
     var cmds = [];
@@ -221,7 +220,7 @@
       cmds.push({
         act: "select-squad",
         arg: sqs[i].id,
-        label: GS.ROLES[sqs[i].role].ch + " " + sqs[i].name.split("·")[0],
+        label: GS.ROLES[sqs[i].role].ch + " " + GS.loc(sqs[i]).split(/[· ]/)[0],
         kbd: String(i + 1),
         active: sqs[i].id === b.selected,
       });
@@ -229,7 +228,7 @@
     if (game.compact) {
       cmds.push({ act: "zoom", arg: "1", label: "+" });
       cmds.push({ act: "zoom", arg: "-1", label: "−" });
-      cmds.push({ act: "center-cam", label: "对准" });
+      cmds.push({ act: "center-cam", label: GS.t("center") });
       if (b.phase === "fight") {
         cmds.push({ act: "spd", arg: "1", label: "1×", active: b.speed === 1 });
         cmds.push({ act: "spd", arg: "2", label: "2×", active: b.speed === 2 });
@@ -237,7 +236,7 @@
         if (game.mode === "battle") {
           cmds.push({
             act: "warhorn",
-            label: b.warhornReady ? (b.warhornCharges > 1 ? "号角×" + b.warhornCharges : "号角") : "号角已用",
+            label: b.warhornReady ? (b.warhornCharges > 1 ? GS.t("warhornN", b.warhornCharges) : GS.t("warhorn")) : GS.t("hornUsed"),
             active: b.warhornT > 0,
             disabled: !b.warhornReady && b.warhornT <= 0,
           });
@@ -246,13 +245,13 @@
     }
     ui.setCommands(cmds);
     this._dock(game, [
-      { act: "toggle-sheet", arg: "left", label: "情报" },
-      { act: "toggle-sheet", arg: "right", label: "部队" },
+      { act: "toggle-sheet", arg: "left", label: GS.t("intel") },
+      { act: "toggle-sheet", arg: "right", label: GS.t("troops") },
       b.phase === "deploy"
-        ? { act: "start", label: "开战" }
-        : { act: "pause", label: b.speed ? "暂停" : "继续" },
-      { act: "rotate", label: "转向" },
-      { act: "pause-menu", label: "菜单" },
+        ? { act: "start", label: GS.t("startFight") }
+        : { act: "pause", label: b.speed ? GS.t("pause") : GS.t("resume") },
+      { act: "rotate", label: GS.t("rotate") },
+      { act: "pause-menu", label: GS.t("menu") },
     ]);
   };
 
@@ -270,33 +269,34 @@
   };
 
   Hud.prototype.campLeft = function (game, node) {
-    if (!node) return "<p>选一座岛。</p>";
-    var st = { hidden: "未知", scouted: "未攻", cleared: "已收复", lost: "已陷" }[node.status] || node.status;
+    if (!node) return "<p>" + GS.t("pickIsle") + "</p>";
+    var stMap = { hidden: GS.t("unknown"), scouted: GS.t("unfought"), cleared: GS.t("recovered"), lost: GS.t("fallen") };
+    var st = stMap[node.status] || node.status;
     var om = node.omen && GS.Meta ? GS.Meta.omen(node.omen) : null;
     var relic = node.relic && GS.Meta ? GS.Meta.relic(node.relic) : null;
-    return "<h3>" + node.name + "</h3>" +
-      "<p>" + GS.BIOMES[node.biome].flavor + "</p>" +
-      "<p>威胁 " + "▲".repeat(node.difficulty) + "　<span class='chip'>" + st + "</span></p>" +
-      (om ? "<p>征兆 <b>" + om.name + "</b> — " + om.desc + "</p>" : "") +
-      (relic && node.status === "scouted" ? "<p>据点圣物 <b>" + relic.name + "</b> — " + relic.desc + "</p>" : "") +
-      "<p>航线：" + node.edges.map(function (id) {
-        return game.campaign.islands[id].name;
-      }).join("、") + "</p>" +
+    return "<h3>" + GS.loc(node) + "</h3>" +
+      "<p>" + GS.loc(GS.BIOMES[node.biome], "flavor") + "</p>" +
+      "<p>" + GS.t("threatLine", "▲".repeat(node.difficulty)) + "　<span class='chip'>" + st + "</span></p>" +
+      (om ? "<p>" + GS.t("omenP", GS.loc(om), GS.loc(om, "desc")) + "</p>" : "") +
+      (relic && node.status === "scouted" ? "<p>" + GS.t("relicP", relic.ch || "", GS.loc(relic), GS.loc(relic, "desc")) + "</p>" : "") +
+      "<p>" + GS.t("routesLine") + GS.joinList(node.edges.map(function (id) {
+        return GS.loc(game.campaign.islands[id]);
+      })) + "</p>" +
       (node.status === "scouted"
-        ? '<p><button data-act="open-island" data-arg="' + node.id + '">登陆此岛</button></p>'
+        ? '<p><button data-act="open-island" data-arg="' + node.id + '">' + GS.t("landThis") + "</button></p>"
         : "") +
-      "<p class=\"hint\">海图点两下或按 G 登陆。列表只对准镜头。</p>";
+      "<p class=\"hint\">" + GS.t("chartHint") + "</p>";
   };
 
   Hud.prototype.islandList = function (game) {
-    var html = "<h3>已知岛屿</h3><p class=\"hint\">点选对准，登陆请用按钮。</p>";
+    var html = "<h3>" + GS.t("knownIsles") + "</h3><p class=\"hint\">" + GS.t("listHint") + "</p>";
     for (var i = 0; i < game.campaign.islands.length; i++) {
       var is = game.campaign.islands[i];
       if (is.status === "hidden") continue;
-      var omShort = (is.omen && is.status === "scouted" && GS.Meta) ? (GS.Meta.omen(is.omen).name) : "";
+      var omShort = (is.omen && is.status === "scouted" && GS.Meta) ? GS.loc(GS.Meta.omen(is.omen)) : "";
       html += '<div class="island-item' + (is.id === game.campCursor ? " sel" : "") +
         '" data-act="select-island" data-arg="' + is.id + '">' +
-        "<span>" + is.name + "</span><span class=\"hint\">" + is.status + " ▲" + is.difficulty +
+        "<span>" + GS.loc(is) + "</span><span class=\"hint\">" + is.status + " ▲" + is.difficulty +
         (omShort ? " · " + omShort : "") + "</span></div>";
     }
     return html;
@@ -306,46 +306,46 @@
     var tile = b.island.tiles[b.cursor.y] && b.island.tiles[b.cursor.y][b.cursor.x];
     var def = tile ? GS.tileDef(tile.type) : null;
     var sq = b.getSquad(b.selected);
-    var html = "<h3>观察</h3>";
-    html += "<p>光标 (" + b.cursor.x + "," + b.cursor.y + ") " + (def ? def.ch + " " + def.name : "") + "</p>";
+    var html = "<h3>" + GS.t("observe") + "</h3>";
+    html += "<p>" + GS.t("cursorAt", b.cursor.x, b.cursor.y, def ? def.ch + " " + GS.loc(def) : "") + "</p>";
     if (game.lookText) html += "<pre class=\"look\">" + GS.util.escapeHtml(game.lookText) + "</pre>";
-    else if (def) html += "<p class=\"look\">" + def.look + "</p>";
+    else if (def) html += "<p class=\"look\">" + (GS.loc(def, "look") || def.look) + "</p>";
     if (sq) {
       var role = GS.ROLES[sq.role];
       var trait = "";
-      if (sq.trait) for (var i = 0; i < GS.TRAITS.length; i++) if (GS.TRAITS[i].id === sq.trait) trait = GS.TRAITS[i].name;
-      html += "<h3>选中兵团</h3><p>" + role.ch + " <b>" + sq.name + "</b><br>" + role.name +
-        "　朝" + GS.DIRS[sq.facing].name + GS.DIRS[sq.facing].ch + "<br>兵 " + sq.soldiers + "/" + sq.maxSoldiers +
-        (trait ? "<br>特质 [" + trait + "]" : "") +
-        (sq.placed ? "" : "<br><span class='warn'>尚未落子</span>") +
-        (sq.moveCd > 0 ? "<br><span class='hint'>换阵冷却 " + sq.moveCd.toFixed(1) + "s</span>" : "") +
-        "</p><p class=\"hint\">" + role.desc + "</p>";
+      if (sq.trait) for (var i = 0; i < GS.TRAITS.length; i++) if (GS.TRAITS[i].id === sq.trait) trait = GS.loc(GS.TRAITS[i]);
+      html += "<h3>" + GS.t("selected") + "</h3><p>" + role.ch + " <b>" + GS.loc(sq) + "</b><br>" + GS.loc(role) +
+        "　" + GS.t("facingAt", GS.loc(GS.DIRS[sq.facing]) + "\u00a0" + GS.DIRS[sq.facing].ch) + "<br>" + GS.t("soldiersOf", sq.soldiers, sq.maxSoldiers) +
+        (trait ? "<br>" + GS.t("trait") + " [" + trait + "]" : "") +
+        (sq.placed ? "" : "<br><span class='warn'>" + GS.t("notPlaced") + "</span>") +
+        (sq.moveCd > 0 ? "<br><span class='hint'>" + GS.t("moveCd") + " " + sq.moveCd.toFixed(1) + "s</span>" : "") +
+        "</p><p class=\"hint\">" + (GS.loc(role, "desc") || role.desc) + "</p>";
     }
-    html += "<h3>屋舍</h3><ul>";
+    html += "<h3>" + GS.t("houses") + "</h3><ul>";
     for (i = 0; i < b.houses.length; i++) {
       var h = b.houses[i];
-      html += "<li>" + (h.alive ? "⌂" : "%") + " " + h.name + " " + game.ui.hpBar(h.hp, h.maxHp) + "</li>";
+      html += "<li>" + (h.alive ? "⌂" : "%") + " " + GS.houseName(h, b) + " " + game.ui.hpBar(h.hp, h.maxHp) + "</li>";
     }
     html += "</ul>";
     if (game.mode === "sandbox") {
-      html += "<h3>沙盒</h3>";
+      html += "<h3>" + GS.t("sandboxMode") + "</h3>";
       if (game.compact) {
-        html += '<p class="hint">刷地后点地图改地形；新岛用当前种子/生态。</p>' +
+        html += '<p class="hint">' + GS.t("sheetSandboxHint") + "</p>" +
           '<p class="sheet-actions">' +
-          '<button type="button" data-act="tool-place"' + (game.sandboxTool === "place" ? ' class="primary"' : "") + ">布置</button>" +
-          '<button type="button" data-act="tool-paint"' + (game.sandboxTool === "paint" ? ' class="primary"' : "") + ">刷地</button>" +
-          '<button type="button" data-act="brush-next">' + GS.tileDef(game.sandboxBrush).name + "</button>" +
+          '<button type="button" data-act="tool-place"' + (game.sandboxTool === "place" ? ' class="primary"' : "") + ">" + GS.t("place") + "</button>" +
+          '<button type="button" data-act="tool-paint"' + (game.sandboxTool === "paint" ? ' class="primary"' : "") + ">" + GS.t("paint") + "</button>" +
+          '<button type="button" data-act="brush-next">' + GS.loc(GS.tileDef(game.sandboxBrush)) + "</button>" +
           "</p><p class=\"sheet-actions\">" +
-          '<button type="button" data-act="spawn-enemy">蛮兵</button>' +
-          '<button type="button" data-act="spawn-ship">长船</button>' +
-          '<button type="button" data-act="spawn-ally">己方</button>' +
-          '<button type="button" data-act="gen">新岛</button>' +
+          '<button type="button" data-act="spawn-enemy">' + GS.t("raiders") + "</button>" +
+          '<button type="button" data-act="spawn-ship">' + GS.t("longship") + "</button>" +
+          '<button type="button" data-act="spawn-ally">' + GS.t("allies") + "</button>" +
+          '<button type="button" data-act="gen">' + GS.t("newIsle") + "</button>" +
           "</p><p class=\"sheet-actions\">" +
-          '<button type="button" data-act="spawn-shaman">萨满</button>' +
-          '<button type="button" data-act="spawn-hound">猎犬</button>' +
+          '<button type="button" data-act="spawn-shaman">' + GS.t("shaman") + "</button>" +
+          '<button type="button" data-act="spawn-hound">' + GS.t("hound") + "</button>" +
           "</p>";
       } else {
-        html += "<p>工具 <b>" + (game.sandboxTool === "paint" ? "刷地 / " + GS.tileDef(game.sandboxBrush).name : "布置") +
+        html += "<p>" + GS.t("tool") + " <b>" + (game.sandboxTool === "paint" ? GS.t("paint") + " / " + GS.loc(GS.tileDef(game.sandboxBrush)) : GS.t("place")) +
           "</b></p>";
       }
     }
@@ -353,7 +353,7 @@
   };
 
   Hud.prototype.squadList = function (b) {
-    var html = "<h3>兵团</h3>";
+    var html = "<h3>" + GS.t("troops") + "</h3>";
     var list = b.livingSquads ? b.livingSquads() : b.squads;
     for (var i = 0; i < list.length; i++) {
       var s = list[i];
@@ -362,14 +362,14 @@
       html += '<div class="squad-item' + (s.id === b.selected ? " sel" : "") +
         '" data-act="select-squad" data-arg="' + s.id + '">' +
         '<span class="idx">' + idx + "</span>" +
-        "<span>" + role.ch + " " + s.name + "</span>" +
+        "<span>" + role.ch + " " + GS.loc(s) + "</span>" +
         "<span class=\"hint\">" + s.soldiers + (s.placed ? "" : " ·") + "</span></div>";
     }
     return html;
   };
 
   Hud.prototype.logHtml = function (b) {
-    var html = "<h3>纪事</h3><ul class='log'>";
+    var html = "<h3>" + GS.t("log") + "</h3><ul class='log'>";
     var logs = b.log.slice(-12);
     for (var i = 0; i < logs.length; i++) {
       html += "<li style='color:" + logs[i].color + "'>" + GS.util.escapeHtml(logs[i].msg) + "</li>";
@@ -378,29 +378,29 @@
   };
 
   Hud.prototype.roster = function (army) {
-    var html = "<h3>编制　钱币 " + army.coins + "</h3><ul>";
+    var html = "<h3>" + GS.t("roster") + "　" + GS.t("coins") + " " + army.coins + "</h3><ul>";
     for (var i = 0; i < army.commanders.length; i++) {
       var c = army.commanders[i];
       var role = GS.ROLES[c.cls];
-      html += "<li>" + (c.dead ? "<s>" : "") + role.ch + " " + c.name + " " + c.soldiers + (c.dead ? "</s>" : "") + "</li>";
+      html += "<li>" + (c.dead ? "<s>" : "") + role.ch + " " + GS.loc(c) + " " + c.soldiers + (c.dead ? "</s>" : "") + "</li>";
     }
     return html + "</ul>";
   };
 
   Hud.prototype.relicList = function (army) {
     var ids = (army && army.relics) || [];
-    var html = "<h3>圣物</h3>";
-    if (!ids.length) return html + "<p class=\"hint\">守岛可获得据点圣物，全军常驻。</p>";
+    var html = "<h3>" + GS.t("relics") + "</h3>";
+    if (!ids.length) return html + "<p class=\"hint\">" + GS.t("relicEmpty") + "</p>";
     html += "<ul>";
     for (var i = 0; i < ids.length; i++) {
       var r = GS.Meta && GS.Meta.relic(ids[i]);
-      html += "<li>" + (r ? r.ch + " <b>" + r.name + "</b> " + r.desc : ids[i]) + "</li>";
+      html += "<li>" + (r ? r.ch + " <b>" + GS.loc(r) + "</b> " + GS.loc(r, "desc") : ids[i]) + "</li>";
     }
     return html + "</ul>";
   };
 
   Hud.prototype.legend = function () {
-    return "<h3>图例</h3><pre class='legend'>≈深海 ~浅 .滩 ,草 n丘\n▲崖 #岩 ♣树 ⌂屋 █墙 ¥烽\n☻盾 }弓 ↑枪 ‡矛 ☺乡勇\nv蛮 V力 x投 ▼盾 Ψ萨 d犬 Ω领\n黄闪箭头 = 登陆点</pre>";
+    return "<h3>" + GS.t("legend") + "</h3><pre class='legend'>" + GS.t("legendBody") + "</pre>";
   };
 
   GS.Hud = Hud;

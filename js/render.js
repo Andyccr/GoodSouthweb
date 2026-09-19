@@ -552,7 +552,7 @@
       if (is.status === "scouted") {
         this.cell(is.mx, Math.min(camp.h - 1, is.my + 2), String(Math.min(9, is.difficulty)), C.BROWN, null);
       }
-      this._islandLabel(is.mx, is.my, is.name, selected ? C.YELLOW : C.WHITE);
+      this._islandLabel(is.mx, is.my, GS.loc ? GS.loc(is) : is.name, selected ? C.YELLOW : C.WHITE);
     }
   };
 
