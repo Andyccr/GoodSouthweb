@@ -142,7 +142,7 @@
         var sel = b.getSquad(b.selected);
         if (!sel) return "";
         var d = GS.DIRS[sel.facing] || GS.DIRS[2];
-        return ui.chip(GS.t("facing"), GS.loc(d) + d.ch, "cyan");
+        return ui.chip(GS.t("facing"), GS.loc(d) + " " + d.ch, "cyan");
       }()) +
       ui.chip(GS.t("houses"), cnt.houses + "/" + b.houses.length, cnt.houses < b.houses.length ? "warn" : "ok") +
       ui.chip(GS.t("ours"), cnt.soldiers) +
@@ -315,7 +315,7 @@
       var trait = "";
       if (sq.trait) for (var i = 0; i < GS.TRAITS.length; i++) if (GS.TRAITS[i].id === sq.trait) trait = GS.loc(GS.TRAITS[i]);
       html += "<h3>" + GS.t("selected") + "</h3><p>" + role.ch + " <b>" + GS.loc(sq) + "</b><br>" + GS.loc(role) +
-        "　" + GS.t("facingAt", GS.loc(GS.DIRS[sq.facing]) + GS.DIRS[sq.facing].ch) + "<br>" + GS.t("soldiersOf", sq.soldiers, sq.maxSoldiers) +
+        "　" + GS.t("facingAt", GS.loc(GS.DIRS[sq.facing]) + " " + GS.DIRS[sq.facing].ch) + "<br>" + GS.t("soldiersOf", sq.soldiers, sq.maxSoldiers) +
         (trait ? "<br>" + GS.t("trait") + " [" + trait + "]" : "") +
         (sq.placed ? "" : "<br><span class='warn'>" + GS.t("notPlaced") + "</span>") +
         (sq.moveCd > 0 ? "<br><span class='hint'>" + GS.t("moveCd") + " " + sq.moveCd.toFixed(1) + "s</span>" : "") +

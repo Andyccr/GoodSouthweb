@@ -51,6 +51,7 @@
       living: living,
       islandCount: islands.length,
       currentName: cur ? cur.name : "—",
+      currentNameEn: cur ? (cur.nameEn || cur.name) : "—",
       inBattle: !!(payload.battle && payload.battle.snapshot),
       label: payload.label || "",
       seed: payload.campaign.seed,

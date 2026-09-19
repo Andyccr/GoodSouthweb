@@ -516,9 +516,9 @@
     };
     var comps = connectedComponents(w, h, water);
     for (var i = 0; i < comps.length; i++) {
-      if (comps[i].length <= 6) {
-        // inland pond: keep some as flavor if not tiny
-        var pond = comps[i].length >= 5 && rng.chance(0.28);
+      if (comps[i].length <= 8) {
+        // inland pond: keep a few as flavor, fill the rest so paths stay open
+        var pond = comps[i].length >= 6 && rng.chance(0.22);
         for (var j = 0; j < comps[i].length; j++) {
           var c = comps[i][j];
           if (pond) {
