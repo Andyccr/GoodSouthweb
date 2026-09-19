@@ -25,6 +25,27 @@
     return obj[field] != null ? obj[field] : "";
   };
 
+  /** House labels: prefer nameEn, then the island's copy if the battle clone dropped it. */
+  GS.houseName = function (h, battle) {
+    if (!h) return "";
+    if (GS.LANG === "en" && h.nameEn) return h.nameEn;
+    if (GS.LANG === "en" && battle) {
+      var lists = [];
+      if (battle.island && battle.island.houses) lists.push(battle.island.houses);
+      if (battle.houses) lists.push(battle.houses);
+      for (var li = 0; li < lists.length; li++) {
+        var list = lists[li];
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && list[i].id === h.id && list[i].nameEn) {
+            h.nameEn = list[i].nameEn;
+            return list[i].nameEn;
+          }
+        }
+      }
+    }
+    return GS.loc(h);
+  };
+
   GS.setLang = function (lang) {
     GS.LANG = lang === "en" ? "en" : "zh";
     if (typeof document !== "undefined" && document.documentElement) {

@@ -1137,7 +1137,7 @@
     for (i = 0; i < b.houses.length; i++) {
       var h = b.houses[i];
       if (h.x === tile.x && h.y === tile.y) {
-        lines.push("<div>⌂ " + GS.loc(h) + " " + Math.max(0, h.hp | 0) + "/" + h.maxHp + (h.alive ? "" : " " + GS.t("burnedShort")) + "</div>");
+        lines.push("<div>⌂ " + GS.houseName(h, b) + " " + Math.max(0, h.hp | 0) + "/" + h.maxHp + (h.alive ? "" : " " + GS.t("burnedShort")) + "</div>");
       }
     }
     if (this.mode === "sandbox" && this.sandboxTool === "paint") {

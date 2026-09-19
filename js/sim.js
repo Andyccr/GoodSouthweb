@@ -1583,7 +1583,7 @@
     for (var i = 0; i < this.houses.length; i++) {
       var h = this.houses[i];
       if (h.x === x && h.y === y) {
-        lines.push(t("houseLook", loc(h), Math.max(0, h.hp | 0), h.maxHp, h.alive ? "" : t("burnedMark")));
+        lines.push(t("houseLook", (GS.houseName ? GS.houseName(h, this) : loc(h)), Math.max(0, h.hp | 0), h.maxHp, h.alive ? "" : t("burnedMark")));
       }
     }
     for (i = 0; i < this.entities.length; i++) {
