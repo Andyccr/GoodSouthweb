@@ -528,7 +528,7 @@
       if (this.mods && GS.Meta) GS.Meta.applyToSoldier(this.entities[this.entities.length - 1], this.mods);
       spawned++;
     }
-    if (spawned) this.announce(t("militiaUp", loc(house)), C.LGREEN);
+    if (spawned) this.announce(t("militiaUp", GS.houseName ? GS.houseName(house, this) : loc(house)), C.LGREEN);
   };
 
   Battle.prototype.setSpeed = function (s) {
@@ -1442,7 +1442,7 @@
     tile.bg = C.BROWN;
     tile.houseId = -1;
     this.terrainGen = (this.terrainGen || 0) + 1;
-    this.announce(t("houseBurn", loc(house)), C.LRED);
+    this.announce(t("houseBurn", GS.houseName ? GS.houseName(house, this) : loc(house)), C.LRED);
     this._rebuildFlow();
     if (GS.audio) GS.audio.fire();
     if (GS.bus && GS.EV) GS.bus.emit(GS.EV.BATTLE_HOUSE_BURN, { house: house, battle: this });
