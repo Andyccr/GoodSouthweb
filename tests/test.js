@@ -252,6 +252,8 @@ var bLoc = new GS.Battle(pineIsle, armyLoc, { sandbox: true, battleSeed: 1 });
 ok(bLoc.houses[0].nameEn === pineIsle.houses[0].nameEn, "battle copies house English names");
 GS.setLang("en");
 ok(GS.loc(bLoc.houses[0]) === bLoc.houses[0].nameEn, "English HUD uses house nameEn");
+var orphanHouse = { id: bLoc.houses[0].id, name: bLoc.houses[0].name };
+ok(GS.houseName(orphanHouse, bLoc) === bLoc.houses[0].nameEn, "houseName backfills from island if clone dropped nameEn");
 GS.setLang("zh");
 ok(GS.loc(bLoc.houses[0]) === bLoc.houses[0].name, "Chinese HUD uses house name");
 var shapes = {};

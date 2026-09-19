@@ -173,7 +173,7 @@
       GS.t("previewLand") + "<b>" + landings + "</b>。</p>" +
       (om && om.id !== "calm" ? "<p class=\"omen\">" + GS.t("omenP", GS.loc(om), GS.loc(om, "desc")) + "</p>" : "") +
       (relic ? "<p class=\"relic-line\">" + GS.t("relicP", relic.ch, GS.loc(relic), GS.loc(relic, "desc")) + "</p>" : "") +
-      "<p>" + GS.t("previewHomes") + GS.joinList(island.houses.map(function (h) { return GS.loc(h); })) + ".</p>" +
+      "<p>" + GS.t("previewHomes") + GS.joinList(island.houses.map(function (h) { return GS.houseName ? GS.houseName(h, { island: island }) : GS.loc(h); })) + ".</p>" +
       '<div class="menu">' +
       '<button data-act="fight"><kbd>G</kbd> ' + GS.t("deployG") + "</button>" +
       '<button data-act="hire"><kbd>N</kbd> ' + GS.t("hireNCoins", army.coins) + "</button>" +
