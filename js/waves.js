@@ -86,11 +86,18 @@
     return n;
   }
 
+  function nextPending(waves) {
+    if (!waves) return null;
+    for (var i = 0; i < waves.length; i++) if (!waves[i].launched) return waves[i];
+    return null;
+  }
+
   GS.Waves = {
     make: makeWaves,
     tickLaunch: tickLaunch,
     remaining: remaining,
     launchedCount: launchedCount,
+    nextPending: nextPending,
     rosterFor: rosterFor,
   };
 

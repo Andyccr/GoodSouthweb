@@ -170,7 +170,7 @@
       "<pre class=\"mini\">" + GS.util.asciiMini(island) + "</pre>" +
       "<p>" + GS.t("previewCounts", island.houses.length, island.w, island.h) +
       (island.beacons && island.beacons.length ? GS.t("previewBeacons", island.beacons.length) : "") +
-      GS.t("previewLand") + "<b>" + landings + "</b>。</p>" +
+      GS.t("previewLand") + "<b>" + landings + "</b></p>" +
       (om && om.id !== "calm" ? "<p class=\"omen\">" + GS.t("omenP", GS.loc(om), GS.loc(om, "desc")) + "</p>" : "") +
       (relic ? "<p class=\"relic-line\">" + GS.t("relicP", relic.ch, GS.loc(relic), GS.loc(relic, "desc")) + "</p>" : "") +
       "<p>" + GS.t("previewHomes") + GS.joinList(island.houses.map(function (h) { return GS.houseName ? GS.houseName(h, { island: island }) : GS.loc(h); })) + ".</p>" +
@@ -214,13 +214,19 @@
     if (outcome.relic) extra += "<p class=\"relic-line\">" + GS.t("gotRelic") + " <b>" + outcome.relic.ch + " " + GS.loc(outcome.relic) + "</b> — " + GS.loc(outcome.relic, "desc") + "</p>";
     if (outcome.wheatCoins) extra += "<p>" + GS.t("wheatBonus", outcome.wheatCoins) + "</p>";
     if (outcome.promotions && outcome.promotions.length) {
-      extra += "<p>" + outcome.promotions.join(GS.LANG === "en" ? "; " : "；") + "</p>";
+      extra += "<p>" + outcome.promotions.map(function (p) {
+        if (typeof p === "string") return p;
+        return GS.t("promoteLine", GS.loc(p), p.level);
+      }).join(GS.LANG === "en" ? "; " : "；") + "</p>";
     }
     var kindLabel = outcome.kind === "victory" ? GS.t("victory") : outcome.kind === "retreat" ? GS.t("retreat") : GS.t("defeat");
+    var resultMsg = outcome.msgKey
+      ? (outcome.msgKey === "heldIsle" ? GS.t("heldIsle", GS.loc(island)) : GS.t(outcome.msgKey))
+      : outcome.msg;
     this.show(
       '<div class="panel">' +
       "<h2>" + GS.t("resultHead", kindLabel, GS.loc(island)) + "</h2>" +
-      "<p>" + outcome.msg + "</p>" +
+      "<p>" + resultMsg + "</p>" +
       "<p>" + GS.t("resultStats", outcome.housesLeft, outcome.housesTotal, outcome.coins, army.coins) + "</p>" +
       extra +
       "<p>" + GS.t("captainsLeft") + living + (army.relics && army.relics.length ? "　" + GS.t("relics") + " " + army.relics.length : "") + "</p>" +

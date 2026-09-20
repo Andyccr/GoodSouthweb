@@ -335,26 +335,32 @@
       }
     }
 
-    if (this.showLandings && battle.phase === "deploy") {
-      for (i = 0; i < island.landings.length; i++) {
-        var L = island.landings[i];
-        if (L.x < x0 || L.y < y0 || L.x >= x1 || L.y >= y1) continue;
-        var bg = "#3a2a00";
-        var lch = island.tiles[L.y][L.x].ch;
-        var lfg = island.tiles[L.y][L.x].fg;
-        if (!this.lowFx && ((t * 3) | 0) % 2 === 0) {
-          lch = GS.DIRS[L.dir].ch;
-          lfg = C.YELLOW;
+    if (this.showLandings) {
+      var pulseAll = battle.phase === "deploy";
+      var pulseDirs = null;
+      if (!pulseAll && battle.phase === "fight" && GS.Waves && GS.Waves.nextPending) {
+        var nw = GS.Waves.nextPending(battle.waves);
+        if (nw) {
+          pulseDirs = {};
+          pulseDirs[nw.dir] = 1;
+          if (nw.extraDir != null) pulseDirs[nw.extraDir] = 1;
         }
-        this.cell(L.x, L.y, lch, lfg, bg);
       }
-    }
-
-    for (i = 0; i < battle.houses.length; i++) {
-      var h = battle.houses[i];
-      if (h.alive) continue;
-      ch = ((t * 6) | 0) % 2 ? "*" : "%";
-      this.cell(h.x, h.y, ch, C.YELLOW, C.RED);
+      if (pulseAll || pulseDirs) {
+        for (i = 0; i < island.landings.length; i++) {
+          var L = island.landings[i];
+          if (L.x < x0 || L.y < y0 || L.x >= x1 || L.y >= y1) continue;
+          if (pulseDirs && !pulseDirs[L.dir]) continue;
+          var bg = pulseAll ? "#3a2a00" : "#4a1800";
+          var lch = island.tiles[L.y][L.x].ch;
+          var lfg = island.tiles[L.y][L.x].fg;
+          if (!this.lowFx && ((t * 3) | 0) % 2 === 0) {
+            lch = GS.DIRS[L.dir].ch;
+            lfg = C.YELLOW;
+          }
+          this.cell(L.x, L.y, lch, lfg, bg);
+        }
+      }
     }
 
     for (i = 0; i < battle.corpses.length; i++) {
@@ -378,7 +384,9 @@
       var e = ents[i];
       var ex = e.x | 0, ey = e.y | 0;
       var bg2 = null;
-      if (e.kind === "soldier" && e.squadId === battle.selected) bg2 = "#003344";
+      if (e.kind === "soldier" && e.squadId === battle.selected) {
+        bg2 = (!this.lowFx && ((t * 5) | 0) % 2 === 0) ? "#0088aa" : "#004455";
+      }
       if (e.militia) bg2 = bg2 || "#2a2210";
       if (e.hp < e.maxHp * 0.35) bg2 = "#330000";
       if (hover && (hover.x | 0) === ex && (hover.y | 0) === ey) bg2 = "#224466";
@@ -409,10 +417,29 @@
       this.ctx.globalAlpha = 1;
     }
 
+    for (i = 0; i < battle.houses.length; i++) {
+      var hh = battle.houses[i];
+      if (!hh.alive) {
+        ch = ((t * 6) | 0) % 2 ? "*" : "%";
+        this.cell(hh.x, hh.y, ch, C.YELLOW, C.RED);
+        continue;
+      }
+      var ratio = hh.maxHp ? hh.hp / hh.maxHp : 1;
+      if (ratio >= 0.995) continue;
+      var hfg = ratio > 0.55 ? C.YELLOW : ratio > 0.3 ? C.BROWN : C.LRED;
+      var hbg = ratio > 0.3 ? "#3a2208" : (((t * 6) | 0) % 2 ? "#660000" : "#330000");
+      var digit = String(Math.max(1, Math.min(9, Math.ceil(ratio * 9))));
+      this.cell(hh.x, hh.y, digit, hfg, hbg);
+    }
+
     if (battle.warhornT > 0) {
-      this.ctx.globalAlpha = Math.min(0.18, battle.warhornT * 0.04);
+      this.ctx.globalAlpha = Math.min(0.34, 0.1 + battle.warhornT * 0.06);
       this.ctx.fillStyle = this.tint("#ffff55");
       this.ctx.fillRect(0, 0, this.cssW, this.cssH);
+      this.ctx.globalAlpha = Math.min(0.95, 0.35 + battle.warhornT * 0.12);
+      this.ctx.strokeStyle = this.tint("#ffff88");
+      this.ctx.lineWidth = 7;
+      this.ctx.strokeRect(4, 4, this.cssW - 8, this.cssH - 8);
       this.ctx.globalAlpha = 1;
     }
 

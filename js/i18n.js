@@ -7,7 +7,7 @@
     return (GS.I18N && GS.I18N[GS.LANG]) || (GS.I18N && GS.I18N.zh) || {};
   }
 
-  GS.t = function (key, a, b, c) {
+  GS.t = function (key, a, b, c, d) {
     var s = pack()[key];
     if (s == null && GS.I18N && GS.I18N.zh) s = GS.I18N.zh[key];
     if (s == null) s = key;
@@ -15,6 +15,7 @@
     if (a != null) s = s.replace(/\{0\}/g, a);
     if (b != null) s = s.replace(/\{1\}/g, b);
     if (c != null) s = s.replace(/\{2\}/g, c);
+    if (d != null) s = s.replace(/\{3\}/g, d);
     return s;
   };
 
@@ -57,6 +58,13 @@
 
   GS.joinList = function (arr) {
     return (arr || []).join(GS.LANG === "en" ? ", " : "、");
+  };
+
+  GS.logText = function (line) {
+    if (!line) return "";
+    if (GS.LANG === "en" && line.msgEn) return line.msgEn;
+    if (GS.LANG !== "en" && line.msgZh) return line.msgZh;
+    return line.msg || "";
   };
 
   GS.I18N = {
@@ -205,6 +213,20 @@
       hintBattleTouch: "点空地就位 · 拖平移 · 双指缩放 · 点同一兵团转向",
       bannerDeploy: "就位 — 点空地放下兵团，R 转向（箭头），开战后天兵整团接战 · G 开战",
       bannerDeployTouch: "点空地放下 · 转向看箭头朝向 · 拖动画布",
+      bannerDeployCount: "未就位 {0} 队 · 登陆 {1} · G 开战",
+      bannerDeployReady: "全部就位 · 登陆 {0} · G 开战",
+      nextWave: "下一波",
+      xpOf: "经验 {0}/{1}",
+      logEmpty: "角声未起。放下兵团后按 G。",
+      troopsEmpty: "还没有可战的兵团。",
+      evacLog: "你们弃岛乘船撤走。屋舍的钱币没能带走。",
+      promoteLine: "{0} 升至 {1} 级",
+      slotNewCampaign: "新战役",
+      slotLand: "登岛",
+      slotHire: "招募",
+      slotAfter: "战后",
+      slotVoyage: "航程",
+      slotQuick: "快速",
       confirmNew: "开始新战役？",
       confirmNewMsg: "已有存档。新战役不会立刻覆盖手动档，但自动档会在推进时更新。确定开始？",
       confirmYes: "开始新战役",
@@ -486,6 +508,20 @@
       hintBattleTouch: "tap ground · drag pan · pinch zoom · re-tap company to turn",
       bannerDeploy: "Place companies on open ground, R to face (arrows). They hunt on their own after G.",
       bannerDeployTouch: "Tap ground to place · turn by the arrow · drag the map",
+      bannerDeployCount: "{0} companies unplaced · landings {1} · G to fight",
+      bannerDeployReady: "All formed up · landings {0} · G to fight",
+      nextWave: "next",
+      xpOf: "xp {0}/{1}",
+      logEmpty: "Horn not yet. Place companies, then G.",
+      troopsEmpty: "No company in the field.",
+      evacLog: "You abandon the isle. House-coin is left behind.",
+      promoteLine: "{0} rises to level {1}",
+      slotNewCampaign: "new campaign",
+      slotLand: "landed",
+      slotHire: "hired",
+      slotAfter: "aftermath",
+      slotVoyage: "voyage",
+      slotQuick: "quick",
       confirmNew: "Start a new campaign?",
       confirmNewMsg: "A save already exists. Manual slots stay; autosave will update as you go. Start anyway?",
       confirmYes: "New campaign",
