@@ -754,14 +754,14 @@
     this._campZoom = null;
     this._campArmed = null;
     this._resultShown = false;
-    this.autosave("新战役");
+    this.autosave(GS.t("slotNewCampaign"));
     this.ui.toast(GS.t("toastVoyageStart"), "ok");
     this.setMode("campaign");
   };
 
   Game.prototype.autosave = function (label) {
     if (!this.army || !this.campaign) return false;
-    var opts = { label: label || "自动" };
+    var opts = { label: label || GS.t("autoSlot") };
     if ((this.mode === "battle" || this.mode === "sandbox") && this.battle && this.battle.phase !== "over") {
       opts.battle = GS.Save.captureBattle(this);
     }
@@ -773,7 +773,7 @@
       this.ui.toast(GS.t("toastNothing"), "warn");
       return false;
     }
-    var opts = { label: slot === "auto" ? "自动" : ("手动 " + slot) };
+    var opts = { label: slot === "auto" ? GS.t("autoSlot") : GS.t("manualSlot", slot) };
     if ((this.mode === "battle" || this.mode === "sandbox") && this.battle && this.battle.phase !== "over") {
       opts.battle = GS.Save.captureBattle(this);
     }
@@ -792,7 +792,7 @@
       this.ui.toast(GS.t("toastNoQsave"), "warn");
       return;
     }
-    var opts = { label: "快速" };
+    var opts = { label: GS.t("slotQuick") };
     if ((this.mode === "battle" || this.mode === "sandbox") && this.battle && this.battle.phase !== "over") {
       opts.battle = GS.Save.captureBattle(this);
     }
@@ -886,7 +886,7 @@
     this.setMode("battle");
     this._fitBattleCam();
     this.ui.toast(this.touch ? GS.t("toastDeployTouch") : (GS.LANG === "en" && GS.CONFIG.battle.deployHintEn ? GS.CONFIG.battle.deployHintEn : GS.CONFIG.battle.deployHint), "info");
-    this.autosave("登岛");
+    this.autosave(GS.t("slotLand"));
   };
 
   Game.prototype.buy = function (cls) {
@@ -897,7 +897,7 @@
       return;
     }
     if (GS.audio) GS.audio.coin();
-    this.autosave("招募");
+    this.autosave(GS.t("slotHire"));
     this.ui.toast(GS.t("toastHired"), "ok");
     this.setMode("hire");
   };
@@ -928,7 +928,7 @@
       // retreat — keep scouted
       GS.Army.applyBattleOutcome(this.army, o);
     }
-    GS.Save.writeSlot("auto", this.army, this.campaign, { label: "战后" });
+    GS.Save.writeSlot("auto", this.army, this.campaign, { label: GS.t("slotAfter") });
     this.setMode("result", o);
   };
 
@@ -963,7 +963,7 @@
         rng: this.rng || GS.rng(1),
       });
       this.ui.toast(GS.t("toastVoyageOk"), "ok");
-      this.autosave("航程");
+      this.autosave(GS.t("slotVoyage"));
     }
     this.pendingVoyage = null;
     this.setMode("campaign");
@@ -1052,6 +1052,7 @@
       else this.ui.toast(GS.t("toastBadTile"), "bad");
     }
     this.hudDirty = true;
+    if (ok && GS.audio && GS.audio.place) GS.audio.place();
     return ok;
   };
 
