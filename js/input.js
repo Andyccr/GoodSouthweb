@@ -277,6 +277,7 @@
     if (k === "[") game.dispatch("spd-down");
     if (k === "e" || k === "E") game.dispatch("evac");
     if (k === "u" || k === "U") { game.dispatch("warhorn"); return; }
+    if (k === "o" || k === "O") { game.dispatch("cycle-order"); return; }
     if ((k === "m" || k === "M") && game.mode === "battle") game.dispatch("back-camp");
     if (k === "Escape") { e.preventDefault(); game.dispatch("pause-menu"); return; }
     if (k === "q" || k === "Q") {

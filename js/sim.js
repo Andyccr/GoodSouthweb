@@ -195,6 +195,7 @@
         moveCd: 0,
         huntId: 0,
         marchFacing: 2,
+        order: Battle.defaultOrder(c.cls),
       });
     }
     if (this.squads.length) this.selected = this.squads[0].id;
@@ -256,11 +257,126 @@
     sq.placed = true;
     if (!sq.entities.length) this._birthSquad(sq);
     else this._retargetFormation(sq);
-    if (this.phase === "fight") sq.moveCd = (GS.CONFIG.battle && GS.CONFIG.battle.moveCooldown) || 3.2;
+    if (this.phase === "fight") {
+      sq.moveCd = (GS.CONFIG.battle && GS.CONFIG.battle.moveCooldown) || 3.2;
+      // Mid-fight place is a chosen post: hold there instead of immediately hunting off.
+      if (sq.order !== "hold") {
+        sq.order = "hold";
+        sq.huntId = 0;
+      }
+    }
     this.say("placedLine", C.LCYAN, function () {
       return [loc(sq), tx, ty, loc(GS.DIRS[sq.facing])];
     });
     return true;
+  };
+
+  Battle.ORDERS = ["hunt", "hold", "guard"];
+
+  Battle.defaultOrder = function (role) {
+    return role === "archer" ? "hold" : "hunt";
+  };
+
+  Battle.orderKey = function (order) {
+    if (order === "hold") return "orderHold";
+    if (order === "guard") return "orderGuard";
+    return "orderHunt";
+  };
+
+  Battle.orderMark = function (order) {
+    if (order === "hold") return "□";
+    if (order === "guard") return "⌂";
+    return "»";
+  };
+
+  Battle.prototype.orderLabel = function (order) {
+    return t(Battle.orderKey(order || "hunt"));
+  };
+
+  Battle.prototype._clearSquadHunt = function (sq) {
+    if (!sq) return;
+    sq.huntId = 0;
+    var living = this._squadLiving(sq);
+    for (var i = 0; i < living.length; i++) {
+      living[i].path = null;
+      living[i].targetId = 0;
+    }
+  };
+
+  Battle.prototype.setOrder = function (squadId, order) {
+    if (Battle.ORDERS.indexOf(order) < 0) return false;
+    var sq = this.getSquad(squadId);
+    if (!sq) return false;
+    if (sq.order === order) return true;
+    sq.order = order;
+    this._clearSquadHunt(sq);
+    this.say("orderLine", C.LCYAN, function () {
+      return [loc(sq), t(Battle.orderKey(order))];
+    });
+    return true;
+  };
+
+  Battle.prototype.cycleOrder = function (squadId) {
+    var sq = this.getSquad(squadId || this.selected);
+    if (!sq) return null;
+    var cur = sq.order || "hunt";
+    var i = Battle.ORDERS.indexOf(cur);
+    if (i < 0) i = 0;
+    var next = Battle.ORDERS[(i + 1) % Battle.ORDERS.length];
+    this.setOrder(sq.id, next);
+    return next;
+  };
+
+  Battle.prototype._orderRadius = function (sq) {
+    var cfg = (GS.CONFIG.battle && GS.CONFIG.battle.orders) || {};
+    var role = GS.ROLES[sq.role] || {};
+    if (sq.role === "archer" || sq.role === "skirmisher") {
+      return (role.range || 6) + (cfg.holdRanged != null ? cfg.holdRanged : 1.6);
+    }
+    return cfg.holdMelee != null ? cfg.holdMelee : 5.2;
+  };
+
+  Battle.prototype._threatsNear = function (x, y, threats, radius) {
+    var origin = { x: x, y: y };
+    var out = [];
+    for (var i = 0; i < (threats || []).length; i++) {
+      if (dist(origin, threats[i]) <= radius) out.push(threats[i]);
+    }
+    return out;
+  };
+
+  Battle.prototype._isGuardThreat = function (foe) {
+    if (!foe || !foe.alive) return false;
+    var r = ((GS.CONFIG.battle && GS.CONFIG.battle.orders) || {}).guardHouse || 10;
+    if (foe.kind === "ship") {
+      var bx = foe.beachX != null ? foe.beachX : foe.x;
+      var by = foe.beachY != null ? foe.beachY : foe.y;
+      return this._isGuardThreat({ x: bx + 0.5, y: by + 0.5, alive: true, kind: "enemy" });
+    }
+    for (var i = 0; i < this.houses.length; i++) {
+      var h = this.houses[i];
+      if (!h.alive) continue;
+      if (dist(foe, { x: h.x + 0.5, y: h.y + 0.5 }) <= r) return true;
+    }
+    return false;
+  };
+
+  Battle.prototype._guardThreats = function (threats) {
+    var out = [];
+    for (var i = 0; i < (threats || []).length; i++) {
+      if (this._isGuardThreat(threats[i])) out.push(threats[i]);
+    }
+    return out;
+  };
+
+  Battle.prototype.houseUnderSiege = function (house) {
+    if (!house || !house.alive) return false;
+    var list = this._livingEnemies || [];
+    var pt = { x: house.x + 0.5, y: house.y + 0.5 };
+    for (var i = 0; i < list.length; i++) {
+      if (dist(list[i], pt) < 3.5) return true;
+    }
+    return false;
   };
 
   Battle.prototype._faceNearestLanding = function (tx, ty) {
@@ -665,6 +781,8 @@
       placed: true,
       entities: [],
       moveCd: 0,
+      huntId: 0,
+      order: Battle.defaultOrder(role),
     };
     this.squads.push(fake);
     this._birthSquad(fake);
@@ -992,12 +1110,27 @@
         sq.huntId = 0;
         continue;
       }
+      var order = sq.order || "hunt";
+      var pool = threats;
+      if (order === "hold") {
+        pool = this._threatsNear(sq.tx + 0.5, sq.ty + 0.5, threats, this._orderRadius(sq));
+        if (!pool.length) {
+          sq.huntId = 0;
+          continue;
+        }
+      } else if (order === "guard") {
+        pool = this._guardThreats(threats);
+        if (!pool.length) {
+          sq.huntId = 0;
+          continue;
+        }
+      }
       var c = this._squadCenter(living);
       var leader = this._squadLeader(living);
       var roleDef = GS.ROLES[sq.role] || {};
       var probe = {
-        x: c.x,
-        y: c.y,
+        x: order === "hold" ? sq.tx + 0.5 : c.x,
+        y: order === "hold" ? sq.ty + 0.5 : c.y,
         role: sq.role,
         hp: leader ? leader.hp : 20,
         maxHp: leader ? leader.maxHp : 20,
@@ -1007,11 +1140,11 @@
       var old = sq.huntId ? this.byId(sq.huntId) : null;
       var keepS = -1e9;
       if (old && old.alive) keepS = this.huntScore(probe, old, claimed[old.id] || 0);
-      for (var i = 0; i < threats.length; i++) {
-        var sc = this.huntScore(probe, threats[i], claimed[threats[i].id] || 0);
+      for (var i = 0; i < pool.length; i++) {
+        var sc = this.huntScore(probe, pool[i], claimed[pool[i].id] || 0);
         if (sc > bestS) {
           bestS = sc;
-          best = threats[i];
+          best = pool[i];
         }
       }
       if (old && old.alive && keepS >= bestS - sticky) {
@@ -1378,11 +1511,25 @@
       }
 
       sq = e.squadId ? this.getSquad(e.squadId) : null;
+      var order = (sq && sq.order) || "hunt";
       var close = this._nearestThreat(e, threats, Math.max(range + 0.4, 2.6));
       var localR = W.local != null ? W.local : 2.15;
+      if (sq && (order === "hold" || order === "guard") && close) {
+        var post = { x: sq.tx + 0.5, y: sq.ty + 0.5 };
+        if (order === "hold" && dist(close, post) > this._orderRadius(sq)) close = null;
+        else if (order === "guard" && dist(e, close) > localR && !this._isGuardThreat(close)) close = null;
+      }
       if (e.militia) {
         foe = this._pickHuntTarget(e, threats, militiaClaimed);
         if (foe) militiaClaimed[foe.id] = (militiaClaimed[foe.id] || 0) + 1;
+      } else if (order === "hold") {
+        foe = (sq && sq.huntId) ? this.byId(sq.huntId) : null;
+        if (foe && !foe.alive) foe = null;
+        if (!foe) foe = close;
+        if (foe && sq) {
+          var holdPost = { x: sq.tx + 0.5, y: sq.ty + 0.5 };
+          if (dist(foe, holdPost) > this._orderRadius(sq)) foe = close;
+        }
       } else if (close && dist(e, close) <= localR) {
         foe = close;
       } else if (sq && sq.huntId) {
@@ -1632,6 +1779,12 @@
         lines.push(t("houseLook", (GS.houseName ? GS.houseName(h, this) : loc(h)), Math.max(0, h.hp | 0), h.maxHp, h.alive ? "" : t("burnedMark")));
       }
     }
+    for (i = 0; i < this.squads.length; i++) {
+      var sqLook = this.squads[i];
+      if (sqLook.placed && sqLook.tx === x && sqLook.ty === y) {
+        lines.push(t("orderLook", loc(sqLook), this.orderLabel(sqLook.order)));
+      }
+    }
     for (i = 0; i < this.entities.length; i++) {
       var e = this.entities[i];
       if (!e.alive) continue;
@@ -1696,6 +1849,7 @@
           id: s.id, name: s.name, nameEn: s.nameEn, role: s.role, level: s.level, trait: s.trait,
           soldiers: s.soldiers, maxSoldiers: s.maxSoldiers, facing: s.facing,
           tx: s.tx, ty: s.ty, placed: s.placed, moveCd: s.moveCd, xp: s.xp || 0,
+          order: s.order || Battle.defaultOrder(s.role),
         };
       }),
       entities: battle.entities.filter(function (e) { return e.alive; }).map(function (e) {
@@ -1778,6 +1932,7 @@
         id: s.id, name: s.name, nameEn: s.nameEn, role: s.role, level: s.level || 1, trait: s.trait,
         soldiers: s.soldiers, maxSoldiers: s.maxSoldiers, facing: s.facing || 2,
         tx: s.tx, ty: s.ty, placed: !!s.placed, entities: [], moveCd: s.moveCd || 0, xp: s.xp || 0,
+        order: s.order || Battle.defaultOrder(s.role),
       });
     }
     if (!battle.selected && battle.squads.length) battle.selected = battle.squads[0].id;

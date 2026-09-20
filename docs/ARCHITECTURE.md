@@ -83,4 +83,4 @@
 - 新圣物 / 征兆 / 航程：只动 `content.js`，战斗修正走 `modsFrom`
 - 新波次规则：只动 `waves.js`
 - 新界面：只动 `screens.js` / `hud.js` / `ui.js`
-- 新操作：在 `input.js` 映射按键 → `dispatch`，在 `game.js` 的 `switch` 处理
+- 新操作：在 `input.js` 映射按键 → `dispatch`，在 `game.js` 的 `switch` 处理（号令 `cycle-order` / `O`）

@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "2.2.1",
+    version: "2.3.0",
     saveVersion: 4,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -56,7 +56,8 @@
 
     battle: {
       moveCooldown: 3.2,
-      deployHint: "点一下空地放下兵团即可。开战后天兵会自己找北蛮打。",
+      deployHint: "点空地就位。开战后天兵默认追击；弓手默认驻守高地。O 切换号令。",
+      deployHintEn: "Place companies on open ground. They hunt after the horn; bows hold their hill. O cycles orders.",
       maxSpeed: 3,
       hudIntervalMs: 120,
       zoomMin: 10,
@@ -90,6 +91,11 @@
         sticky: 4,
         siege: 10,
         local: 2.15,
+      },
+      orders: {
+        holdMelee: 5.2,
+        holdRanged: 1.6,
+        guardHouse: 10,
       },
     },
 
