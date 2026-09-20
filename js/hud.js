@@ -149,7 +149,8 @@
         var sel = b.getSquad(b.selected);
         if (!sel) return "";
         var d = GS.DIRS[sel.facing] || GS.DIRS[2];
-        return ui.chip(GS.t("facing"), GS.loc(d) + "\u00a0" + d.ch, "cyan");
+        return ui.chip(GS.t("facing"), GS.loc(d) + "\u00a0" + d.ch, "cyan") +
+          ui.chip(GS.t("orderCycle"), GS.Battle.orderMark(sel.order) + "\u00a0" + GS.t(GS.Battle.orderKey(sel.order)), sel.order === "hunt" ? "hi" : "cyan");
       }()) +
       ui.chip(GS.t("houses"), cnt.houses + "/" + b.houses.length, cnt.houses < b.houses.length ? "warn" : "ok") +
       ui.chip(GS.t("ours"), cnt.soldiers) +
@@ -184,6 +185,7 @@
     if (b.phase === "deploy") {
       items.push({ act: "start", label: GS.t("startFight"), kbd: "G", primary: true });
       items.push({ act: "rotate", label: GS.t("rotate"), kbd: "R" });
+      items.push({ act: "cycle-order", label: GS.t("orderCycle"), kbd: "O" });
       items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: GS.t("zoomIn") });
       items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: GS.t("zoomOut") });
       items.push({ act: "center-cam", label: GS.t("center"), kbd: "F" });
@@ -195,6 +197,7 @@
       items.push({ act: "spd", arg: "3", label: "3×", active: b.speed === 3 });
       items.push({ sep: true });
       items.push({ act: "rotate", label: GS.t("rotate"), kbd: "R" });
+      items.push({ act: "cycle-order", label: GS.t("orderCycle"), kbd: "O" });
       items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: GS.t("zoomIn") });
       items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: GS.t("zoomOut") });
       items.push({ act: "center-cam", label: GS.t("center"), kbd: "F" });
@@ -243,6 +246,7 @@
       cmds.push({ act: "zoom", arg: "1", label: "+" });
       cmds.push({ act: "zoom", arg: "-1", label: "−" });
       cmds.push({ act: "center-cam", label: GS.t("center") });
+      cmds.push({ act: "cycle-order", label: GS.t("orderCycle") });
       if (b.phase === "fight") {
         cmds.push({ act: "spd", arg: "1", label: "1×", active: b.speed === 1 });
         cmds.push({ act: "spd", arg: "2", label: "2×", active: b.speed === 2 });
@@ -265,6 +269,7 @@
         ? { act: "start", label: GS.t("startFight") }
         : { act: "pause", label: b.speed ? GS.t("pause") : GS.t("resume") },
       { act: "rotate", label: GS.t("rotate") },
+      { act: "cycle-order", label: GS.t("orderCycle") },
       { act: "pause-menu", label: GS.t("menu") },
     ]);
   };
@@ -332,9 +337,11 @@
         "　" + GS.t("facingAt", GS.loc(GS.DIRS[sq.facing]) + "\u00a0" + GS.DIRS[sq.facing].ch) + "<br>" + GS.t("soldiersOf", sq.soldiers, sq.maxSoldiers) +
         (trait ? "<br>" + GS.t("trait") + " [" + trait + "]" : "") +
         (sq.placed ? "" : "<br><span class='warn'>" + GS.t("notPlaced") + "</span>") +
+        "<br>" + GS.t("orderNow", GS.Battle.orderMark(sq.order), GS.t(GS.Battle.orderKey(sq.order))) +
         "<br>" + GS.t("xpOf", sq.xp || 0, (sq.level || 1) * 12) + " · Lv" + (sq.level || 1) +
         (sq.moveCd > 0 ? "<br><span class='hint'>" + GS.t("moveCd") + " " + sq.moveCd.toFixed(1) + "s</span>" : "") +
-        "</p><p class=\"hint\">" + (GS.loc(role, "desc") || role.desc) + "</p>";
+        "</p><p class=\"sheet-actions\"><button type=\"button\" data-act=\"cycle-order\">" + GS.t("orderCycle") + " (O)</button></p>" +
+        "<p class=\"hint\">" + (GS.loc(role, "desc") || role.desc) + "</p>";
     }
     html += "<h3>" + GS.t("houses") + "</h3><ul>";
     var houseList = b.houses.slice().sort(function (a, c) {
@@ -344,7 +351,9 @@
     });
     for (i = 0; i < houseList.length; i++) {
       var h = houseList[i];
-      html += "<li>" + (h.alive ? "⌂" : "%") + " " + GS.houseName(h, b) + " " + game.ui.hpBar(h.hp, h.maxHp) + "</li>";
+      html += "<li>" + (h.alive ? "⌂" : "%") + " " + GS.houseName(h, b) + " " + game.ui.hpBar(h.hp, h.maxHp) +
+        (h.alive && b.houseUnderSiege && b.houseUnderSiege(h) ? " <span class='warn'>" + GS.t("siegeMark") + "</span>" : "") +
+        "</li>";
     }
     html += "</ul>";
     if (game.mode === "sandbox") {
@@ -384,7 +393,7 @@
         '" data-act="select-squad" data-arg="' + s.id + '">' +
         '<span class="idx">' + idx + "</span>" +
         "<span>" + role.ch + " " + GS.loc(s) + "</span>" +
-        "<span class=\"hint\">" + s.soldiers + (s.placed ? "" : " ·") + "</span></div>";
+        "<span class=\"hint\">" + GS.Battle.orderMark(s.order) + " " + s.soldiers + (s.placed ? "" : " ·") + "</span></div>";
     }
     return html;
   };

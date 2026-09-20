@@ -201,7 +201,7 @@ ok(GS.Waves.nextPending(waves) === waves[0], "next pending is first unlaunched w
 waves[0].launched = true;
 ok(GS.Waves.nextPending(waves) === waves[1], "next pending skips launched waves");
 ok(GS.t("waveSplit", 1, 3, "南", "北").indexOf("北") >= 0, "waveSplit fills the fourth landing");
-ok(GS.CONFIG.version.indexOf("2.2") === 0, "readout version 2.2");
+ok(GS.CONFIG.version.indexOf("2.3") === 0, "orders version 2.3");
 
 console.log("Mapgen islands");
 var fps = {};
@@ -489,6 +489,80 @@ if (farEnemy.alive) {
   var homeNow = avgDistTo(bh, { x: sqx + 0.5, y: sqy + 0.5 });
   ok(homeNow > 5, "not stuck on the deploy tile, homeDist=" + homeNow.toFixed(1));
 }
+
+console.log("Squad orders");
+ok(GS.Battle.defaultOrder("archer") === "hold", "archers default to hold");
+ok(GS.Battle.defaultOrder("infantry") === "hunt", "infantry default to hunt");
+ok(GS.Battle.ORDERS.join(",") === "hunt,hold,guard", "three orders");
+ok(bFour.squads.filter(function (s) { return s.role === "archer"; })[0].order === "hold", "starter archer holds");
+ok(GS.t("orderHold") === "驻守", "order strings exist");
+GS.setLang("en");
+ok(GS.t("orderHold") === "Hold", "order strings English");
+GS.setLang("zh");
+
+var islandO = GS.mapgen.island(88, { difficulty: 2, size: "small", biome: "verdant" });
+var armyO = GS.Army.create(GS.rng(4));
+armyO.commanders = [{
+  id: "hold1", name: "测试·驻守", cls: "infantry", level: 1, xp: 0,
+  soldiers: 8, maxSoldiers: 10, trait: null, dead: false,
+}];
+var bo = new GS.Battle(islandO, armyO, { sandbox: true, battleSeed: 11 });
+var oxp = islandO.houses[0].x, oyp = islandO.houses[0].y;
+var holdPlace = null, holdD = 1e9;
+for (var oyy = 0; oyy < islandO.h; oyy++) {
+  for (var oxx = 0; oxx < islandO.w; oxx++) {
+    var ot = islandO.tiles[oyy][oxx];
+    if (!ot.walk || ot.type === GS.T.HOUSE) continue;
+    var oddx = oxx - oxp, oddy = oyy - oyp;
+    var odd = oddx * oddx + oddy * oddy;
+    if (odd < 4 || odd > 36) continue;
+    if (odd < holdD) { holdD = odd; holdPlace = { x: oxx, y: oyy }; }
+  }
+}
+ok(!!holdPlace && bo.placeSquad("hold1", holdPlace.x, holdPlace.y, 2), "hold squad placed");
+ok(bo.setOrder("hold1", "hold"), "setOrder hold");
+ok(bo.squads[0].order === "hold", "squad stores hold");
+ok(bo.cycleOrder("hold1") === "guard", "cycle hold → guard");
+ok(bo.cycleOrder("hold1") === "hunt", "cycle guard → hunt");
+ok(bo.cycleOrder("hold1") === "hold", "cycle hunt → hold");
+bo.startFight();
+var farHold = null, farHoldD = -1;
+var hsx = bo.squads[0].tx, hsy = bo.squads[0].ty;
+for (var oli = 0; oli < islandO.landings.length; oli++) {
+  var OL = islandO.landings[oli];
+  if (!islandO.tiles[OL.y][OL.x].walk) continue;
+  var oldx = OL.x - hsx, oldy = OL.y - hsy;
+  var oldd = oldx * oldx + oldy * oldy;
+  if (oldd > farHoldD) { farHoldD = oldd; farHold = OL; }
+}
+ok(!!farHold && farHoldD > 36, "distant landing for hold test");
+farHold = bo.spawnEnemy("raider", farHold.x, farHold.y);
+var dHold0 = avgDistTo(bo, { x: hsx + 0.5, y: hsy + 0.5 });
+for (var htH = 0; htH < 120; htH++) bo.tick(0.05);
+var dHold1 = avgDistTo(bo, { x: hsx + 0.5, y: hsy + 0.5 });
+ok(dHold1 < 4.5, "hold keeps soldiers near the post, home=" + dHold1.toFixed(1) + " start=" + dHold0.toFixed(1));
+ok(farHold.alive, "distant raider not hunted down while holding");
+ok(bo.setOrder("hold1", "guard"), "switch to guard");
+var nearHouseRaider = bo.spawnEnemy("raider", oxp, oyp);
+bo._rebuildHuntFlow();
+for (var gt = 0; gt < 80; gt++) bo.tick(0.05);
+var dGuard = avgDistTo(bo, { x: oxp + 0.5, y: oyp + 0.5 });
+ok(!nearHouseRaider.alive || dGuard < dHold1 + 2 || bo.squads[0].huntId === nearHouseRaider.id,
+  "guard picks the house raider (alive=" + nearHouseRaider.alive + " d=" + dGuard.toFixed(1) + " hunt=" + bo.squads[0].huntId + ")");
+var sieger = bo.spawnEnemy("raider", oxp, oyp);
+bo._refreshLiving();
+ok(bo.houseUnderSiege(bo.houses[0]), "raider on the house counts as siege");
+
+var snapOrd = GS.Battle.serialize(bo);
+ok(snapOrd.squads[0].order === "guard", "serialize order");
+var armyOrd = GS.Army.deserialize(GS.Army.serialize(armyO));
+var restOrd = GS.Battle.deserialize(snapOrd, armyOrd);
+ok(restOrd.squads[0].order === "guard", "deserialize order");
+
+bo.setOrder("hold1", "hunt");
+ok(bo.squads[0].order === "hunt", "can return to hunt");
+ok(GS.CONFIG.version.indexOf("2.3") === 0, "orders version 2.3");
+ok(GS.CONFIG.battle.orders.holdMelee >= 4, "hold radius knobs");
 
 console.log("Battle serialize");
 var snap = GS.Battle.serialize(battle);

@@ -208,11 +208,11 @@
       hintTitle: "a 战役 · b 沙盒 · c 手册 · I 中/EN",
       hintChart: "WASD/拖平移 · 滚轮缩放 · 点岛再点登陆 · 右键立刻登 · Tab换岛 · Enter登陆",
       hintChartTouch: "点岛选中 · 再点或长按登陆 · 拖/捏平移缩放",
-      hintBattle: "点空地就位 · 拖/WASD平移 · R或再点兵团转向 · G开战",
-      hintSandbox: "点空地就位 · 拖/WASD平移 · 滚轮缩放 · 右键转向",
-      hintBattleTouch: "点空地就位 · 拖平移 · 双指缩放 · 点同一兵团转向",
-      bannerDeploy: "就位 — 点空地放下兵团，R 转向（箭头），开战后天兵整团接战 · G 开战",
-      bannerDeployTouch: "点空地放下 · 转向看箭头朝向 · 拖动画布",
+      hintBattle: "点空地就位 · O 号令（追击/驻守/护屋） · R转向 · G开战",
+      hintSandbox: "点空地就位 · O 号令 · 拖/WASD平移 · 滚轮缩放 · 右键转向",
+      hintBattleTouch: "点空地就位 · 号令在底栏 · 拖平移 · 点同一兵团转向",
+      bannerDeploy: "就位 — 点空地放下。弓手默认驻守，其余追击。O 切换号令 · G 开战",
+      bannerDeployTouch: "点空地放下 · 号令在底栏 · 转向看箭头 · 拖动画布",
       bannerDeployCount: "未就位 {0} 队 · 登陆 {1} · G 开战",
       bannerDeployReady: "全部就位 · 登陆 {0} · G 开战",
       nextWave: "下一波",
@@ -227,6 +227,15 @@
       slotAfter: "战后",
       slotVoyage: "航程",
       slotQuick: "快速",
+      orderHunt: "追击",
+      orderHold: "驻守",
+      orderGuard: "护屋",
+      orderCycle: "号令",
+      orderNow: "号令 {0} {1}",
+      orderLine: "{0} 改为{1}。",
+      orderLook: "{0} 号令：{1}",
+      toastOrder: "号令：{0}",
+      siegeMark: "遇袭",
       confirmNew: "开始新战役？",
       confirmNewMsg: "已有存档。新战役不会立刻覆盖手动档，但自动档会在推进时更新。确定开始？",
       confirmYes: "开始新战役",
@@ -283,7 +292,7 @@
       palDf: "经典 DF",
       palGreen: "绿磷",
       palAmber: "琥珀",
-      deployHint: "点一下空地放下兵团即可。开战后天兵会自己找北蛮打。",
+      deployHint: "点空地就位。弓手默认驻守，其余追击。O 切换号令。",
       shipName: "北境长船",
       wreck: "搁浅的龙骨",
       miss: "空",
@@ -291,9 +300,9 @@
       hexMark: "咒",
       helpTitle: "南境手册",
       arrive: "抵达 {0}。{1}。",
-      landingsLine: "登陆点：{0}。点空地让兵团就位，开战后天兵会自己接战。",
+      landingsLine: "登陆点：{0}。点空地就位。O 切换追击 / 驻守 / 护屋。",
       beaconLine: "岛上有 {0} 座烽火台——弓手靠近可加强。",
-      placedLine: "{0} 在 ({1},{2}) 就位，面朝{3}。发现北蛮会自行接战。",
+      placedLine: "{0} 在 ({1},{2}) 就位，面朝{3}。",
       needPlace: "至少布置一个兵团才能开战。",
       hornStartLog: "角声响起。北境的船帆出现在海平线上。",
       hornBlast: "号角震天！北蛮脚步乱了片刻。",
@@ -503,11 +512,11 @@
       hintTitle: "a campaign · b sandbox · c handbook · I 中/EN",
       hintChart: "WASD/drag pan · wheel zoom · tap isle then land · RMB lands · Tab cycle · Enter land",
       hintChartTouch: "tap isle · tap again or hold to land · drag/pinch",
-      hintBattle: "tap ground to place · drag/WASD pan · R or re-tap company to turn · G fight",
-      hintSandbox: "tap to place · drag/WASD pan · wheel zoom · RMB turn",
-      hintBattleTouch: "tap ground · drag pan · pinch zoom · re-tap company to turn",
-      bannerDeploy: "Place companies on open ground, R to face (arrows). They hunt on their own after G.",
-      bannerDeployTouch: "Tap ground to place · turn by the arrow · drag the map",
+      hintBattle: "tap ground to place · O orders (hunt/hold/guard) · R turn · G fight",
+      hintSandbox: "tap to place · O orders · drag/WASD pan · wheel zoom · RMB turn",
+      hintBattleTouch: "tap ground · orders on the dock · drag pan · re-tap company to turn",
+      bannerDeploy: "Place companies. Bows hold their hill; others hunt. O cycles orders · G fight",
+      bannerDeployTouch: "Tap ground to place · orders on the dock · turn by the arrow",
       bannerDeployCount: "{0} companies unplaced · landings {1} · G to fight",
       bannerDeployReady: "All formed up · landings {0} · G to fight",
       nextWave: "next",
@@ -522,6 +531,15 @@
       slotAfter: "aftermath",
       slotVoyage: "voyage",
       slotQuick: "quick",
+      orderHunt: "Hunt",
+      orderHold: "Hold",
+      orderGuard: "Guard",
+      orderCycle: "Orders",
+      orderNow: "orders {0} {1}",
+      orderLine: "{0} now {1}.",
+      orderLook: "{0} orders: {1}",
+      toastOrder: "Orders: {0}",
+      siegeMark: "under attack",
       confirmNew: "Start a new campaign?",
       confirmNewMsg: "A save already exists. Manual slots stay; autosave will update as you go. Start anyway?",
       confirmYes: "New campaign",
@@ -577,7 +595,7 @@
       palDf: "Classic DF",
       palGreen: "Phosphor",
       palAmber: "Amber",
-      deployHint: "Tap open ground to place a company. After the horn they hunt on their own.",
+      deployHint: "Tap open ground to place. Bows hold; others hunt. O cycles orders.",
       shipName: "North longship",
       wreck: "beached keel",
       miss: "miss",
@@ -585,9 +603,9 @@
       hexMark: "hex",
       helpTitle: "South Handbook",
       arrive: "Arrived at {0}. {1}.",
-      landingsLine: "Landings: {0}. Place companies on open ground; after the horn they hunt on their own.",
+      landingsLine: "Landings: {0}. Place companies. O cycles hunt / hold / guard.",
       beaconLine: "{0} beacon(s) on this isle — archers nearby shoot farther.",
-      placedLine: "{0} formed at ({1},{2}), facing {3}. They will hunt northmen on their own.",
+      placedLine: "{0} formed at ({1},{2}), facing {3}.",
       needPlace: "Place at least one company before the fight.",
       hornStartLog: "The horn sounds. North sails lift on the horizon.",
       hornBlast: "Warhorn! The northmen stumble.",
@@ -671,7 +689,7 @@
         "<li>Switching browser tabs auto-pauses a fight.</li>" +
         "<li><b>I</b> toggles Chinese / English (pause menu has a button too).</li>" +
         "</ul><h3>Fieldcraft</h3><ul>" +
-        "<li>Deploy is only a <strong>form-up point</strong>: after the horn, companies <strong>hunt northmen</strong> (houses first). Facing arrows sit on the form-up tile. RMB / R / Turn / Shift+wheel rotate; you can face before placing.</li>" +
+        "<li>Deploy is a <strong>form-up point</strong>. After the horn, melee companies <strong>hunt</strong> (houses first); bows <strong>hold</strong> the hill. <b>O</b> cycles Hunt / Hold / Guard. Re-placing mid-fight sets Hold. Facing arrows sit on the form-up tile. RMB / R / Turn / Shift+wheel rotate.</li>" +
         "<li>Default four companies (two shields, one bow, one pike). You can hire <strong>skirmishers ‡</strong>. Bows/javelins kite; shields/pikes charge threats to houses.</li>" +
         "<li><b>U horn</b>: once per battle (twice with Horn-stone), briefly slows all northmen — including longships.</li>" +
         "<li><b>Beacons ¥</b>: nearby archers gain range and bite.</li>" +
@@ -682,7 +700,7 @@
         "<li>Northmen always arrive by longship from deep water, then beach.</li>" +
         "</ul><h3>Phone</h3><ul>" +
         "<li>Tap ground to place; tap a soldier to select, tap the same company to turn. Drag pans, pinch zooms. On the chart tap an isle, then tap or hold to land.</li>" +
-        "<li>Turn (dock or hold) shows facing. Dock opens intel / troops sheets. Tap Fight. Bars zoom and change speed.</li>" +
+        "<li>Turn (dock or hold) shows facing. Dock opens intel / troops / orders. Tap Fight. Bars zoom and change speed.</li>" +
         "<li>Sandbox paint / spawn / new isle live in the Intel sheet so they do not cover the map.</li>" +
         "<li>Narrow screens use smaller isles and lower FX.</li>" +
         "</ul><h3>Desktop</h3><pre class=\"keys\">" +
@@ -692,14 +710,14 @@
         "WASD             hold to pan    Shift faster\n" +
         "Arrows / HJKL    move cursor (keyboard place)\n" +
         ", . or =         zoom    F / Home focus selected company\n" +
-        "[  ]             speed    G fight    E evacuate    U horn\n" +
+        "[  ]             speed    G fight    E evacuate    U horn    O orders\n" +
         "I                Chinese / English\n" +
         "Chart            drag/wheel/WASD pan zoom    tap isle, tap again to land\n" +
         "                 RMB lands now    Tab cycle isles    Enter / Space land\n" +
         "                 F focus    0 / End fit all    Q / Esc pause\n" +
         "</pre><h3>Relics and omens</h3><ul>" +
         "<li>Each chart isle hides a relic. Hold it and it stays with the host (South-lamp, Salt-wind, Eyrie-stone, Horn-stone, …).</li>" +
-        "<li>Before landing you see the omen: sea fog, storm, dusk, high tide, harvest moon, crows.</li>" +
+        "<li>Before landing you see the omen: sea fog, storm, dusk, high tide, harvest moon, crows. The field tints for fog, rain, dusk, or crows.</li>" +
         "<li>Biomes: verdant, rocky, marsh, frost, ash, and <strong>pine</strong>. Northmen include the <strong>tide shaman Ψ</strong> (ranged hex) and <strong>hounds d</strong> (hunt soldiers, not houses).</li>" +
         "</ul>" +
         '<div class="menu"><button data-act="resume-or-title"><kbd>Q</kbd> ' + GS.t("back") + "</button></div></div>";
@@ -714,7 +732,7 @@
       "<li>切换浏览器标签会自动暂停战斗。</li>" +
       "<li><b>I</b> 切换中文 / English（暂停菜单也有按钮）。</li>" +
       "</ul><h3>战地技巧</h3><ul>" +
-      "<li>布置只是<strong>就位点</strong>：开战后天兵整团去<strong>歼灭北蛮</strong>（优先保屋舍）。朝向用箭头画在就位点上，右键 / R / 转向按钮 / Shift+滚轮旋转；未落子也可以先转向。</li>" +
+      "<li>布置是<strong>就位点</strong>。开战近战兵团默认<strong>追击</strong>（先保屋），弓手默认<strong>驻守</strong>高地。<b>O</b> 在追击 / 驻守 / 护屋间切换。战斗中换阵会改为驻守。朝向用箭头画在就位点上，右键 / R / 转向 / Shift+滚轮旋转。</li>" +
       "<li>每局默认四支部队（两盾、一弓、一枪）。可再招募<strong>投矛手 ‡</strong>。弓手/投矛会拉开身位；盾兵/枪兵冲向威胁屋舍的北蛮。</li>" +
       "<li><b>U 号角</b>：每场一次（持有号角石可两次），短时减缓全部北蛮（含长船）。</li>" +
       "<li><b>烽火台 ¥</b>：弓手靠近可提升射程与伤害。</li>" +
@@ -725,7 +743,7 @@
       "<li>北蛮一律乘长船从深海驶向海滩，靠岸后才下船。</li>" +
       "</ul><h3>手机</h3><ul>" +
       "<li>点空地就位；点士兵选中，再点同一兵团转向。拖动画布平移，双指缩放。海图点岛选中，再点或长按登陆。</li>" +
-      "<li>转向（底栏或长按）会弹出朝向。底栏打开情报 / 部队抽屉，点开战。条上可缩放与变速。</li>" +
+      "<li>转向（底栏或长按）会弹出朝向。底栏打开情报 / 部队抽屉，点开战或号令。条上可缩放与变速。</li>" +
       "<li>沙盒的刷地 / 刷兵 / 新岛在「情报」抽屉里，避免挡住地图。</li>" +
       "<li>窄屏会自动用较小岛屿、降低特效，避免卡顿。</li>" +
       "</ul><h3>桌面操作</h3><pre class=\"keys\">" +
@@ -735,14 +753,14 @@
       "WASD            平移镜头（按住）　　Shift 加速\n" +
       "方向键 / HJKL   移动光标（键盘落子）\n" +
       ", . 或 =        缩放　　F / Home 对准选中兵团\n" +
-      "[  ]            变速　　G 开战　　E 撤退　　U 号角\n" +
+      "[  ]            变速　　G 开战　　E 撤退　　U 号角　　O 号令\n" +
       "I               中文 / English\n" +
       "海图            拖/滚轮/WASD 平移缩放　　点岛选中，再点登陆\n" +
       "                右键立刻登陆　　Tab 换岛　　Enter / 空格登陆\n" +
       "                F 对准　　0 / End 看全图　　Q / Esc 暂停\n" +
       "</pre><h3>圣物与征兆</h3><ul>" +
       "<li>海图上每座岛藏一件圣物。守住后加入编制，全军常驻（南灯、盐风旗、鹰巢石、号角石等）。</li>" +
-      "<li>登岛前会看到本场征兆：海雾、风暴、昏暮、大潮、收获月、鸦群。</li>" +
+      "<li>登岛前会看到本场征兆：海雾、风暴、昏暮、大潮、收获月、鸦群。战场上会看到雾、雨丝、暮色或飞鸦。</li>" +
       "<li>生态含沃野、岩礁、泽地、霜岛、火山与<strong>松林</strong>。北蛮新增<strong>潮萨满 Ψ</strong>（远程诅咒减速）与<strong>猎犬 d</strong>（追兵不追屋）。</li>" +
       "</ul>" +
       '<div class="menu"><button data-act="resume-or-title"><kbd>Q</kbd> ' + GS.t("back") + "</button></div></div>";

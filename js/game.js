@@ -627,6 +627,18 @@
           this.ui.toast(this.battle.warhornReady ? GS.t("toastHornWait") : GS.t("toastHornSpent"), "info");
         }
         return;
+      case "cycle-order": {
+        if (!this.battle) return;
+        var nextOrd = this.battle.cycleOrder(this.battle.selected);
+        if (nextOrd) {
+          this.ui.toast(GS.t("toastOrder", GS.t(GS.Battle.orderKey(nextOrd))), "info");
+          this.hudDirty = true;
+          if (GS.audio) GS.audio.ui();
+        } else {
+          this.ui.toast(this.touch ? GS.t("toastPickSquad") : GS.t("toastNeedSquad"), "warn");
+        }
+        return;
+      }
       case "pal":
         this.cyclePalette();
         this._persistSettings();
