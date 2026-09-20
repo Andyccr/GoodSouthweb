@@ -18,8 +18,8 @@
     if (x < 0 || y < 0 || x >= island.w || y >= island.h) return null;
     return island.tiles[y][x];
   }
-  function t(k, a, b, c) {
-    return GS.t ? GS.t(k, a, b, c) : String(k);
+  function t(k, a, b, c, d) {
+    return GS.t ? GS.t(k, a, b, c, d) : String(k);
   }
   function loc(obj, field) {
     return GS.loc ? GS.loc(obj, field || "name") : (obj && obj[field || "name"]) || "";
@@ -92,10 +92,16 @@
     this.terrainGen = 0;
     this._livingEnemies = [];
     this._livingSoldiers = [];
-    this.announce(t("arrive", loc(island), loc(GS.BIOMES[island.biome], "flavor") || island.flavor), C.LCYAN);
-    this.announce(t("landingsLine", GS.joinList ? GS.joinList(island.landingDirs.map(function (d) { return loc(GS.DIRS[d]); })) : island.landingDirs.map(function (d) { return GS.DIRS[d].name; }).join("、")), C.YELLOW);
+    this.say("arrive", C.LCYAN, function () {
+      return [loc(island), loc(GS.BIOMES[island.biome], "flavor") || island.flavor];
+    });
+    this.say("landingsLine", C.YELLOW, function () {
+      var dirs = island.landingDirs.map(function (d) { return loc(GS.DIRS[d]); });
+      return [GS.joinList ? GS.joinList(dirs) : dirs.join("、")];
+    });
     if (this.beacons.length) {
-      this.announce(t("beaconLine", this.beacons.length), C.YELLOW);
+      var nBeacons = this.beacons.length;
+      this.say("beaconLine", C.YELLOW, function () { return [nBeacons]; });
     }
     this._spawnSquads(army);
     this._cachePass();
@@ -195,7 +201,24 @@
   };
 
   Battle.prototype.announce = function (msg, color) {
-    this.log.push({ t: this.t, msg: msg, color: color || C.LGRAY });
+    this.log.push({ t: this.t, msg: msg, msgZh: msg, msgEn: msg, color: color || C.LGRAY });
+    if (this.log.length > 80) this.log.shift();
+  };
+
+  Battle.prototype.say = function (key, color, argFn) {
+    var prev = GS.LANG;
+    var args, zh, en;
+    GS.LANG = "zh";
+    args = argFn ? argFn() : [];
+    zh = t(key, args[0], args[1], args[2], args[3]);
+    GS.LANG = "en";
+    args = argFn ? argFn() : [];
+    en = t(key, args[0], args[1], args[2], args[3]);
+    GS.LANG = prev;
+    this.log.push({
+      t: this.t, msg: prev === "en" ? en : zh, msgZh: zh, msgEn: en,
+      color: color || C.LGRAY, key: key,
+    });
     if (this.log.length > 80) this.log.shift();
   };
 
@@ -234,7 +257,9 @@
     if (!sq.entities.length) this._birthSquad(sq);
     else this._retargetFormation(sq);
     if (this.phase === "fight") sq.moveCd = (GS.CONFIG.battle && GS.CONFIG.battle.moveCooldown) || 3.2;
-    this.announce(t("placedLine", loc(sq), tx, ty, loc(GS.DIRS[sq.facing])), C.LCYAN);
+    this.say("placedLine", C.LCYAN, function () {
+      return [loc(sq), tx, ty, loc(GS.DIRS[sq.facing])];
+    });
     return true;
   };
 
@@ -360,12 +385,12 @@
     var any = false;
     for (var i = 0; i < this.squads.length; i++) if (this.squads[i].placed) any = true;
     if (!any && !this.sandbox) {
-      this.announce(t("needPlace"), C.LRED);
+      this.say("needPlace", C.LRED);
       return;
     }
     this.phase = "fight";
     this.speed = 1;
-    this.announce(t("hornStartLog"), C.LRED);
+    this.say("hornStartLog", C.LRED);
     this._rebuildFlow();
     this._rebuildHuntFlow();
     this._refreshLiving();
@@ -381,7 +406,7 @@
     this.warhornCharges = charges - 1;
     this.warhornReady = this.warhornCharges > 0;
     this.warhornT = dur;
-    this.announce(t("hornBlast"), C.YELLOW);
+    this.say("hornBlast", C.YELLOW);
     if (GS.audio) GS.audio.horn();
     return true;
   };
@@ -528,7 +553,9 @@
       if (this.mods && GS.Meta) GS.Meta.applyToSoldier(this.entities[this.entities.length - 1], this.mods);
       spawned++;
     }
-    if (spawned) this.announce(t("militiaUp", GS.houseName ? GS.houseName(house, this) : loc(house)), C.LGREEN);
+    if (spawned) {
+      this.say("militiaUp", C.LGREEN, function () { return [loc(house)]; });
+    }
   };
 
   Battle.prototype.setSpeed = function (s) {
@@ -585,7 +612,7 @@
       path: null,
     });
     this.ships.push(ship.id);
-    this.announce(t("shipArrive", loc(d)), C.LRED);
+    this.say("shipArrive", C.LRED, function () { return [loc(d)]; });
     if (GS.audio) GS.audio.ship();
     return ship;
   };
@@ -721,10 +748,15 @@
       self.spawnShip(w.dir, w.units);
       if (w.extraDir != null && w.extraUnits && w.extraUnits.length) {
         self.spawnShip(w.extraDir, w.extraUnits);
-        self.announce(t("waveSplit", i + 1, self.waves.length, loc(GS.DIRS[w.dir]), loc(GS.DIRS[w.extraDir])), C.YELLOW);
+        self.say("waveSplit", C.YELLOW, function () {
+          return [i + 1, self.waves.length, loc(GS.DIRS[w.dir]), loc(GS.DIRS[w.extraDir])];
+        });
       } else {
-        self.announce(t("waveOne", i + 1, self.waves.length, loc(GS.DIRS[w.dir])), C.YELLOW);
+        self.say("waveOne", C.YELLOW, function () {
+          return [i + 1, self.waves.length, loc(GS.DIRS[w.dir])];
+        });
       }
+      if (GS.audio && GS.audio.wave) GS.audio.wave();
       if (GS.bus && GS.EV) GS.bus.emit(GS.EV.BATTLE_WAVE, { wave: w, index: i, battle: self });
     });
   };
@@ -1125,17 +1157,19 @@
     e.hp = 0;
     this.corpses.push({ x: e.x, y: e.y, ch: "%", fg: C.RED, life: 18, name: e.name, nameEn: e.nameEn });
     if (e.kind === "enemy") {
-      this.announce(t("foeDown", loc(e), loc(GS.ROLES[e.role] || { name: e.role })), C.GREEN);
+      this.say("foeDown", C.GREEN, function () {
+        return [loc(e), loc(GS.ROLES[e.role] || { name: e.role })];
+      });
       if (from && from.squadId) {
         var sq = this.getSquad(from.squadId);
         if (sq) sq.xp = (sq.xp || 0) + 1;
       }
     } else if (e.kind === "soldier") {
-      this.announce(t("soldierDead", loc(e)), C.RED);
+      this.say("soldierDead", C.RED, function () { return [loc(e)]; });
       var sq2 = this.getSquad(e.squadId);
       if (sq2) {
         sq2.soldiers = Math.max(0, sq2.soldiers - 1);
-        if (e.commander) this.announce(t("captainDead", loc(sq2)), C.LRED);
+        if (e.commander) this.say("captainDead", C.LRED, function () { return [loc(sq2)]; });
       }
     }
     if (GS.audio) GS.audio.die();
@@ -1297,7 +1331,7 @@
           e.cooldown = e.cd;
           if (!house.militiaSpawned) this.spawnMilitia(house);
           house.hp -= e.dmg * 0.85;
-          this.floater(house.x + 0.5, house.y, "⌂", C.LRED);
+          this.floater(house.x + 0.5, house.y, String(Math.max(0, house.hp | 0)), C.LRED);
           if (house.hp <= 0 && house.alive) this._burnHouse(house);
         }
         continue;
@@ -1442,7 +1476,7 @@
     tile.bg = C.BROWN;
     tile.houseId = -1;
     this.terrainGen = (this.terrainGen || 0) + 1;
-    this.announce(t("houseBurn", GS.houseName ? GS.houseName(house, this) : loc(house)), C.LRED);
+    this.say("houseBurn", C.LRED, function () { return [loc(house)]; });
     this._rebuildFlow();
     if (GS.audio) GS.audio.fire();
     if (GS.bus && GS.EV) GS.bus.emit(GS.EV.BATTLE_HOUSE_BURN, { house: house, battle: this });
@@ -1509,6 +1543,7 @@
     this.outcome = {
       kind: kind,
       msg: msg,
+      msgKey: kind === "victory" ? "heldIsle" : kind === "retreat" ? "evacLog" : "allBurned",
       housesLeft: this.houses.filter(function (h) { return h.alive; }).length,
       housesTotal: this.houses.length,
       coins: 0,
@@ -1516,12 +1551,18 @@
       promotions: (this.promotions || []).slice(),
       wheatCoins: (this.mods && this.mods.wheatCoins) || 0,
     };
+    var isle = this.island;
+    var out = this.outcome;
     if (kind === "victory") {
       this.outcome.coins = this.outcome.housesLeft;
-      this.announce(msg + " " + t("lootCoins", this.outcome.coins), C.YELLOW);
+      this.say("heldIsle", C.YELLOW, function () { return [loc(isle)]; });
+      this.say("lootCoins", C.YELLOW, function () { return [out.coins]; });
       if (GS.audio) GS.audio.win();
+    } else if (kind === "retreat") {
+      this.say("evacLog", C.LRED);
+      if (GS.audio) GS.audio.lose();
     } else {
-      this.announce(msg, C.LRED);
+      this.say("allBurned", C.LRED);
       if (GS.audio) GS.audio.lose();
     }
     if (GS.bus && GS.EV) GS.bus.emit(GS.EV.BATTLE_OVER, { battle: this, outcome: this.outcome });
@@ -1529,7 +1570,7 @@
 
   Battle.prototype.evacuate = function () {
     if (this.phase !== "fight") return;
-    this._end("retreat", "你们弃岛乘船撤走。屋舍的钱币没能带走。");
+    this._end("retreat", t("evacLog"));
     this.outcome.coins = 0;
   };
 
@@ -1552,7 +1593,12 @@
           cmd.level++;
           cmd.maxSoldiers = Math.min(16, cmd.maxSoldiers + 2);
           cmd.soldiers = Math.min(cmd.maxSoldiers, cmd.soldiers + 2);
-          this.promotions.push(loc(cmd) + " → Lv" + cmd.level);
+          this.promotions.push({
+            name: cmd.name,
+            nameEn: cmd.nameEn || cmd.name,
+            level: cmd.level,
+          });
+          if (GS.audio && GS.audio.promote) GS.audio.promote();
         }
       }
       result.push(cmd);

@@ -48,5 +48,11 @@
     lose: function () { beep(196, 0.4, "triangle", 0.1, 80); },
     ui: function () { beep(440, 0.04, "square", 0.04); },
     coin: function () { beep(880, 0.08, "square", 0.06); },
+    place: function () { beep(520, 0.06, "square", 0.05, 420); },
+    wave: function () { beep(210, 0.22, "triangle", 0.08, 120); },
+    promote: function () {
+      beep(660, 0.1, "square", 0.07);
+      setTimeout(function () { beep(784, 0.16, "square", 0.08); }, 110);
+    },
   };
 })(typeof window !== "undefined" ? window : globalThis);

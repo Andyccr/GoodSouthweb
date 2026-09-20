@@ -197,6 +197,11 @@ ok(typeof GS.makeWaves === "function", "makeWaves alias");
 ok(GS.Waves.rosterFor(3).indexOf("hound") >= 0, "hound in mid-threat roster");
 ok(GS.Waves.rosterFor(5).indexOf("shaman") >= 0, "shaman in high-threat roster");
 ok(GS.Waves.rosterFor(2).indexOf("shaman") < 0, "no shaman on easy roster");
+ok(GS.Waves.nextPending(waves) === waves[0], "next pending is first unlaunched wave");
+waves[0].launched = true;
+ok(GS.Waves.nextPending(waves) === waves[1], "next pending skips launched waves");
+ok(GS.t("waveSplit", 1, 3, "南", "北").indexOf("北") >= 0, "waveSplit fills the fourth landing");
+ok(GS.CONFIG.version.indexOf("2.2") === 0, "readout version 2.2");
 
 console.log("Mapgen islands");
 var fps = {};
@@ -256,6 +261,14 @@ var orphanHouse = { id: bLoc.houses[0].id, name: bLoc.houses[0].name };
 ok(GS.houseName(orphanHouse, bLoc) === bLoc.houses[0].nameEn, "houseName backfills from island if clone dropped nameEn");
 GS.setLang("zh");
 ok(GS.loc(bLoc.houses[0]) === bLoc.houses[0].name, "Chinese HUD uses house name");
+GS.setLang("en");
+ok(GS.logText(bLoc.log[0]).indexOf("Arrived") >= 0, "battle log English after lang switch");
+GS.setLang("zh");
+ok(GS.logText(bLoc.log[0]).indexOf("抵达") >= 0, "battle log Chinese after lang switch");
+ok(GS.t("evacLog").indexOf("弃岛") >= 0, "evac log is translated");
+GS.setLang("en");
+ok(GS.t("evacLog").indexOf("abandon") >= 0, "evac log English");
+GS.setLang("zh");
 var shapes = {};
 for (var sh = 200; sh < 260; sh++) {
   var shaped = GS.mapgen.island(sh, { difficulty: 2, size: "small" });
