@@ -257,6 +257,75 @@
     this.cell(gx, gy, dir.ch, highlight ? C.LCYAN : C.YELLOW, highlight ? "#003344" : "#3a2a00");
   };
 
+  Renderer.prototype._orderMark = function (tx, ty, order, highlight) {
+    if (!order || order === "hunt") return;
+    var mark = (GS.Battle && GS.Battle.orderMark) ? GS.Battle.orderMark(order) : (order === "guard" ? "⌂" : "□");
+    var fg = order === "guard" ? C.YELLOW : C.LCYAN;
+    var bg = highlight ? "#003344" : (order === "guard" ? "#3a2a00" : "#003322");
+    var ox = tx, oy = ty - 1;
+    if (oy < 0) oy = ty + 1;
+    this.cell(ox, oy, mark, fg, bg);
+  };
+
+  Renderer.prototype._drawOmen = function (battle) {
+    var omen = battle && battle.omen;
+    if (!omen || omen === "calm") return;
+    var t = this.time;
+    var ctx = this.ctx;
+    if (omen === "fog") {
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = this.tint("#99aabb");
+      ctx.fillRect(0, 0, this.cssW, this.cssH);
+      ctx.globalAlpha = 1;
+    } else if (omen === "dusk") {
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = "#14061e";
+      ctx.fillRect(0, 0, this.cssW, this.cssH);
+      ctx.globalAlpha = 1;
+    } else if (omen === "storm") {
+      ctx.globalAlpha = 0.1;
+      ctx.fillStyle = this.tint("#224466");
+      ctx.fillRect(0, 0, this.cssW, this.cssH);
+      ctx.globalAlpha = 1;
+      if (!this.lowFx) {
+        ctx.globalAlpha = 0.38;
+        ctx.strokeStyle = this.tint("#cceeff");
+        ctx.lineWidth = 1;
+        var n = 22;
+        for (var i = 0; i < n; i++) {
+          var x = ((i * 53 + t * 220) % (this.cssW + 24)) - 12;
+          var y = ((i * 97 + t * 340) % (this.cssH + 36)) - 18;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x - 6, y + 16);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+    } else if (omen === "harvest") {
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle = this.tint("#aa8800");
+      ctx.fillRect(0, 0, this.cssW, this.cssH);
+      ctx.globalAlpha = 1;
+    } else if (omen === "hightide") {
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle = this.tint("#003355");
+      ctx.fillRect(0, 0, this.cssW, this.cssH);
+      ctx.globalAlpha = 1;
+    } else if (omen === "crows" && !this.lowFx) {
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = this.tint(C.DGRAY);
+      this._applyFont();
+      var crows = 10;
+      for (var ci = 0; ci < crows; ci++) {
+        var cx = ((ci * 71 + t * 40) % (this.cssW + 20)) - 10;
+        var cy = 8 + ((ci * 37 + Math.sin(t * 1.4 + ci) * 18 + this.cssH * 0.18) % (this.cssH * 0.45));
+        ctx.fillText(ci % 2 ? "'" : "`", cx, cy);
+      }
+      ctx.globalAlpha = 1;
+    }
+  };
+
   Renderer.prototype._rebuildTerrain = function (island, terrainGen) {
     var w = island.w, h = island.h;
     var key = w + "x" + h + ":" + (island.seed || 0) + ":" + this.tw + "x" + this.th + ":" + this.palette + ":" + (terrainGen || 0);
@@ -404,6 +473,7 @@
       var placedSq = battle.squads[i];
       if (!placedSq.placed) continue;
       this._facingArrow(placedSq.tx, placedSq.ty, placedSq.facing, placedSq.id === battle.selected);
+      this._orderMark(placedSq.tx, placedSq.ty, placedSq.order, placedSq.id === battle.selected);
     }
 
     for (i = 0; i < battle.projectiles.length; i++) {
@@ -425,7 +495,13 @@
         continue;
       }
       var ratio = hh.maxHp ? hh.hp / hh.maxHp : 1;
-      if (ratio >= 0.995) continue;
+      if (ratio >= 0.995) {
+        if (battle.houseUnderSiege && battle.houseUnderSiege(hh)) {
+          var flash = !this.lowFx && ((t * 6) | 0) % 2 === 0;
+          this.cell(hh.x, hh.y, "!", C.LRED, flash ? "#660000" : "#330000");
+        }
+        continue;
+      }
       var hfg = ratio > 0.55 ? C.YELLOW : ratio > 0.3 ? C.BROWN : C.LRED;
       var hbg = ratio > 0.3 ? "#3a2208" : (((t * 6) | 0) % 2 ? "#660000" : "#330000");
       var digit = String(Math.max(1, Math.min(9, Math.ceil(ratio * 9))));
@@ -442,6 +518,7 @@
       this.ctx.strokeRect(4, 4, this.cssW - 8, this.cssH - 8);
       this.ctx.globalAlpha = 1;
     }
+    this._drawOmen(battle);
 
     var sq = battle.getSquad(battle.selected);
     var cx = battle.cursor.x, cy = battle.cursor.y;
