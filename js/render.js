@@ -363,21 +363,6 @@
       }
     }
 
-    for (i = 0; i < battle.houses.length; i++) {
-      var h = battle.houses[i];
-      if (!h.alive) {
-        ch = ((t * 6) | 0) % 2 ? "*" : "%";
-        this.cell(h.x, h.y, ch, C.YELLOW, C.RED);
-        continue;
-      }
-      var ratio = h.maxHp ? h.hp / h.maxHp : 1;
-      if (ratio >= 0.995) continue;
-      var hfg = ratio > 0.55 ? C.YELLOW : ratio > 0.3 ? C.BROWN : C.LRED;
-      var hbg = ratio > 0.3 ? "#3a2208" : (((t * 6) | 0) % 2 ? "#660000" : "#330000");
-      var digit = String(Math.max(1, Math.min(9, Math.ceil(ratio * 9))));
-      this.cell(h.x, h.y, digit, hfg, hbg);
-    }
-
     for (i = 0; i < battle.corpses.length; i++) {
       var k = battle.corpses[i];
       this.cell(k.x | 0, k.y | 0, k.ch, k.fg, null);
@@ -430,6 +415,21 @@
       this.ctx.globalAlpha = Math.max(0, f.life / 0.85);
       this.cell(f.x | 0, (f.y - (0.85 - f.life) * 1.2) | 0, f.text, f.color, null);
       this.ctx.globalAlpha = 1;
+    }
+
+    for (i = 0; i < battle.houses.length; i++) {
+      var hh = battle.houses[i];
+      if (!hh.alive) {
+        ch = ((t * 6) | 0) % 2 ? "*" : "%";
+        this.cell(hh.x, hh.y, ch, C.YELLOW, C.RED);
+        continue;
+      }
+      var ratio = hh.maxHp ? hh.hp / hh.maxHp : 1;
+      if (ratio >= 0.995) continue;
+      var hfg = ratio > 0.55 ? C.YELLOW : ratio > 0.3 ? C.BROWN : C.LRED;
+      var hbg = ratio > 0.3 ? "#3a2208" : (((t * 6) | 0) % 2 ? "#660000" : "#330000");
+      var digit = String(Math.max(1, Math.min(9, Math.ceil(ratio * 9))));
+      this.cell(hh.x, hh.y, digit, hfg, hbg);
     }
 
     if (battle.warhornT > 0) {
