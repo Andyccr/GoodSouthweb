@@ -128,7 +128,14 @@
     if (banner) {
       if (b.phase === "deploy") {
         banner.classList.remove("hidden");
-        banner.textContent = (game.compact || game.touch) ? GS.t("bannerDeployTouch") : GS.t("bannerDeploy");
+        var unplaced = 0;
+        for (var si = 0; si < b.squads.length; si++) {
+          if (b.squads[si].soldiers > 0 && !b.squads[si].placed) unplaced++;
+        }
+        var landTxt = GS.joinList((b.island.landingDirs || []).map(function (d) { return GS.loc(GS.DIRS[d]); }));
+        if (game.compact || game.touch) banner.textContent = GS.t("bannerDeployTouch");
+        else if (unplaced > 0) banner.textContent = GS.t("bannerDeployCount", unplaced, landTxt);
+        else banner.textContent = GS.t("bannerDeployReady", landTxt);
       } else if (b.phase === "fight" && b.speed === 0) {
         banner.classList.remove("hidden");
         banner.textContent = GS.t("paused");
@@ -152,7 +159,14 @@
         var om = GS.Meta && GS.Meta.omen(b.omen);
         return om ? ui.chip(GS.t("omen"), GS.loc(om), om.kind === "bad" ? "warn" : "hi") : "";
       }()) +
-      (b.waves.length ? ui.chip(GS.t("waves"), waveDone + "/" + b.waves.length) : ui.chip(GS.t("mode"), GS.t("sandboxMode"), "cyan")) +
+      (b.waves.length ? (function () {
+        var nw = GS.Waves.nextPending && GS.Waves.nextPending(b.waves);
+        var done = ui.chip(GS.t("waves"), waveDone + "/" + b.waves.length);
+        if (!nw || b.phase === "deploy") return done;
+        var eta = Math.max(0, nw.t - b.t);
+        var dir = GS.DIRS[nw.dir] || GS.DIRS[2];
+        return done + ui.chip(GS.t("nextWave"), GS.loc(dir) + "\u00a0" + dir.ch + " " + eta.toFixed(0) + "s", eta < 6 ? "warn" : "hi");
+      }()) : ui.chip(GS.t("mode"), GS.t("sandboxMode"), "cyan")) +
       (game.compact ? "" : ui.chip("t", b.t.toFixed(1))));
 
     left.innerHTML = this.battleLeft(game, b);
@@ -318,12 +332,18 @@
         "　" + GS.t("facingAt", GS.loc(GS.DIRS[sq.facing]) + "\u00a0" + GS.DIRS[sq.facing].ch) + "<br>" + GS.t("soldiersOf", sq.soldiers, sq.maxSoldiers) +
         (trait ? "<br>" + GS.t("trait") + " [" + trait + "]" : "") +
         (sq.placed ? "" : "<br><span class='warn'>" + GS.t("notPlaced") + "</span>") +
+        "<br>" + GS.t("xpOf", sq.xp || 0, (sq.level || 1) * 12) + " · Lv" + (sq.level || 1) +
         (sq.moveCd > 0 ? "<br><span class='hint'>" + GS.t("moveCd") + " " + sq.moveCd.toFixed(1) + "s</span>" : "") +
         "</p><p class=\"hint\">" + (GS.loc(role, "desc") || role.desc) + "</p>";
     }
     html += "<h3>" + GS.t("houses") + "</h3><ul>";
-    for (i = 0; i < b.houses.length; i++) {
-      var h = b.houses[i];
+    var houseList = b.houses.slice().sort(function (a, c) {
+      var ra = a.alive ? a.hp / Math.max(1, a.maxHp) : -1;
+      var rc = c.alive ? c.hp / Math.max(1, c.maxHp) : -1;
+      return ra - rc;
+    });
+    for (i = 0; i < houseList.length; i++) {
+      var h = houseList[i];
       html += "<li>" + (h.alive ? "⌂" : "%") + " " + GS.houseName(h, b) + " " + game.ui.hpBar(h.hp, h.maxHp) + "</li>";
     }
     html += "</ul>";
@@ -355,6 +375,7 @@
   Hud.prototype.squadList = function (b) {
     var html = "<h3>" + GS.t("troops") + "</h3>";
     var list = b.livingSquads ? b.livingSquads() : b.squads;
+    if (!list.length) return html + "<p class=\"hint\">" + GS.t("troopsEmpty") + "</p>";
     for (var i = 0; i < list.length; i++) {
       var s = list[i];
       var role = GS.ROLES[s.role];
@@ -371,8 +392,9 @@
   Hud.prototype.logHtml = function (b) {
     var html = "<h3>" + GS.t("log") + "</h3><ul class='log'>";
     var logs = b.log.slice(-12);
+    if (!logs.length) html += "<li class=\"hint\">" + GS.t("logEmpty") + "</li>";
     for (var i = 0; i < logs.length; i++) {
-      html += "<li style='color:" + logs[i].color + "'>" + GS.util.escapeHtml(logs[i].msg) + "</li>";
+      html += "<li style='color:" + logs[i].color + "'>" + GS.util.escapeHtml(GS.logText ? GS.logText(logs[i]) : logs[i].msg) + "</li>";
     }
     return html + "</ul>";
   };
