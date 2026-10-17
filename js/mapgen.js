@@ -291,6 +291,7 @@
 
     // beaches: land adjacent to water becomes beach (except remaining cliffs)
     ringBeaches(tiles, w, h, biome);
+    widenBeaches(tiles, w, h, biome);
 
     // ramps between grass and hill
     placeRamps(tiles, w, h);
@@ -306,12 +307,13 @@
     carvePaths(tiles, w, h, houses, rng);
 
     // decorative scatter after paths so tracks stay clear
-    decorate(tiles, w, h, rng, biomeId, biome);
+    decorate(tiles, w, h, rng, biomeId, biome, houses);
 
     var landings = findLandings(tiles, w, h);
     if (landings.dirs.length < 2 || landings.spots.length < 4) {
       ensureLandingNotches(tiles, w, h, biome, landings);
       ringBeaches(tiles, w, h, biome);
+      widenBeaches(tiles, w, h, biome);
       landings = findLandings(tiles, w, h);
     }
     if (landings.spots.length < 3 || landings.dirs.length < 1) return null;
@@ -578,6 +580,36 @@
     for (y = 0; y < h; y++) tiles[y] = next[y];
   }
 
+  /** One extra rank of sand behind the waterline, so a landing has a shelf to stand on. */
+  function widenBeaches(tiles, w, h, biome) {
+    var beachT = (biome && biome.beach) || T.BEACH;
+    var soft = {};
+    soft[T.GRASS] = 1;
+    soft[T.SNOW] = 1;
+    soft[T.ASH] = 1;
+    soft[T.MUD] = 1;
+    soft[T.CROPS] = 1;
+    var mark = [];
+    var x, y, n;
+    for (y = 1; y < h - 1; y++) {
+      for (x = 1; x < w - 1; x++) {
+        if (!soft[tiles[y][x].type]) continue;
+        var ns = neighbors4(x, y);
+        var sand = false;
+        var inland = false;
+        for (n = 0; n < 4; n++) {
+          var tt = tiles[ns[n][1]][ns[n][0]].type;
+          if (tt === T.BEACH || tt === T.ICE) sand = true;
+          if (soft[tt] || tt === T.HILL || tt === T.PATH || tt === T.TREE) inland = true;
+        }
+        if (sand && inland) mark.push({ x: x, y: y, h: tiles[y][x].height || 1 });
+      }
+    }
+    for (n = 0; n < mark.length; n++) {
+      tiles[mark[n].y][mark[n].x] = makeTile(beachT, 1);
+    }
+  }
+
   function placeRamps(tiles, w, h) {
     for (var y = 1; y < h - 1; y++) {
       for (var x = 1; x < w - 1; x++) {
@@ -595,30 +627,66 @@
     }
   }
 
-  function decorate(tiles, w, h, rng, biomeId, biome) {
+  function chebyshevHouses(x, y, houses, r) {
+    for (var i = 0; i < houses.length; i++) {
+      var dx = Math.abs(houses[i].x - x);
+      var dy = Math.abs(houses[i].y - y);
+      if (Math.max(dx, dy) <= r) return true;
+    }
+    return false;
+  }
+
+  function beside(tiles, x, y, pred) {
+    var ns = neighbors4(x, y);
+    for (var n = 0; n < 4; n++) {
+      if (pred(tiles[ns[n][1]][ns[n][0]].type)) return true;
+    }
+    return false;
+  }
+
+  function decorate(tiles, w, h, rng, biomeId, biome, houses) {
+    houses = houses || [];
+    var groveSeed = rng.int(1, 999983);
+    var pine = biomeId === "pine";
     for (var y = 0; y < h; y++) {
       for (var x = 0; x < w; x++) {
         var t = tiles[y][x].type;
         if (t === T.PATH || t === T.HOUSE || t === T.BEACH || t === T.ICE || t === T.BEACON) continue;
-        if (t === T.GRASS || t === T.SNOW || t === T.ASH || t === T.HILL) {
-          var pine = biomeId === "pine";
-          var treeChance = pine
-            ? (t === T.HILL ? 0.14 : 0.28)
-            : (biomeId === "verdant" ? 0.08 : 0.04);
-          if (t === T.HILL && !pine) treeChance *= 0.5;
-          if (rng.chance(treeChance)) {
-            tiles[y][x] = makeTile(T.TREE, tiles[y][x].height);
-          } else if (rng.chance(0.06) && t !== T.HILL) {
-            tiles[y][x] = makeTile(T.SHRUB, tiles[y][x].height);
-          } else if (biomeId === "verdant" && t === T.GRASS && rng.chance(0.05)) {
-            tiles[y][x] = makeTile(T.CROPS, 2);
-          }
-        }
-        if (tiles[y][x].type === T.SHALLOW && rng.chance(0.08)) {
+        if (t === T.SHALLOW && rng.chance(0.08)) {
           tiles[y][x] = makeTile(T.REEF, 0);
+          continue;
+        }
+        if (t !== T.GRASS && t !== T.SNOW && t !== T.ASH && t !== T.HILL && t !== T.MUD) continue;
+        if (chebyshevHouses(x, y, houses, 2)) continue;
+        if (beside(tiles, x, y, function (tt) { return tt === T.PATH; })) continue;
+        var shore = beside(tiles, x, y, function (tt) { return tt === T.BEACH || tt === T.ICE; })
+          || chebyshevShore(tiles, w, h, x, y);
+        var g = GS.fbm(x * 0.16, y * 0.16, groveSeed, 3);
+        var treeCut = pine ? (t === T.HILL ? 0.7 : 0.58) : (biomeId === "verdant" ? 0.74 : 0.8);
+        if (t === T.HILL && !pine) treeCut += 0.06;
+        if (shore) treeCut += 0.16;
+        if (g > treeCut) {
+          tiles[y][x] = makeTile(T.TREE, tiles[y][x].height);
+        } else if (!shore && g > treeCut - 0.08 && t !== T.HILL && rng.chance(0.45)) {
+          tiles[y][x] = makeTile(T.SHRUB, tiles[y][x].height);
+        } else if (biomeId === "verdant" && t === T.GRASS && !shore && g > 0.46 && g < 0.58 && rng.chance(0.35)) {
+          tiles[y][x] = makeTile(T.CROPS, 2);
         }
       }
     }
+  }
+
+  function chebyshevShore(tiles, w, h, x, y) {
+    for (var dy = -2; dy <= 2; dy++) {
+      for (var dx = -2; dx <= 2; dx++) {
+        if (!dx && !dy) continue;
+        var nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        var tt = tiles[ny][nx].type;
+        if (tt === T.BEACH || tt === T.ICE) return true;
+      }
+    }
+    return false;
   }
 
   function placeHouses(tiles, w, h, rng, count, spacing) {
@@ -639,17 +707,17 @@
         cands.push({ x: x, y: y, score: tiles[y][x].type === T.HILL ? 2 : 1 });
       }
     }
-    rng.shuffle(cands);
     var houses = [];
-    for (var i = 0; i < cands.length && houses.length < count; i++) {
-      var c = cands[i];
-      var far = true;
+    var min2 = spacing * spacing;
+    function tooClose(c) {
       for (var j = 0; j < houses.length; j++) {
         var dx = houses[j].x - c.x;
         var dy = houses[j].y - c.y;
-        if (dx * dx + dy * dy < spacing) far = false;
+        if (dx * dx + dy * dy < min2) return true;
       }
-      if (!far) continue;
+      return false;
+    }
+    function plant(c) {
       var id = houses.length;
       var hp = 90 + rng.int(0, 40);
       var hn = GS.names.housePair ? GS.names.housePair(rng) : { name: GS.names.house(rng) };
@@ -667,6 +735,37 @@
         alive: true,
         villagers: 2 + rng.int(0, 4),
       });
+    }
+    var centroid = landCentroid(tiles, w, h);
+    var first = null;
+    var firstD = 1e12;
+    for (var i = 0; i < cands.length; i++) {
+      if (cands[i].score > 1) continue;
+      var dx0 = cands[i].x - centroid.x;
+      var dy0 = cands[i].y - centroid.y;
+      var d0 = dx0 * dx0 + dy0 * dy0;
+      if (d0 < firstD) { firstD = d0; first = cands[i]; }
+    }
+    if (!first && cands.length) first = cands[0];
+    if (first) plant(first);
+    while (houses.length < count) {
+      var best = null;
+      var bestD = -1;
+      for (i = 0; i < cands.length; i++) {
+        var c = cands[i];
+        if (tooClose(c)) continue;
+        var near = 1e12;
+        for (var j = 0; j < houses.length; j++) {
+          var dx = houses[j].x - c.x;
+          var dy = houses[j].y - c.y;
+          var d = dx * dx + dy * dy;
+          if (d < near) near = d;
+        }
+        if (c.score > 1) near -= spacing * 4;
+        if (near > bestD) { bestD = near; best = c; }
+      }
+      if (!best) break;
+      plant(best);
     }
     return houses;
   }
