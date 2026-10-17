@@ -25,6 +25,23 @@
     return GS.loc ? GS.loc(obj, field || "name") : (obj && obj[field || "name"]) || "";
   }
 
+  function scaleThreat(base, mul, round) {
+    mul = mul || 1;
+    var shaped = round ? (0.82 + 0.18 * mul) : (0.88 + 0.12 * mul);
+    var v = base * shaped;
+    return round ? Math.max(1, Math.round(v)) : v;
+  }
+
+  function applyTraits(e, ids) {
+    if (!e || !GS.TRAITS || !ids) return;
+    for (var i = 0; i < ids.length; i++) {
+      if (!ids[i]) continue;
+      for (var t = 0; t < GS.TRAITS.length; t++) {
+        if (GS.TRAITS[t].id === ids[i]) GS.TRAITS[t].on(e);
+      }
+    }
+  }
+
   function formationSlots(tx, ty, facing, n, role) {
     var dir = GS.DIRS[facing];
     var px = -dir.dy, py = dir.dx; // perpendicular
@@ -77,7 +94,17 @@
       };
     });
     this.beacons = (island.beacons || []).slice();
-    this.waves = this.sandbox ? [] : GS.Waves.make(island, this.rng, island.difficulty || 1);
+    this.works = {};
+    var workSrc = opts.works || island.works;
+    if (workSrc) {
+      for (var wk in workSrc) if (workSrc[wk]) this.works[wk] = true;
+    }
+    this.threatMul = opts.threatMul != null ? opts.threatMul : 1;
+    this.coinMul = opts.coinMul != null ? opts.coinMul : 1;
+    this.guide = !!opts.guide && !this.sandbox;
+    this.slain = 0;
+    this.hornsBlown = 0;
+    this.waves = this.sandbox ? [] : GS.Waves.make(island, this.rng, island.difficulty || 1, { mul: this.threatMul });
     this.ships = [];
     this.flow = null;
     this.huntFlow = null;
@@ -106,6 +133,8 @@
     this._spawnSquads(army);
     this._cachePass();
     if (GS.Meta && GS.Meta.prepareBattle) GS.Meta.prepareBattle(this);
+    if (GS.Meta && GS.Meta.foldWorks) GS.Meta.foldWorks(this);
+    if (GS.Meta && GS.Meta.stampHouses) GS.Meta.stampHouses(this);
   }
 
   Battle.prototype._cachePass = function () {
@@ -188,6 +217,7 @@
         maxSoldiers: c.maxSoldiers,
         facing: 2,
         facingLocked: false,
+        doctrine: c.doctrine || null,
         tx: -1,
         ty: -1,
         placed: false,
@@ -470,11 +500,8 @@
         commander: i === 0,
       });
       if (this.mods && GS.Meta) GS.Meta.applyToSoldier(e, this.mods);
-      if (sq.trait && GS.TRAITS) {
-        for (var t = 0; t < GS.TRAITS.length; t++) {
-          if (GS.TRAITS[t].id === sq.trait) GS.TRAITS[t].on(e);
-        }
-      }
+      applyTraits(e, [sq.trait, sq.doctrine]);
+      if (this.works && this.works.watch && e.role === "archer") e.range += 0.4;
       sq.entities.push(e.id);
     }
     this._refreshLiving();
@@ -522,6 +549,7 @@
     this.warhornCharges = charges - 1;
     this.warhornReady = this.warhornCharges > 0;
     this.warhornT = dur;
+    this.hornsBlown = (this.hornsBlown || 0) + 1;
     this.say("hornBlast", C.YELLOW);
     if (GS.audio) GS.audio.horn();
     return true;
@@ -746,9 +774,9 @@
       fg: def.fg,
       x: x + 0.5,
       y: y + 0.5,
-      hp: def.hp,
-      maxHp: def.hp,
-      dmg: def.dmg,
+      hp: scaleThreat(def.hp, this.threatMul, true),
+      maxHp: scaleThreat(def.hp, this.threatMul, true),
+      dmg: def.dmg * scaleThreat(1, this.threatMul, false),
       range: def.range,
       speed: def.speed,
       cd: def.cd,
@@ -1234,8 +1262,9 @@
     if (h1 > h2) dmg *= 1.28;
     if (from.wrath && from.hp < from.maxHp * 0.4) dmg *= 1.35;
     if (from.role === "archer" && this._nearBeacon(from)) {
-      dmg *= (GS.CONFIG.battle && GS.CONFIG.battle.beaconDmgBonus) || 1.18;
-      rangeBonus = (GS.CONFIG.battle && GS.CONFIG.battle.beaconRangeBonus) || 1.6;
+      var watch = this.works && this.works.watch ? 1.16 : 1;
+      dmg *= ((GS.CONFIG.battle && GS.CONFIG.battle.beaconDmgBonus) || 1.18) * watch;
+      rangeBonus = ((GS.CONFIG.battle && GS.CONFIG.battle.beaconRangeBonus) || 1.6) * (this.works && this.works.watch ? 1.25 : 1);
     }
     if (d > from.range + 0.2 + rangeBonus) return;
     if (this.rng.next() > from.acc) {
@@ -1290,6 +1319,7 @@
     e.hp = 0;
     this.corpses.push({ x: e.x, y: e.y, ch: "%", fg: C.RED, life: 18, name: e.name, nameEn: e.nameEn });
     if (e.kind === "enemy") {
+      this.slain = (this.slain || 0) + 1;
       this.say("foeDown", C.GREEN, function () {
         return [loc(e), loc(GS.ROLES[e.role] || { name: e.role })];
       });
@@ -1431,15 +1461,21 @@
     var slow = this.warhornT > 0
       ? ((GS.CONFIG.battle && GS.CONFIG.battle.warhornSlow) || 0.42)
       : 1;
-    var step = dt * slow;
     for (var i = 0; i < this._livingEnemies.length; i++) {
       var e = this._livingEnemies[i];
       if (!e.alive) continue;
+      var step = dt * slow;
+      if (this.works && this.works.stakes) {
+        var under = tileAt(this.island, e.x, e.y);
+        if (under && (under.type === T.BEACH || under.type === T.ICE)) step *= 0.48;
+      }
       e.cooldown -= dt;
       var foe = this._bestSoldierFor(e);
+      var sapper = e.role === "sapper" || (GS.ROLES[e.role] && GS.ROLES[e.role].sapper);
       if (e.role === "hound") {
         foe = this._nearestThreat(e, this._livingSoldiers, 18) || foe;
       }
+      if (sapper && !(foe && dist(e, foe) <= e.range + 0.2)) foe = null;
       if (foe && dist(e, foe) <= e.range + 0.15) {
         if (e.cooldown <= 0) {
           if (e.range > 1.8) {
@@ -1463,7 +1499,7 @@
         if (e.cooldown <= 0) {
           e.cooldown = e.cd;
           if (!house.militiaSpawned) this.spawnMilitia(house);
-          house.hp -= e.dmg * 0.85;
+          house.hp -= e.dmg * (e.role === "sapper" ? 1.7 : 0.85);
           this.floater(house.x + 0.5, house.y, String(Math.max(0, house.hp | 0)), C.LRED);
           if (house.hp <= 0 && house.alive) this._burnHouse(house);
         }
@@ -1694,6 +1730,8 @@
       housesLeft: this.houses.filter(function (h) { return h.alive; }).length,
       housesTotal: this.houses.length,
       coins: 0,
+      slain: this.slain || 0,
+      horns: this.hornsBlown || 0,
       survivors: this.syncArmy(),
       promotions: (this.promotions || []).slice(),
       wheatCoins: (this.mods && this.mods.wheatCoins) || 0,
@@ -1701,7 +1739,8 @@
     var isle = this.island;
     var out = this.outcome;
     if (kind === "victory") {
-      this.outcome.coins = this.outcome.housesLeft;
+      var coinMul = this.coinMul || 1;
+      this.outcome.coins = Math.max(0, Math.round(this.outcome.housesLeft * coinMul));
       this.say("heldIsle", C.YELLOW, function () { return [loc(isle)]; });
       this.say("lootCoins", C.YELLOW, function () { return [out.coins]; });
       if (GS.audio) GS.audio.win();
@@ -1745,6 +1784,17 @@
             nameEn: cmd.nameEn || cmd.name,
             level: cmd.level,
           });
+          if (!cmd.doctrine && GS.Army && GS.Army.rankOffer) {
+            army.pendingRanks = army.pendingRanks || [];
+            var queued = false;
+            for (var qi = 0; qi < army.pendingRanks.length; qi++) {
+              if (army.pendingRanks[qi].id === cmd.id) queued = true;
+            }
+            if (!queued) {
+              var offer = GS.Army.rankOffer(this.rng, cmd);
+              if (offer) army.pendingRanks.push(offer);
+            }
+          }
           if (GS.audio && GS.audio.promote) GS.audio.promote();
         }
       }
@@ -1837,6 +1887,12 @@
       look: battle.look,
       sandbox: battle.sandbox,
       omen: battle.omen || "calm",
+      works: battle.works || {},
+      threatMul: battle.threatMul || 1,
+      coinMul: battle.coinMul || 1,
+      guide: !!battle.guide,
+      slain: battle.slain || 0,
+      hornsBlown: battle.hornsBlown || 0,
       warhornReady: battle.warhornReady !== false,
       warhornCharges: battle.warhornCharges,
       warhornT: battle.warhornT || 0,
@@ -1848,6 +1904,7 @@
         return {
           id: s.id, name: s.name, nameEn: s.nameEn, role: s.role, level: s.level, trait: s.trait,
           soldiers: s.soldiers, maxSoldiers: s.maxSoldiers, facing: s.facing,
+          doctrine: s.doctrine || null,
           tx: s.tx, ty: s.ty, placed: s.placed, moveCd: s.moveCd, xp: s.xp || 0,
           order: s.order || Battle.defaultOrder(s.role),
         };
@@ -1920,7 +1977,18 @@
     battle.warhornCharges = snap.warhornCharges != null ? snap.warhornCharges : (battle.warhornReady ? 1 : 0);
     battle.warhornT = snap.warhornT || 0;
     battle.omen = snap.omen || island.omen || "calm";
-    if (GS.Meta) battle.mods = GS.Meta.modsFrom((army && army.relics) || [], battle.omen);
+    battle.works = snap.works || battle.works || {};
+    battle.threatMul = snap.threatMul != null ? snap.threatMul : (battle.threatMul || 1);
+    battle.coinMul = snap.coinMul != null ? snap.coinMul : (battle.coinMul || 1);
+    battle.guide = snap.guide != null ? !!snap.guide : battle.guide;
+    battle.slain = snap.slain || 0;
+    battle.hornsBlown = snap.hornsBlown || 0;
+    battle._worksFolded = false;
+    battle._timberStamped = true;
+    if (GS.Meta) {
+      battle.mods = GS.Meta.modsFrom((army && army.relics) || [], battle.omen);
+      if (GS.Meta.foldWorks) GS.Meta.foldWorks(battle);
+    }
     battle.terrainGen = snap.terrainGen || 0;
     battle.log = snap.log || [];
     battle.corpses = snap.corpses || [];
@@ -1931,6 +1999,7 @@
       battle.squads.push({
         id: s.id, name: s.name, nameEn: s.nameEn, role: s.role, level: s.level || 1, trait: s.trait,
         soldiers: s.soldiers, maxSoldiers: s.maxSoldiers, facing: s.facing || 2,
+        doctrine: s.doctrine || null,
         tx: s.tx, ty: s.ty, placed: !!s.placed, entities: [], moveCd: s.moveCd || 0, xp: s.xp || 0,
         order: s.order || Battle.defaultOrder(s.role),
       });

@@ -90,6 +90,7 @@
       '<button data-act="lang"><kbd>I</kbd> ' + GS.t("langToggle") + "</button>" +
       "</div>" +
       '<div class="hint">' + GS.t("titleHint") + "</div>" +
+      '<div class="hint">' + GS.t("versionLine", GS.CONFIG.version) + "</div>" +
       "</div>"
     );
   };
@@ -106,6 +107,7 @@
       '<button data-act="resume"><kbd>Esc</kbd> ' + GS.t("resume") + "</button>" +
       (canSave ? '<button data-act="save-menu"><kbd>F5</kbd> ' + GS.t("saveProgress") + "</button>" : "") +
       '<button data-act="load-menu"><kbd>F9</kbd> ' + GS.t("loadSave") + "</button>" +
+      '<button data-act="settings">' + GS.t("settings") + "</button>" +
       '<button data-act="pal">' + GS.t("palette") + "</button>" +
       '<button data-act="mute">' + (GS.audio.muted() ? GS.t("muteOn") : GS.t("muteOff")) + "</button>" +
       '<button data-act="lang"><kbd>I</kbd> ' + GS.t("langToggle") + "</button>" +
@@ -174,6 +176,7 @@
       (om && om.id !== "calm" ? "<p class=\"omen\">" + GS.t("omenP", GS.loc(om), GS.loc(om, "desc")) + "</p>" : "") +
       (relic ? "<p class=\"relic-line\">" + GS.t("relicP", relic.ch, GS.loc(relic), GS.loc(relic, "desc")) + "</p>" : "") +
       "<p>" + GS.t("previewHomes") + GS.joinList(island.houses.map(function (h) { return GS.houseName ? GS.houseName(h, { island: island }) : GS.loc(h); })) + ".</p>" +
+      this._worksBlock(island, army) +
       '<div class="menu">' +
       '<button data-act="fight"><kbd>G</kbd> ' + GS.t("deployG") + "</button>" +
       '<button data-act="hire"><kbd>N</kbd> ' + GS.t("hireNCoins", army.coins) + "</button>" +
@@ -191,7 +194,9 @@
       }
       return "<li>" + (c.dead ? "<s>" : "") + role.ch + " " + GS.loc(c) + "  " + GS.loc(role) +
         "  Lv" + c.level + "  " + GS.t("troopsN") + " " + c.soldiers + "/" + c.maxSoldiers +
-        (trait ? "  [" + trait + "]" : "") + (c.dead ? "</s>" + GS.t("deadMark") : "") + "</li>";
+        (trait ? "  [" + trait + "]" : "") +
+        (c.doctrine ? "  [" + GS.t("doctrine") + " " + this._traitName(c.doctrine) + "]" : "") +
+        (c.dead ? "</s>" + GS.t("deadMark") : "") + "</li>";
     }).join("");
     var H = GS.CONFIG.hire;
     this.show(
@@ -230,6 +235,8 @@
       "<p>" + GS.t("resultStats", outcome.housesLeft, outcome.housesTotal, outcome.coins, army.coins) + "</p>" +
       extra +
       "<p>" + GS.t("captainsLeft") + living + (army.relics && army.relics.length ? "　" + GS.t("relics") + " " + army.relics.length : "") + "</p>" +
+      (outcome.slain ? "<p>" + GS.t("resultSlain", outcome.slain) + "</p>" : "") +
+      (outcome.relicDupe ? "<p>" + GS.t("relicDupe") + "</p>" : "") +
       '<div class="menu">' +
       (living ? '<button data-act="next">' + GS.t("nextChart") + "</button>" : '<button data-act="title">' + GS.t("southLost") + "</button>") +
       (outcome.kind !== "victory" && living ? '<button data-act="retry">' + GS.t("retryIsland") + "</button>" : "") +
@@ -253,15 +260,116 @@
     );
   };
 
+  Screens.prototype._traitName = function (id) {
+    if (!id || !GS.TRAITS) return id || "";
+    for (var i = 0; i < GS.TRAITS.length; i++) if (GS.TRAITS[i].id === id) return GS.loc(GS.TRAITS[i]);
+    return id;
+  };
+
+  Screens.prototype._worksBlock = function (island, army) {
+    if (!GS.WORKS) return "";
+    var owned = (island && island.works) || {};
+    var rows = GS.WORKS.map(function (w) {
+      var have = !!owned[w.id];
+      return '<button data-act="buy-work" data-arg="' + w.id + '"' + (have ? " disabled" : "") + ">" +
+        "<b>" + GS.loc(w) + "</b>　" + (have ? GS.t("workOwned") : GS.t("workCost", w.cost)) +
+        '<span class="hint">' + GS.loc(w, "desc") + "</span></button>";
+    }).join("");
+    return '<h3>' + GS.t("worksHead") + "</h3><p class=\"hint\">" + GS.t("worksHint", army.coins) + "</p>" +
+      '<div class="menu works">' + rows + "</div>";
+  };
+
+  Screens.prototype.setup = function (draft) {
+    draft = draft || { length: "south", threat: "war", guide: true };
+    function choice(act, arg, on, title, desc) {
+      return '<button class="choice' + (on ? " on" : "") + '" data-act="' + act + '" data-arg="' + arg + '">' +
+        "<b>" + title + "</b><span class=\"hint\">" + desc + "</span></button>";
+    }
+    this.show(
+      '<div class="panel setup-panel">' +
+      "<h2>" + GS.t("setupTitle") + "</h2>" +
+      '<p class="flavor">' + GS.t("setupFlavor") + "</p>" +
+      "<h3>" + GS.t("setupLength") + "</h3>" +
+      '<div class="choice-grid">' +
+      choice("pact-length", "short", draft.length === "short", GS.t("lengthShort"), GS.t("lengthShortDesc")) +
+      choice("pact-length", "south", draft.length === "south", GS.t("lengthSouth"), GS.t("lengthSouthDesc")) +
+      choice("pact-length", "far", draft.length === "far", GS.t("lengthFar"), GS.t("lengthFarDesc")) +
+      "</div>" +
+      "<h3>" + GS.t("setupThreat") + "</h3>" +
+      '<div class="choice-grid">' +
+      choice("pact-threat", "hold", draft.threat === "hold", GS.t("threatHold"), GS.t("threatHoldDesc")) +
+      choice("pact-threat", "war", draft.threat === "war", GS.t("threatWar"), GS.t("threatWarDesc")) +
+      choice("pact-threat", "blood", draft.threat === "blood", GS.t("threatBlood"), GS.t("threatBloodDesc")) +
+      "</div>" +
+      '<div class="menu">' +
+      '<button data-act="pact-guide">' + (draft.guide ? GS.t("setupGuideOn") : GS.t("setupGuideOff")) + "</button>" +
+      '<button data-act="launch-campaign" class="primary"><kbd>Enter</kbd> ' + GS.t("launchCampaign") + "</button>" +
+      '<button data-act="title"><kbd>Esc</kbd> ' + GS.t("backTitle") + "</button>" +
+      "</div></div>"
+    );
+  };
+
+  Screens.prototype.rank = function (offer) {
+    if (!offer) return;
+    var self = this;
+    var buttons = (offer.options || []).map(function (id, i) {
+      var desc = "";
+      if (GS.TRAITS) {
+        for (var t = 0; t < GS.TRAITS.length; t++) if (GS.TRAITS[t].id === id) desc = GS.loc(GS.TRAITS[t], "desc");
+      }
+      return '<button data-act="rank-pick" data-arg="' + i + '"><kbd>' + (i + 1) + "</kbd> " +
+        self._traitName(id) + (desc ? " — " + desc : "") + "</button>";
+    }).join("");
+    this.show(
+      '<div class="panel rank-panel">' +
+      "<h2>" + GS.t("rankTitle") + "</h2>" +
+      "<p>" + GS.t("rankBody", GS.loc(offer)) + "</p>" +
+      '<div class="menu">' + buttons + "</div></div>"
+    );
+  };
+
+  Screens.prototype.settings = function (game) {
+    var vol = Math.round((game.volume != null ? game.volume : 0.7) * 100);
+    this.show(
+      '<div class="panel settings-panel">' +
+      "<h2>" + GS.t("settings") + "</h2>" +
+      "<p>" + GS.t("volume") + " <b>" + vol + "</b></p>" +
+      '<div class="menu row">' +
+      '<button data-act="vol-down">−</button>' +
+      '<button data-act="vol-up">+</button>' +
+      "</div>" +
+      '<div class="menu">' +
+      '<button data-act="shake-toggle">' + (game.shakeOn ? GS.t("shakeOn") : GS.t("shakeOff")) + "</button>" +
+      '<button data-act="motion-toggle">' + (game.reduceMotion ? GS.t("motionOn") : GS.t("motionOff")) + "</button>" +
+      '<button data-act="pal">' + GS.t("palette") + "</button>" +
+      '<button data-act="mute">' + (GS.audio.muted() ? GS.t("muteOn") : GS.t("muteOff")) + "</button>" +
+      '<button data-act="lang">' + GS.t("langToggle") + "</button>" +
+      '<button data-act="resume"><kbd>Esc</kbd> ' + GS.t("back") + "</button>" +
+      "</div></div>"
+    );
+  };
+
+  Screens.prototype._ledger = function (army) {
+    var s = (army && army.stats) || {};
+    return "<ul class=\"ledger\">" +
+      "<li>" + GS.t("ledgerSlain", s.slain || 0) + "</li>" +
+      "<li>" + GS.t("ledgerHouses", s.housesSaved || 0, s.housesLost || 0) + "</li>" +
+      "<li>" + GS.t("ledgerHorns", s.horns || 0) + "</li>" +
+      "<li>" + GS.t("ledgerWorks", s.works || 0) + "</li>" +
+      "<li>" + GS.t("ledgerRetreats", s.retreats || 0, s.defeats || 0) + "</li>" +
+      "</ul>";
+  };
+
   Screens.prototype.finale = function (army) {
     var relics = (army.relics || []).map(function (id) {
       var r = GS.Meta && GS.Meta.relic(id);
       return r ? GS.loc(r) : id;
     });
     this.show(
-      '<div class="panel"><h2>' + GS.t("voyageEnd") + "</h2><p>" + GS.t("voyageEndBody", army.islandsCleared) +
+      '<div class="panel finale-panel"><h2>' + GS.t("voyageEnd") + "</h2><p>" + GS.t("voyageEndBody", army.islandsCleared) +
       " " + GS.t("coins") + " " + army.coins +
       (relics.length ? GS.t("finaleRelics") + GS.joinList(relics) : "") + ".</p>" +
+      "<h3>" + GS.t("ledgerTitle") + "</h3>" + this._ledger(army) +
       '<div class="menu"><button data-act="title">' + GS.t("backTitle") + "</button></div></div>"
     );
   };

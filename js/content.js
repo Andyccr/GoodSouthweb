@@ -89,6 +89,39 @@
       b: { label: "只要谢礼  +2 钱币", apply: function (ctx) { ctx.army.coins += 2; } },
     },
     {
+      id: "driftwood",
+      title: "漂来的拒马",
+      titleEn: "Driftwood stakes",
+      text: "一捆削尖的木桩挂在礁上，还能用。下一座岛的滩头会难走许多。",
+      textEn: "A bundle of sharpened stakes hangs on the reef. The next beach could be much harder to cross.",
+      a: { label: "拖去下一座岛（免费滩头拒马）", labelEn: "Tow them to the next isle (free stakes)", apply: function (ctx) {
+        var n = GS.Campaign.nextScouted(ctx.campaign);
+        if (!n) { ctx.army.coins += 2; return; }
+        n.works = n.works || {};
+        if (n.works.stakes) ctx.army.coins += 2;
+        else n.works.stakes = true;
+      } },
+      b: { label: "劈成柴卖掉  +2 钱币", labelEn: "Sell as firewood  +2 coin", apply: function (ctx) { ctx.army.coins += 2; } },
+    },
+    {
+      id: "oath",
+      title: "炉边的誓言",
+      titleEn: "An oath by the hearth",
+      text: "一名队长要在炉边立誓。誓言会改他下一战的打法。",
+      textEn: "A captain wants to swear by the hearth. The oath changes how he fights next.",
+      a: { label: "立誓（一名队长获得兵法）", labelEn: "Swear (one captain gains a doctrine)", apply: function (ctx) {
+        var living = GS.Army.living(ctx.army);
+        if (!living.length) return;
+        var c = null;
+        for (var i = 0; i < living.length; i++) if (!living[i].doctrine) { c = living[i]; break; }
+        if (!c) { GS.Meta.healArmy(ctx.army, 1); return; }
+        var offer = GS.Army.rankOffer(ctx.rng, c);
+        if (offer) c.doctrine = offer.options[0];
+        else GS.Meta.healArmy(ctx.army, 1);
+      } },
+      b: { label: "只要酒钱  +3 钱币", labelEn: "Take the drink-money  +3 coin", apply: function (ctx) { ctx.army.coins += 3; } },
+    },
+    {
       id: "omen",
       title: "海鸟不歇",
       text: "水手说下一座岛上鸦群遮天。可以绕开外海，或照旧驶入。",
@@ -118,6 +151,81 @@
 
   function omen(id) {
     return GS.OMENS[id] || GS.OMENS.calm;
+  }
+
+  GS.WORKS = [
+    { id: "timber", cost: 2, name: "加固屋舍", nameEn: "Shore up houses", desc: "本岛屋舍耐久 +40%。", descEn: "Houses on this isle gain +40% durability." },
+    { id: "stakes", cost: 3, name: "滩头拒马", nameEn: "Beach stakes", desc: "北蛮踏上沙滩时移速减半。", descEn: "Northmen on the sand move at half speed." },
+    { id: "levy", cost: 2, name: "征乡勇", nameEn: "Call the levy", desc: "每座屋舍多冲出一名乡勇。", descEn: "Each house sends one more militia." },
+    { id: "watch", cost: 2, name: "添薪", nameEn: "Feed the beacons", desc: "烽火更烈；弓手即使不靠烽火也略增射程。", descEn: "Beacons burn hotter. Archers gain a little range even away from them." },
+  ];
+
+  function workById(id) {
+    for (var i = 0; i < GS.WORKS.length; i++) if (GS.WORKS[i].id === id) return GS.WORKS[i];
+    return null;
+  }
+
+  function lengthCount(id) {
+    var map = (GS.CONFIG.campaign && GS.CONFIG.campaign.lengths) || { short: 8, south: 16, far: 24 };
+    return map[id] || map.south || 16;
+  }
+
+  function threatOf(id) {
+    var map = (GS.CONFIG.campaign && GS.CONFIG.campaign.threats) || {};
+    return map[id] || map.war || { id: "war", mul: 1, coin: 1, name: "正战" };
+  }
+
+  function buyWork(army, node, id) {
+    var w = workById(id);
+    if (!w || !army || !node) return { ok: false, reason: "unknown" };
+    node.works = node.works || {};
+    if (node.works[id]) return { ok: false, reason: "owned" };
+    if (army.coins < w.cost) return { ok: false, reason: "coins" };
+    army.coins -= w.cost;
+    node.works[id] = true;
+    if (GS.Army && GS.Army.noteBattle) {
+      if (!army.stats) army.stats = GS.Army.blankStats();
+      army.stats.works = (army.stats.works || 0) + 1;
+    }
+    if (GS.bus && GS.EV) GS.bus.emit(GS.EV.ARMY_CHANGED, { army: army, reason: "work", work: id });
+    return { ok: true, work: w };
+  }
+
+  function foldWorks(battle) {
+    if (!battle || !battle.works || !battle.mods || battle._worksFolded) return battle;
+    battle._worksFolded = true;
+    if (battle.works.levy) battle.mods.militiaBonus += 1;
+    return battle;
+  }
+
+  function stampHouses(battle) {
+    if (!battle || !battle.works || !battle.works.timber || battle._timberStamped) return battle;
+    battle._timberStamped = true;
+    for (var i = 0; i < battle.houses.length; i++) {
+      var h = battle.houses[i];
+      var hp = Math.round((h.maxHp || h.hp || 100) * 1.4);
+      h.maxHp = hp;
+      if (h.alive !== false) h.hp = hp;
+    }
+    return battle;
+  }
+
+  function coachLine(battle) {
+    if (!battle || !battle.guide || battle.sandbox) return null;
+    if (battle.phase === "deploy") {
+      for (var i = 0; i < battle.squads.length; i++) {
+        if (battle.squads[i].soldiers > 0 && !battle.squads[i].placed) return "coachPlace";
+      }
+      return "coachFace";
+    }
+    if (battle.phase === "fight") {
+      if (battle.t < 8) return "coachFight";
+      var launched = false;
+      var waves = battle.waves || [];
+      for (var w = 0; w < waves.length; w++) if (waves[w].launched) launched = true;
+      if (launched && battle.warhornCharges > 0 && battle.t < 38) return "coachHorn";
+    }
+    return null;
   }
 
   function healArmy(army, n) {
@@ -270,5 +378,12 @@
     rollVoyage: rollVoyage,
     applyVoyage: applyVoyage,
     healArmy: healArmy,
+    workById: workById,
+    lengthCount: lengthCount,
+    threatOf: threatOf,
+    buyWork: buyWork,
+    foldWorks: foldWorks,
+    stampHouses: stampHouses,
+    coachLine: coachLine,
   };
 })(typeof window !== "undefined" ? window : globalThis);

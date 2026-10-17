@@ -2,11 +2,19 @@
 (function (g) {
   var GS = g.GS || (g.GS = {});
 
-  function create(seed, count) {
+  function create(seed, count, opts) {
+    opts = opts || {};
+    if (count == null && opts.length && GS.Meta && GS.Meta.lengthCount) count = GS.Meta.lengthCount(opts.length);
     count = count || GS.CONFIG.campaign.islandCount;
     var camp = GS.mapgen.campaign(seed, count);
     var rng = GS.rng(typeof seed === "number" ? seed : GS.hashStr(String(seed || "south")));
     if (GS.Meta && GS.Meta.decorateCampaign) GS.Meta.decorateCampaign(camp, rng);
+    var threat = GS.Meta && GS.Meta.threatOf ? GS.Meta.threatOf(opts.threat || "war") : { id: "war", mul: 1, coin: 1 };
+    camp.threat = threat.id || "war";
+    camp.threatMul = threat.mul != null ? threat.mul : 1;
+    camp.coinMul = threat.coin != null ? threat.coin : 1;
+    camp.lengthId = opts.length || (count <= 8 ? "short" : count >= 24 ? "far" : "south");
+    camp.guide = opts.guide !== false;
     return camp;
   }
 
@@ -60,6 +68,8 @@
     });
     island.omen = node.omen || "calm";
     island.relic = node.relic || null;
+    node.works = node.works || {};
+    island.works = node.works;
     return island;
   }
 
