@@ -39,6 +39,16 @@
     var banner = $("phase-banner");
     if (tools) tools.classList.toggle("visible", mode === "sandbox");
 
+    if (mode === "setup" || mode === "rank") {
+      this._setTop("GOOD SOUTH", ui.chip(GS.t("mode"), mode === "setup" ? GS.t("setupTitle") : GS.t("rankTitle"), "hi"));
+      this._setHint(GS.t("hintTitle"));
+      ui.setToolbar([]);
+      ui.setCommands([]);
+      this._dock(game, []);
+      if (banner) banner.classList.add("hidden");
+      return;
+    }
+
     if (mode === "title" || mode === "help" || mode === "hire" || mode === "preview" || mode === "result" || mode === "voyage") {
       this._setTop("GOOD SOUTH", ui.chip(GS.t("mode"), GS.t("menu"), "cyan"));
       this._setHint(game.touch ? GS.t("tapStart") : GS.t("hintTitle"));
@@ -74,6 +84,7 @@
       ui.chip(GS.t("coins"), game.army.coins, "hi") +
       ui.chip(GS.t("cleared"), game.army.islandsCleared, "ok") +
       ui.chip(GS.t("relics"), (game.army.relics || []).length, "cyan") +
+      ui.chip(GS.t("pact"), GS.t(game.campaign.threat === "hold" ? "threatHold" : game.campaign.threat === "blood" ? "threatBlood" : "threatWar")) +
       ui.chip(GS.t("palette"), game.palette));
     left.innerHTML = this.campLeft(game, node);
     right.innerHTML = this.roster(game.army) + this.relicList(game.army) + this.islandList(game) + this.legend();
@@ -126,6 +137,7 @@
     var phaseLabel = b.phase === "deploy" ? GS.t("phaseDeploy") : b.phase === "over" ? GS.t("phaseOver") : (b.speed ? "×" + b.speed : GS.t("paused"));
 
     if (banner) {
+      var coach = (GS.Meta && GS.Meta.coachLine) ? GS.Meta.coachLine(b) : null;
       if (b.phase === "deploy") {
         banner.classList.remove("hidden");
         var unplaced = 0;
@@ -133,12 +145,16 @@
           if (b.squads[si].soldiers > 0 && !b.squads[si].placed) unplaced++;
         }
         var landTxt = GS.joinList((b.island.landingDirs || []).map(function (d) { return GS.loc(GS.DIRS[d]); }));
-        if (game.compact || game.touch) banner.textContent = GS.t("bannerDeployTouch");
+        if (coach) banner.textContent = GS.t(coach);
+        else if (game.compact || game.touch) banner.textContent = GS.t("bannerDeployTouch");
         else if (unplaced > 0) banner.textContent = GS.t("bannerDeployCount", unplaced, landTxt);
         else banner.textContent = GS.t("bannerDeployReady", landTxt);
       } else if (b.phase === "fight" && b.speed === 0) {
         banner.classList.remove("hidden");
         banner.textContent = GS.t("paused");
+      } else if (coach) {
+        banner.classList.remove("hidden");
+        banner.textContent = GS.t(coach);
       } else banner.classList.add("hidden");
     }
 
@@ -336,6 +352,10 @@
       html += "<h3>" + GS.t("selected") + "</h3><p>" + role.ch + " <b>" + GS.loc(sq) + "</b><br>" + GS.loc(role) +
         "　" + GS.t("facingAt", GS.loc(GS.DIRS[sq.facing]) + "\u00a0" + GS.DIRS[sq.facing].ch) + "<br>" + GS.t("soldiersOf", sq.soldiers, sq.maxSoldiers) +
         (trait ? "<br>" + GS.t("trait") + " [" + trait + "]" : "") +
+        (sq.doctrine ? "<br>" + GS.t("doctrine") + " [" + (function () {
+          for (var di = 0; di < GS.TRAITS.length; di++) if (GS.TRAITS[di].id === sq.doctrine) return GS.loc(GS.TRAITS[di]);
+          return sq.doctrine;
+        })() + "]" : "") +
         (sq.placed ? "" : "<br><span class='warn'>" + GS.t("notPlaced") + "</span>") +
         "<br>" + GS.t("orderNow", GS.Battle.orderMark(sq.order), GS.t(GS.Battle.orderKey(sq.order))) +
         "<br>" + GS.t("xpOf", sq.xp || 0, (sq.level || 1) * 12) + " · Lv" + (sq.level || 1) +

@@ -371,6 +371,57 @@
       burnedShort: "已焚",
       docTitle: "GOOD SOUTH — 南境据点",
       needSquad: "先点选一个兵团。",
+      versionLine: "南境据点  {0}",
+      settings: "设置",
+      volume: "音量",
+      shakeOn: "屏幕震动：开",
+      shakeOff: "屏幕震动：关",
+      motionOn: "减弱动效：开",
+      motionOff: "减弱动效：关",
+      setupTitle: "立约出航",
+      setupFlavor: "先定航程与威胁。守势适合初航；血潮更密、赏金更高。第一座岛可以打开向导。",
+      setupLength: "航程",
+      setupThreat: "威胁",
+      setupGuideOn: "向导：开 — 第一岛会提示布置、朝向与号角",
+      setupGuideOff: "向导：关",
+      lengthShort: "短征 · 8 岛",
+      lengthSouth: "南境 · 16 岛",
+      lengthFar: "远航 · 24 岛",
+      lengthShortDesc: "一个晚上能打完的岛链。",
+      lengthSouthDesc: "完整南境。圣物、航程与晋升都走得完。",
+      lengthFarDesc: "更长的海图。重复的圣物会改付钱币。",
+      threatHold: "守势",
+      threatWar: "正战",
+      threatBlood: "血潮",
+      threatHoldDesc: "长船更稀。适合熟悉海滩与号令。",
+      threatWarDesc: "标准南境。",
+      threatBloodDesc: "登陆更密，屋舍赏金 +25%。",
+      launchCampaign: "出海",
+      pact: "立约",
+      worksHead: "登岛工事",
+      worksHint: "用钱币加固这座岛，只在本场生效。现有 {0}。",
+      workCost: "{0} 钱币",
+      workOwned: "已筑",
+      toastWork: "工事完成：{0}",
+      toastWorkOwned: "这座岛已经有这道工事。",
+      relicDupe: "这件圣物已在手，神龛改付 2 钱币。",
+      resultSlain: "本场击退北蛮 {0}",
+      doctrine: "兵法",
+      rankTitle: "炉边兵法",
+      rankBody: "{0} 升了级。为这支兵团选一门兵法，下一战生效。",
+      toastRank: "{0} 领悟「{1}」",
+      coachPlace: "向导：把兵团点到陆地上。弓手放高地，盾兵朝海滩。",
+      coachFace: "向导：右键或 R 让枪兵正面朝向登陆方向，然后按 G。",
+      coachFight: "向导：近战会自己追击，弓手驻守。O 切换号令。",
+      coachHorn: "向导：长船靠岸时按 U。号角会让整波北蛮变慢。",
+      ledgerTitle: "航程账册",
+      ledgerSlain: "击退北蛮 {0}",
+      ledgerHouses: "守住屋舍 {0}　焚毁 {1}",
+      ledgerHorns: "号角 {0} 次",
+      ledgerWorks: "工事 {0} 道",
+      ledgerRetreats: "撤退 {0}　失岛 {1}",
+      slotWork: "工事",
+      slotRank: "兵法",
     },
     en: {
       langName: "English",
@@ -674,6 +725,57 @@
       burnedShort: "burned",
       docTitle: "GOOD SOUTH — Holdfast of the South",
       needSquad: "Select a company first.",
+      versionLine: "GOOD SOUTH  {0}",
+      settings: "Settings",
+      volume: "Volume",
+      shakeOn: "Screen shake: on",
+      shakeOff: "Screen shake: off",
+      motionOn: "Reduced motion: on",
+      motionOff: "Reduced motion: off",
+      setupTitle: "Make the pact",
+      setupFlavor: "Choose the voyage and the threat. Hold is for a first crossing; Blood Tide is denser and pays more. The guide speaks on the first isle.",
+      setupLength: "Voyage",
+      setupThreat: "Threat",
+      setupGuideOn: "Guide: on — the first isle teaches placement, facing, and the horn",
+      setupGuideOff: "Guide: off",
+      lengthShort: "Short crossing · 8 isles",
+      lengthSouth: "The South · 16 isles",
+      lengthFar: "Far voyage · 24 isles",
+      lengthShortDesc: "An island chain you can finish in a sitting.",
+      lengthSouthDesc: "The full South. Relics, voyages, and promotions all have room.",
+      lengthFarDesc: "A longer chart. A relic you already hold pays coin instead.",
+      threatHold: "Hold",
+      threatWar: "War",
+      threatBlood: "Blood tide",
+      threatHoldDesc: "Thinner longships. Learn the beaches and the orders.",
+      threatWarDesc: "The South as it stands.",
+      threatBloodDesc: "Denser landings. House coin +25%.",
+      launchCampaign: "Set sail",
+      pact: "Pact",
+      worksHead: "Isle works",
+      worksHint: "Spend coin on this isle only. You have {0}.",
+      workCost: "{0} coin",
+      workOwned: "built",
+      toastWork: "Work finished: {0}",
+      toastWorkOwned: "That work is already built here.",
+      relicDupe: "You already hold this relic. The shrine pays 2 coin.",
+      resultSlain: "Northmen broken this fight: {0}",
+      doctrine: "Doctrine",
+      rankTitle: "Doctrine by the hearth",
+      rankBody: "{0} has gained a level. Choose a doctrine. It takes effect next fight.",
+      toastRank: "{0} learns {1}",
+      coachPlace: "Guide: place companies on land. Bows on the hill, shields toward the beach.",
+      coachFace: "Guide: right-click or R so the pikes face the landing, then press G.",
+      coachFight: "Guide: melee hunts, bows hold. O cycles orders.",
+      coachHorn: "Guide: press U as the longships beach. The horn slows the whole wave.",
+      ledgerTitle: "Voyage ledger",
+      ledgerSlain: "Northmen broken {0}",
+      ledgerHouses: "Houses held {0}  burned {1}",
+      ledgerHorns: "Horns blown {0}",
+      ledgerWorks: "Works built {0}",
+      ledgerRetreats: "Retreats {0}  isles lost {1}",
+      slotWork: "works",
+      slotRank: "doctrine",
     },
   };
 
@@ -694,7 +796,8 @@
         "<li><b>U horn</b>: once per battle (twice with Horn-stone), briefly slows all northmen — including longships.</li>" +
         "<li><b>Beacons ¥</b>: nearby archers gain range and bite.</li>" +
         "<li>Struck houses send <strong>militia</strong>. South-lamp adds one more.</li>" +
-        "<li>Each isle has an <strong>omen</strong> (this fight) and a <strong>relic</strong> (kept if you hold). Voyages present choices.</li>" +
+        "<li>Each isle has an <strong>omen</strong> (this fight) and a <strong>relic</strong> (kept if you hold). Before sailing, make a pact: length, threat, and a guide on the first isle. Before landing, spend coin on works. A promotion lets you choose a doctrine.</li>" +
+        "<li>Higher threats include <strong>sappers π</strong>. They ignore soldiers and break doors. Meet them with pikes, or stake the beach.</li>" +
         "<li>Click a friendly to select; click the same company again to turn. Open ground places/re-forms.</li>" +
         "<li><b>LMB click</b> place/select, <b>LMB drag</b> pans. <b>WASD</b> hold-to-pan; arrows / HJKL move the cursor. Wheel zooms. Map edges nudge the camera.</li>" +
         "<li>Northmen always arrive by longship from deep water, then beach.</li>" +
@@ -737,7 +840,8 @@
       "<li><b>U 号角</b>：每场一次（持有号角石可两次），短时减缓全部北蛮（含长船）。</li>" +
       "<li><b>烽火台 ¥</b>：弓手靠近可提升射程与伤害。</li>" +
       "<li>屋舍遇袭时会冲出<strong>乡勇</strong>拖延敌人。持南灯则多一人。</li>" +
-      "<li>每座岛有<strong>征兆</strong>（本场）与<strong>圣物</strong>（守住后永久）。航程中会遇到抉择事件。</li>" +
+        "<li>每座岛有<strong>征兆</strong>（本场）与<strong>圣物</strong>（守住后永久）。出航前可立约：航程、威胁、第一岛向导。登岛前能花钱筑工事。队长升级后可选一门兵法。</li>" +
+        "<li>高威胁会出现<strong>破门手 π</strong>：不追兵，直扑屋舍。用枪兵正面拦住，或在滩头筑拒马。</li>" +
       "<li>点击己方士兵选中该兵团；再点同一兵团会旋转朝向。点空地才布置/换阵。</li>" +
       "<li><b>左键点</b>就位/选中，<b>左键拖</b>平移镜头。<b>WASD</b> 持续平移；方向键 / HJKL 移光标。滚轮缩放。画布边缘会慢速推镜。</li>" +
       "<li>北蛮一律乘长船从深海驶向海滩，靠岸后才下船。</li>" +
@@ -827,6 +931,7 @@
       jarl: ["Jarl", ""],
       shaman: ["Tide shaman", ""],
       hound: ["Hound", ""],
+      sapper: ["Sapper", "Ignores soldiers and breaks doors. Meet them with pikes."],
       militia: ["Militia", "Villagers with tools. They buy a moment."],
     };
     for (id in roles) {
@@ -921,6 +1026,18 @@
         a: "Pay 5 coin to expand (+2 max and refill)",
         b: "Take a gift  +2 coin",
       },
+      driftwood: {
+        title: "Driftwood stakes",
+        text: "A bundle of sharpened stakes hangs on the reef. The next beach could be much harder to cross.",
+        a: "Tow them to the next isle (free stakes)",
+        b: "Sell as firewood  +2 coin",
+      },
+      oath: {
+        title: "An oath by the hearth",
+        text: "A captain wants to swear by the hearth. The oath changes how he fights next.",
+        a: "Swear (one captain gains a doctrine)",
+        b: "Take the drink-money  +3 coin",
+      },
       omen: {
         title: "Birds that will not rest",
         text: "Sailors say the next isle is black with crows. You can swing wide, or sail in.",
@@ -945,7 +1062,7 @@
       GS.CONFIG.hire.skirmisher.nameEn = "Skirmishers";
     }
     if (GS.CONFIG && GS.CONFIG.ui) {
-      GS.CONFIG.ui.paletteNamesEn = { df: "Classic DF", green: "Phosphor", amber: "Amber" };
+      GS.CONFIG.ui.paletteNamesEn = { df: "Classic DF", green: "Phosphor", amber: "Amber", ink: "Ink paper" };
     }
     if (GS.CONFIG && GS.CONFIG.battle) {
       GS.CONFIG.battle.deployHintEn = "Tap open ground to place. After the horn they hunt on their own.";
