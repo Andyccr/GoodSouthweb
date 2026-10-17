@@ -996,7 +996,7 @@
     }
     this.campaign.current = id;
     this.campCursor = id;
-    this.island = GS.Campaign.generateIsland(node);
+    this.island = GS.Campaign.generateIsland(node, { size: this.compact ? "medium" : null });
     this.setMode("preview");
   };
 
@@ -1182,7 +1182,7 @@
 
   Game.prototype.retryIsland = function () {
     var node = GS.Campaign.resetForRetry(this.campaign, this.campaign.current);
-    this.island = GS.Campaign.generateIsland(node);
+    this.island = GS.Campaign.generateIsland(node, { size: this.compact ? "medium" : null });
     this.enterBattle();
   };
 

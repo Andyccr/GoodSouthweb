@@ -60,11 +60,13 @@
     return node;
   }
 
-  function generateIsland(node) {
+  function generateIsland(node, opts) {
+    opts = opts || {};
     var island = GS.mapgen.island(node.seed, {
       biome: node.biome,
       difficulty: node.difficulty,
       name: node.name,
+      size: opts.size || null,
     });
     island.omen = node.omen || "calm";
     island.relic = node.relic || null;

@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "3.0.1",
+    version: "3.0.2",
     saveVersion: 4,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -36,20 +36,20 @@
 
     map: {
       // battle islands (tile counts); a thick sea ring is forced around land
-      minW: 80,
-      maxW: 108,
-      minH: 60,
-      maxH: 84,
-      seaMargin: 7,
-      minLandRatio: 0.10,
-      minLandAbs: 220,
+      minW: 118,
+      maxW: 152,
+      minH: 88,
+      maxH: 114,
+      seaMargin: 8,
+      minLandRatio: 0.11,
+      minLandAbs: 520,
       houseBase: 4,
       housePerDifficulty: 0.9,
-      houseSpacing: 22,
+      houseSpacing: 26,
       sizes: {
-        small: { minW: 64, maxW: 76, minH: 48, maxH: 58 },
-        medium: { minW: 80, maxW: 96, minH: 60, maxH: 74 },
-        large: { minW: 100, maxW: 124, minH: 74, maxH: 92 },
+        small: { minW: 88, maxW: 104, minH: 66, maxH: 78 },
+        medium: { minW: 112, maxW: 132, minH: 84, maxH: 100 },
+        large: { minW: 136, maxW: 168, minH: 102, maxH: 126 },
       },
     },
 
