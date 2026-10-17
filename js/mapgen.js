@@ -96,8 +96,9 @@
         return island;
       }
       if (tries % 8 === 0) {
-        w = Math.max(64, Math.min(128, w + rng.int(-4, 5)));
-        h = Math.max(48, Math.min(96, h + rng.int(-3, 4)));
+        var band = (GS.CONFIG && GS.CONFIG.map) || {};
+        w = Math.max(band.minW || 110, Math.min((band.maxW || 156) + 8, w + rng.int(-6, 9)));
+        h = Math.max(band.minH || 82, Math.min((band.maxH || 118) + 6, h + rng.int(-4, 7)));
       }
     }
     return forceIsland(rng, Math.max(80, w), Math.max(60, h), biome, biomeId, difficulty);
@@ -201,6 +202,10 @@
         ry: innerH * rng.float(0.20, 0.32),
       });
     }
+    for (var bi = 0; bi < blobs.length; bi++) {
+      blobs[bi].rx *= 1.12;
+      blobs[bi].ry *= 1.12;
+    }
     return { kind: kind, blobs: blobs, holes: holes };
   }
 
@@ -294,7 +299,7 @@
     var cfgH = GS.CONFIG.map || {};
     var houseTarget = opts.houses != null ? opts.houses
       : Math.round((cfgH.houseBase || 3) + difficulty * (cfgH.housePerDifficulty || 0.85) + (w * h) / 2200);
-    houseTarget = Math.max(2, Math.min(10, houseTarget));
+    houseTarget = Math.max(3, Math.min(12, houseTarget));
     var houses = placeHouses(tiles, w, h, rng, houseTarget, cfgH.houseSpacing || 16);
     if (houses.length < 2) return null;
 
