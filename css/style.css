@@ -365,6 +365,14 @@ button, input, select, textarea, .look, .log, .panel { user-select: text; }
   color: #fff;
 }
 
+.forecast {
+  list-style: none;
+  margin: 4px 0 8px;
+  padding: 0;
+  color: var(--hi);
+}
+.forecast li { line-height: 1.45; }
+
 .ledger {
   margin: 8px 0 16px;
   padding-left: 1.2em;

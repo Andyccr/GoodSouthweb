@@ -25,7 +25,7 @@ vm.createContext(context);
 var files = [
   "events.js", "config.js", "util.js", "rng.js",
   "tiles.js", "names.js", "content.js", "i18n.js", "pathfind.js", "mapgen.js",
-  "army.js", "campaign.js", "save.js", "waves.js", "sim.js",
+  "army.js", "campaign.js", "save.js", "waves.js", "sim.js", "deploy.js",
 ];
 files.forEach(function (f) {
   vm.runInContext(fs.readFileSync(path.join(root, "js", f), "utf8"), context, { filename: f });
@@ -720,6 +720,49 @@ ok(GS.t("setupTitle") === "立约出航", "setup copy is localized");
 GS.setLang("en");
 ok(GS.t("threatBlood") === "Blood tide" && GS.loc(GS.ROLES.sapper) === "Sapper", "English pact and sapper");
 GS.setLang("zh");
+
+console.log("Forecast / form-up");
+function countBodies(waves) {
+  var n = 0;
+  for (var i = 0; i < waves.length; i++) {
+    n += (waves[i].units ? waves[i].units.length : 0) + (waves[i].extraUnits ? waves[i].extraUnits.length : 0);
+  }
+  return n;
+}
+var briefIsle = GS.mapgen.island(21, { difficulty: 5, size: "small" });
+briefIsle.omen = "calm";
+var brief = GS.Waves.forecast(briefIsle, 1, "calm");
+var briefBattle = new GS.Battle(briefIsle, GS.Army.create(GS.rng(1)), { threatMul: 1 });
+ok(brief.total === countBodies(briefBattle.waves) && brief.waves === briefBattle.waves.length, "forecast matches the battle");
+ok(GS.Waves.blurb(briefBattle.waves[0]).length > 2, "wave blurb names a landing");
+briefIsle.omen = "hightide";
+var tideBrief = GS.Waves.forecast(briefIsle, 1.22, "hightide");
+var tideBattle = new GS.Battle(briefIsle, GS.Army.create(GS.rng(2)), { threatMul: 1.22 });
+ok(tideBrief.total === countBodies(tideBattle.waves) && tideBrief.lines.length === tideBattle.waves.length, "hightide forecast includes the sneak wave");
+ok(typeof GS.t(tideBrief.advice) === "string" && GS.t(tideBrief.advice) !== tideBrief.advice, "forecast advice is translated");
+
+var refundArmy = GS.Army.create(GS.rng(4));
+var refundNode = { works: {} };
+refundArmy.coins = 5;
+ok(GS.Meta.buyWork(refundArmy, refundNode, "stakes").ok && refundArmy.coins === 2, "stakes cost 3");
+ok(GS.Meta.refundWork(refundArmy, refundNode, "stakes").ok && refundArmy.coins === 5 && !refundNode.works.stakes, "refund returns the coin");
+ok(refundArmy.stats.works === 0, "refund reverses the ledger");
+
+var formIsle = GS.mapgen.island(18, { difficulty: 3, size: "small" });
+var formBattle = new GS.Battle(formIsle, GS.Army.create(GS.rng(9)), {});
+var formed = GS.Deploy.formUp(formBattle);
+ok(formed === formBattle.squads.length && formed >= 4, "form-up places every company");
+var posts = {};
+var postsOk = true;
+for (var fi = 0; fi < formBattle.squads.length; fi++) {
+  var fsq = formBattle.squads[fi];
+  var fkey = fsq.tx + "," + fsq.ty;
+  var ftile = formIsle.tiles[fsq.ty][fsq.tx];
+  if (!fsq.placed || !ftile.walk || ftile.type === GS.T.HOUSE || posts[fkey]) postsOk = false;
+  posts[fkey] = true;
+}
+ok(postsOk, "form-up posts are walkable, distinct, and off houses");
+ok(GS.Deploy.formUp(formBattle) === 0, "form-up does not restack placed companies");
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);
