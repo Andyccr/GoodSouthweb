@@ -189,6 +189,9 @@
       palette: raw.palette || "df",
       muted: !!raw.muted,
       lang: raw.lang === "en" ? "en" : "zh",
+      volume: raw.volume == null ? 0.7 : Math.max(0, Math.min(1, +raw.volume)),
+      shake: raw.shake !== false,
+      reduceMotion: !!raw.reduceMotion,
     };
   }
 
@@ -197,6 +200,9 @@
       palette: settings.palette || "df",
       muted: !!settings.muted,
       lang: settings.lang === "en" ? "en" : "zh",
+      volume: settings.volume == null ? 0.7 : settings.volume,
+      shake: settings.shake !== false,
+      reduceMotion: !!settings.reduceMotion,
       savedAt: Date.now(),
     });
   }

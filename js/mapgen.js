@@ -864,10 +864,15 @@
     var rng = GS.rng(typeof seed === "number" ? seed : GS.hashStr(String(seed || "south")));
     var W = (GS.CONFIG.campaign && GS.CONFIG.campaign.chartW) || 88;
     var H = (GS.CONFIG.campaign && GS.CONFIG.campaign.chartH) || 48;
+    if (n > 18) {
+      W = Math.max(W, 108);
+      H = Math.max(H, 58);
+    }
     var islands = [];
     var attempts = 0;
-    var minDist2 = 42;
-    while (islands.length < n && attempts++ < 600) {
+    var minDist2 = n > 18 ? 22 : 42;
+    var cap = n > 18 ? 2400 : 600;
+    while (islands.length < n && attempts++ < cap) {
       var x = rng.int(4, W - 4);
       var y = rng.int(3, H - 3);
       var ok = true;
@@ -899,6 +904,36 @@
         status: "hidden", // hidden | scouted | cleared | lost
         edges: [],
       });
+    }
+    if (islands.length < n) {
+      var loose = 0;
+      while (islands.length < n && loose++ < 2000) {
+        var x2 = rng.int(3, W - 3);
+        var y2 = rng.int(2, H - 2);
+        var ok2 = true;
+        for (var j2 = 0; j2 < islands.length; j2++) {
+          var ddx = islands[j2].mx - x2;
+          var ddy = islands[j2].my - y2;
+          if (ddx * ddx + ddy * ddy < 12) ok2 = false;
+        }
+        if (!ok2) continue;
+        var west2 = 1 - x2 / W;
+        var diff2 = 1 + Math.round((1 - west2) * 6 + rng.float(-0.3, 0.6));
+        diff2 = Math.max(1, Math.min(8, diff2));
+        var biome2 = diff2 >= 6 ? rng.pick(["ash", "snow", "rocky"]) : rng.pick(["verdant", "marsh", "pine", "rocky"]);
+        var name2 = GS.names.islandPair ? GS.names.islandPair(rng) : { name: GS.names.island(rng) };
+        islands.push({
+          id: islands.length,
+          mx: x2, my: y2,
+          seed: rng.int(1, 0x7fffffff),
+          biome: biome2,
+          difficulty: diff2,
+          name: name2.name,
+          nameEn: name2.nameEn || name2.name,
+          status: "hidden",
+          edges: [],
+        });
+      }
     }
     islands.sort(function (a, b) { return a.mx - b.mx || a.my - b.my; });
     for (var i = 0; i < islands.length; i++) islands[i].id = i;

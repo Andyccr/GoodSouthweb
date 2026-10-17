@@ -59,11 +59,19 @@
 
   /* ---------- mode ---------- */
 
+  Game.prototype._pendingRank = function () {
+    return !!(this.army && this.army.pendingRanks && this.army.pendingRanks.length);
+  };
+
   Game.prototype.setMode = function (mode, data) {
+    if (mode === "campaign" && this._pendingRank()) mode = "rank";
     var prev = this.mode;
     this.closeMenu(true);
     this.toggleSheet("close");
     this.mode = mode;
+    if (GS.audio && GS.audio.bed && mode !== "rank") {
+      GS.audio.bed(mode === "battle" || mode === "sandbox" || mode === "campaign");
+    }
     GS.bus.emit(GS.EV.MODE_CHANGE, { from: prev, to: mode, data: data });
     this.hudDirty = true;
 
@@ -81,6 +89,21 @@
     if (mode === "preview") { this.screens.preview(this.island, this.army, this.campaign); return; }
     if (mode === "result") { this.screens.result(this.island, this.army, data || this.battle.outcome); return; }
     if (mode === "voyage") { this.screens.voyage(this.pendingVoyage); return; }
+    if (mode === "setup") { this.screens.setup(this.draft); return; }
+    if (mode === "rank") {
+      var offer = this.army && this.army.pendingRanks && this.army.pendingRanks[0];
+      if (!offer) {
+        this.mode = "campaign";
+        mode = "campaign";
+      } else {
+        this.screens.rank(offer);
+        if (GS.audio && GS.audio.bed) GS.audio.bed(false);
+        return;
+      }
+    }
+    if (GS.audio && GS.audio.bed) {
+      GS.audio.bed(mode === "battle" || mode === "sandbox" || mode === "campaign");
+    }
     if (mode === "campaign") {
       this.battle = null;
       this.screens.hide();
@@ -108,6 +131,21 @@
     if (GS.audio && GS.audio.setMuted) GS.audio.setMuted(!!s.muted);
     if (s.lang) GS.setLang(s.lang);
     else if (GS.I18N && GS.I18N.applyChrome) GS.I18N.applyChrome();
+    this.volume = s.volume == null ? 0.7 : s.volume;
+    this.shakeOn = s.shake !== false;
+    this.reduceMotion = !!s.reduceMotion;
+    this._applyFeel();
+  };
+
+  Game.prototype._applyFeel = function () {
+    if (GS.audio && GS.audio.setVolume) GS.audio.setVolume(this.volume == null ? 0.7 : this.volume);
+    if (this.renderer) {
+      this.renderer.allowShake = this.shakeOn !== false && !this.reduceMotion;
+      this.renderer.reduceMotion = !!this.reduceMotion;
+    }
+    if (typeof document !== "undefined" && document.body) {
+      document.body.classList.toggle("reduce-motion", !!this.reduceMotion);
+    }
   };
 
   Game.prototype._persistSettings = function () {
@@ -115,6 +153,9 @@
       palette: this.palette,
       muted: GS.audio.muted(),
       lang: GS.LANG || "zh",
+      volume: this.volume == null ? 0.7 : this.volume,
+      shake: this.shakeOn !== false,
+      reduceMotion: !!this.reduceMotion,
     });
   };
 
@@ -129,6 +170,9 @@
     else if (this.mode === "preview") this.screens.preview(this.island, this.army, this.campaign);
     else if (this.mode === "result" && this.battle && this.battle.outcome) this.screens.result(this.island, this.army, this.battle.outcome);
     else if (this.mode === "voyage") this.screens.voyage(this.pendingVoyage);
+    else if (this.mode === "setup") this.screens.setup(this.draft);
+    else if (this.mode === "rank" && this._pendingRank()) this.screens.rank(this.army.pendingRanks[0]);
+    else if (this.menuKind === "settings") this.screens.settings(this);
     else if (this.menuKind === "pause") this.openPauseMenu();
     else if (this.menuKind === "save") this.screens.saveMenu();
     else if (this.menuKind === "load") this.screens.loadMenu();
@@ -295,7 +339,7 @@
   /* ---------- pause menu ---------- */
 
   Game.prototype.openPauseMenu = function () {
-    if (this.mode === "title" || this.mode === "result" || this.mode === "preview" || this.mode === "hire" || this.mode === "help") {
+    if (this.mode === "title" || this.mode === "result" || this.mode === "preview" || this.mode === "hire" || this.mode === "help" || this.mode === "setup" || this.mode === "rank" || this.mode === "voyage") {
       return;
     }
     if (this.battle && this.battle.phase === "fight" && this.battle.speed > 0) {
@@ -393,6 +437,9 @@
     GS.bus.on(GS.EV.BATTLE_OVER, function () {
       if (self.mode === "battle") self._onBattleOver();
     });
+    GS.bus.on(GS.EV.BATTLE_HOUSE_BURN, function () {
+      if (self.renderer && self.renderer.allowShake !== false) self.renderer.shake = Math.max(self.renderer.shake, 7);
+    });
   };
 
   /* ---------- frame ---------- */
@@ -458,7 +505,57 @@
         }
         return this.setMode("help");
       case "campaign": return this.startCampaign();
-      case "confirm-new-campaign": return this._startCampaignNow();
+      case "confirm-new-campaign":
+      case "campaign-setup": return this.openCampaignSetup();
+      case "pact-length":
+        this.draft = this.draft || {};
+        this.draft.length = arg || "south";
+        this.screens.setup(this.draft);
+        return;
+      case "pact-threat":
+        this.draft = this.draft || {};
+        this.draft.threat = arg || "war";
+        this.screens.setup(this.draft);
+        return;
+      case "pact-guide":
+        this.draft = this.draft || {};
+        this.draft.guide = !this.draft.guide;
+        this.screens.setup(this.draft);
+        return;
+      case "launch-campaign": return this._startCampaignNow();
+      case "buy-work": return this.buyWork(arg);
+      case "rank-pick": return this._pickRank(arg);
+      case "settings":
+        this.menuOpen = true;
+        this.menuKind = "settings";
+        this.screens.settings(this);
+        return;
+      case "vol-up":
+        this.volume = Math.min(1, Math.round(((this.volume == null ? 0.7 : this.volume) + 0.1) * 10) / 10);
+        this._applyFeel();
+        this._persistSettings();
+        if (GS.audio) GS.audio.ui();
+        this.screens.settings(this);
+        return;
+      case "vol-down":
+        this.volume = Math.max(0, Math.round(((this.volume == null ? 0.7 : this.volume) - 0.1) * 10) / 10);
+        this._applyFeel();
+        this._persistSettings();
+        if (GS.audio) GS.audio.ui();
+        this.screens.settings(this);
+        return;
+      case "shake-toggle":
+        this.shakeOn = !this.shakeOn;
+        this._applyFeel();
+        this._persistSettings();
+        this.screens.settings(this);
+        return;
+      case "motion-toggle":
+        this.reduceMotion = !this.reduceMotion;
+        this._applyFeel();
+        this._persistSettings();
+        this.screens.settings(this);
+        return;
       case "continue": return this.loadLatest();
       case "sandbox": return this.startSandbox();
       case "lang": return this.toggleLang();
@@ -621,6 +718,7 @@
       case "warhorn":
         if (!this.battle) return;
         if (this.battle.blowWarhorn()) {
+          if (this.renderer && this.renderer.allowShake !== false) this.renderer.shake = Math.max(this.renderer.shake, 4);
           this.ui.toast(this.battle.warhornReady ? GS.t("toastHornMore") : GS.t("toastHorn"), "warn");
           this.hudDirty = true;
         } else {
@@ -642,14 +740,16 @@
       case "pal":
         this.cyclePalette();
         this._persistSettings();
-        if (this.menuKind === "pause") this.openPauseMenu();
+        if (this.menuKind === "settings") this.screens.settings(this);
+        else if (this.menuKind === "pause") this.openPauseMenu();
         return;
       case "mute": {
         var m = GS.audio.toggle();
         this._persistSettings();
         this.ui.toast(m ? GS.t("toastMuted") : GS.t("toastUnmute"), "info");
         this.hudDirty = true;
-        if (this.menuKind === "pause") this.openPauseMenu();
+        if (this.menuKind === "settings") this.screens.settings(this);
+        else if (this.menuKind === "pause") this.openPauseMenu();
         return;
       }
       case "select-squad":
@@ -754,14 +854,21 @@
       });
       return;
     }
-    this._startCampaignNow();
+    this.openCampaignSetup();
+  };
+
+  Game.prototype.openCampaignSetup = function () {
+    this.closeMenu(true);
+    this.draft = { length: "south", threat: "war", guide: true };
+    this.setMode("setup");
   };
 
   Game.prototype._startCampaignNow = function () {
+    var draft = this.draft || { length: "south", threat: "war", guide: true };
     var seed = (Math.random() * 0x7fffffff) | 0;
     this.rng = GS.rng(seed);
     this.army = GS.Army.create(this.rng);
-    this.campaign = GS.Campaign.create(seed);
+    this.campaign = GS.Campaign.create(seed, null, draft);
     this.campCursor = 0;
     this._campZoom = null;
     this._campArmed = null;
@@ -893,7 +1000,13 @@
 
   Game.prototype.enterBattle = function () {
     this._resultShown = false;
-    this.battle = new GS.Battle(this.island, this.army, { sandbox: false });
+    var camp = this.campaign || {};
+    this.battle = new GS.Battle(this.island, this.army, {
+      sandbox: false,
+      threatMul: camp.threatMul != null ? camp.threatMul : 1,
+      coinMul: camp.coinMul != null ? camp.coinMul : 1,
+      guide: !!(camp.guide && (this.army.islandsCleared || 0) === 0),
+    });
     this.sandboxTool = "place";
     this.setMode("battle");
     this._fitBattleCam();
@@ -929,8 +1042,12 @@
     if (o.kind === "victory") {
       GS.Campaign.markCleared(this.campaign, id);
       var node = GS.Campaign.getNode(this.campaign, id);
-      if (node && node.relic && GS.Army.grantRelic(this.army, node.relic)) {
-        o.relic = GS.Meta.relic(node.relic);
+      if (node && node.relic) {
+        if (GS.Army.grantRelic(this.army, node.relic)) o.relic = GS.Meta.relic(node.relic);
+        else {
+          this.army.coins += 2;
+          o.relicDupe = true;
+        }
       }
       GS.Army.applyBattleOutcome(this.army, o);
     } else if (o.kind === "defeat") {
@@ -940,6 +1057,7 @@
       // retreat — keep scouted
       GS.Army.applyBattleOutcome(this.army, o);
     }
+    if (GS.Army.noteBattle) GS.Army.noteBattle(this.army, o);
     GS.Save.writeSlot("auto", this.army, this.campaign, { label: GS.t("slotAfter") });
     this.setMode("result", o);
   };
@@ -948,6 +1066,10 @@
     var living = GS.Army.living(this.army).length;
     if (!living) {
       this.setMode("title");
+      return;
+    }
+    if (this._pendingRank()) {
+      this.setMode("rank");
       return;
     }
     if (GS.Campaign.isFinished(this.campaign)) {
@@ -979,6 +1101,49 @@
     }
     this.pendingVoyage = null;
     this.setMode("campaign");
+  };
+
+  Game.prototype.buyWork = function (id) {
+    if (!this.campaign || !this.island) return;
+    var node = GS.Campaign.getNode(this.campaign, this.campaign.current);
+    var res = GS.Meta.buyWork(this.army, node, id);
+    if (!res.ok) {
+      this.ui.toast(res.reason === "owned" ? GS.t("toastWorkOwned") : GS.t("toastNoCoins"), "bad");
+    } else {
+      this.island.works = node.works;
+      if (GS.audio) GS.audio.coin();
+      this.ui.toast(GS.t("toastWork", GS.loc(res.work)), "ok");
+      this.autosave(GS.t("slotWork"));
+    }
+    this.screens.preview(this.island, this.army, this.campaign);
+  };
+
+  Game.prototype._pickRank = function (arg) {
+    var list = (this.army && this.army.pendingRanks) || [];
+    var offer = list[0];
+    if (!offer) {
+      this.afterResult();
+      return;
+    }
+    var idx = +arg;
+    if (idx !== 0 && idx !== 1) idx = 0;
+    var traitId = offer.options[idx] || offer.options[0];
+    GS.Army.applyDoctrine(this.army, offer.id, traitId);
+    list.shift();
+    if (GS.audio) GS.audio.promote();
+    this.ui.toast(GS.t("toastRank", GS.loc(offer), this._traitLabel(traitId)), "ok");
+    this.autosave(GS.t("slotRank"));
+    if (list.length) {
+      this.screens.rank(list[0]);
+      return;
+    }
+    this.afterResult();
+  };
+
+  Game.prototype._traitLabel = function (id) {
+    if (!GS.TRAITS) return id;
+    for (var i = 0; i < GS.TRAITS.length; i++) if (GS.TRAITS[i].id === id) return GS.loc(GS.TRAITS[i]);
+    return id;
   };
 
   Game.prototype.retryIsland = function () {
