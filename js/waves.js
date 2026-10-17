@@ -98,6 +98,85 @@
     return null;
   }
 
+  function battleSeed(island) {
+    return ((island && island.seed) || 0) ^ 0x9e3779b9;
+  }
+
+  var ROLE_ORDER = ["jarl", "sapper", "shaman", "berserk", "brute", "shield", "thrower", "hound", "raider"];
+
+  function tally(list, into) {
+    if (!list) return;
+    for (var i = 0; i < list.length; i++) into[list[i]] = (into[list[i]] || 0) + 1;
+  }
+
+  function blurb(wave) {
+    if (!wave) return "";
+    var counts = {};
+    tally(wave.units, counts);
+    tally(wave.extraUnits, counts);
+    var parts = [];
+    for (var i = 0; i < ROLE_ORDER.length; i++) {
+      var n = counts[ROLE_ORDER[i]];
+      if (!n) continue;
+      var role = GS.ROLES && GS.ROLES[ROLE_ORDER[i]];
+      parts.push((role ? role.ch : "?") + n);
+    }
+    var dir = GS.DIRS && GS.DIRS[wave.dir];
+    var head = dir ? (GS.loc ? GS.loc(dir) : dir.name) : "";
+    if (wave.extraDir != null && GS.DIRS && GS.DIRS[wave.extraDir]) {
+      head += "+" + (GS.loc ? GS.loc(GS.DIRS[wave.extraDir]) : GS.DIRS[wave.extraDir].name);
+    }
+    if (wave.sneak) head = (GS.t ? GS.t("sneakMark") : "*") + head;
+    return (head ? head + " " : "") + parts.join(" ");
+  }
+
+  function summarize(waves) {
+    var roles = {};
+    var total = 0;
+    var splits = 0;
+    var lines = [];
+    waves = waves || [];
+    for (var i = 0; i < waves.length; i++) {
+      var w = waves[i];
+      tally(w.units, roles);
+      tally(w.extraUnits, roles);
+      total += (w.units ? w.units.length : 0) + (w.extraUnits ? w.extraUnits.length : 0);
+      if (w.extraDir != null) splits++;
+      lines.push(blurb(w));
+    }
+    return { waves: waves.length, total: total, roles: roles, splits: splits, lines: lines };
+  }
+
+  function forecast(island, mul, omenId) {
+    var rng = GS.rng(battleSeed(island));
+    var waves = makeWaves(island, rng, (island && island.difficulty) || 1, { mul: mul == null ? 1 : mul });
+    if (omenId === "hightide") {
+      var dirs = island.landingDirs && island.landingDirs.length ? island.landingDirs : [2];
+      waves.push({
+        id: waves.length,
+        t: 9.5,
+        dir: dirs[waves.length % dirs.length],
+        units: ["raider", "raider", "hound", "raider"],
+        launched: false,
+        extraDir: null,
+        extraUnits: null,
+        sneak: true,
+      });
+    }
+    var sum = summarize(waves);
+    sum.advice = advice(sum);
+    return sum;
+  }
+
+  function advice(sum) {
+    var r = (sum && sum.roles) || {};
+    if ((r.sapper || 0) >= 3) return "adviceStakes";
+    if ((r.jarl || 0) > 0) return "adviceJarl";
+    if ((r.thrower || 0) + (r.shaman || 0) >= 6) return "adviceWatch";
+    if ((r.brute || 0) + (r.berserk || 0) >= 4) return "adviceShields";
+    return "adviceBalanced";
+  }
+
   GS.Waves = {
     make: makeWaves,
     tickLaunch: tickLaunch,
@@ -105,6 +184,11 @@
     launchedCount: launchedCount,
     nextPending: nextPending,
     rosterFor: rosterFor,
+    battleSeed: battleSeed,
+    blurb: blurb,
+    summarize: summarize,
+    forecast: forecast,
+    advice: advice,
   };
 
   // backward-compatible alias used by tests / old sim

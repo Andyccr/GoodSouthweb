@@ -160,7 +160,20 @@
     this.show(GS.I18N.helpHtml());
   };
 
-  Screens.prototype.preview = function (island, army) {
+  Screens.prototype._forecastBlock = function (island, campaign) {
+    if (!GS.Waves || !GS.Waves.forecast) return "";
+    var mul = campaign && campaign.threatMul != null ? campaign.threatMul : 1;
+    var sum = GS.Waves.forecast(island, mul, island.omen);
+    var lines = (sum.lines || []).map(function (line, i) {
+      return "<li><span class=\"hint\">" + (i + 1) + "</span> " + GS.util.escapeHtml(line) + "</li>";
+    }).join("");
+    return "<h3>" + GS.t("forecastHead") + "</h3>" +
+      "<p>" + GS.t("forecastMeta", sum.waves, sum.total) + "</p>" +
+      "<ul class=\"forecast\">" + lines + "</ul>" +
+      "<p class=\"hint\">" + GS.t(sum.advice) + "</p>";
+  };
+
+  Screens.prototype.preview = function (island, army, campaign) {
     var landings = GS.joinList(island.landingDirs.map(function (d) { return GS.loc(GS.DIRS[d]); }));
     var om = island.omen && GS.Meta ? GS.Meta.omen(island.omen) : null;
     var relic = island.relic && GS.Meta ? GS.Meta.relic(island.relic) : null;
@@ -176,6 +189,7 @@
       (om && om.id !== "calm" ? "<p class=\"omen\">" + GS.t("omenP", GS.loc(om), GS.loc(om, "desc")) + "</p>" : "") +
       (relic ? "<p class=\"relic-line\">" + GS.t("relicP", relic.ch, GS.loc(relic), GS.loc(relic, "desc")) + "</p>" : "") +
       "<p>" + GS.t("previewHomes") + GS.joinList(island.houses.map(function (h) { return GS.houseName ? GS.houseName(h, { island: island }) : GS.loc(h); })) + ".</p>" +
+      this._forecastBlock(island, campaign) +
       this._worksBlock(island, army) +
       '<div class="menu">' +
       '<button data-act="fight"><kbd>G</kbd> ' + GS.t("deployG") + "</button>" +
@@ -271,8 +285,8 @@
     var owned = (island && island.works) || {};
     var rows = GS.WORKS.map(function (w) {
       var have = !!owned[w.id];
-      return '<button data-act="buy-work" data-arg="' + w.id + '"' + (have ? " disabled" : "") + ">" +
-        "<b>" + GS.loc(w) + "</b>　" + (have ? GS.t("workOwned") : GS.t("workCost", w.cost)) +
+      return '<button data-act="' + (have ? "refund-work" : "buy-work") + '" data-arg="' + w.id + '">' +
+        "<b>" + GS.loc(w) + "</b>　" + (have ? GS.t("workRefund", w.cost) : GS.t("workCost", w.cost)) +
         '<span class="hint">' + GS.loc(w, "desc") + "</span></button>";
     }).join("");
     return '<h3>' + GS.t("worksHead") + "</h3><p class=\"hint\">" + GS.t("worksHint", army.coins) + "</p>" +
