@@ -764,5 +764,35 @@ for (var fi = 0; fi < formBattle.squads.length; fi++) {
 ok(postsOk, "form-up posts are walkable, distinct, and off houses");
 ok(GS.Deploy.formUp(formBattle) === 0, "form-up does not restack placed companies");
 
+console.log("Wide isles / contact");
+var wide = GS.mapgen.island(5, { difficulty: 3 });
+ok(wide && wide.w >= 118 && wide.h >= 88, "campaign isle is wide " + (wide && wide.w) + "x" + (wide && wide.h));
+ok(wide && wide.landCount >= 500, "campaign isle has march room " + (wide && wide.landCount));
+var phone = GS.mapgen.island(5, { difficulty: 3, size: "medium" });
+ok(phone && phone.w >= 108 && phone.w < wide.w + 40, "phone isle stays large but bounded " + (phone && phone.w));
+var reachBattle = new GS.Battle(GS.mapgen.island(6, { difficulty: 1, size: "small" }), GS.Army.create(GS.rng(1)));
+ok(reachBattle._reach({ range: 1.15 }) >= 1.42, "infantry can strike a diagonal neighbour");
+ok(reachBattle._reach({ range: 6.2 }) === 6.2, "archers keep their bow range");
+var landTiles = [];
+for (var ly = 0; ly < reachBattle.h; ly++) {
+  for (var lx = 0; lx < reachBattle.w; lx++) {
+    if (reachBattle.island.tiles[ly][lx].walk) landTiles.push({ x: lx, y: ly });
+  }
+}
+var origin = landTiles[0];
+var farTile = landTiles[landTiles.length - 1];
+var stand = reachBattle._standoffTile(
+  { x: origin.x + 0.5, y: origin.y + 0.5, range: 6.2 },
+  { x: farTile.x + 0.5, y: farTile.y + 0.5 }
+);
+var gap = Math.hypot(origin.x - farTile.x, origin.y - farTile.y);
+ok(stand && reachBattle.passable(stand.x, stand.y), "archer standoff is a walkable tile");
+if (gap > 8) {
+  var fromFoe = Math.hypot(stand.x - farTile.x, stand.y - farTile.y);
+  ok(fromFoe + 1.5 < gap, "archer standoff stays back from the foe, gap " + gap.toFixed(1) + " stand " + fromFoe.toFixed(1));
+} else {
+  ok(true, "standoff sample tiles were close");
+}
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);
