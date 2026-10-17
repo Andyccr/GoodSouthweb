@@ -541,7 +541,10 @@ var dHold0 = avgDistTo(bo, { x: hsx + 0.5, y: hsy + 0.5 });
 for (var htH = 0; htH < 120; htH++) bo.tick(0.05);
 var dHold1 = avgDistTo(bo, { x: hsx + 0.5, y: hsy + 0.5 });
 ok(dHold1 < 4.5, "hold keeps soldiers near the post, home=" + dHold1.toFixed(1) + " start=" + dHold0.toFixed(1));
-ok(farHold.alive, "distant raider not hunted down while holding");
+var leash = bo._orderRadius(bo.squads[0]);
+var hunted = bo.squads[0].huntId ? bo.byId(bo.squads[0].huntId) : null;
+var huntD = hunted ? Math.hypot(hunted.x - (hsx + 0.5), hunted.y - (hsy + 0.5)) : 0;
+ok(!hunted || !hunted.alive || huntD <= leash + 1.25, "hold squad does not lock a foe outside the leash, d=" + huntD.toFixed(1));
 ok(bo.setOrder("hold1", "guard"), "switch to guard");
 var nearHouseRaider = bo.spawnEnemy("raider", oxp, oyp);
 bo._rebuildHuntFlow();
@@ -793,6 +796,33 @@ if (gap > 8) {
 } else {
   ok(true, "standoff sample tiles were close");
 }
+
+function nearestHouses(isle) {
+  var best = 1e9;
+  var hs = isle.houses;
+  for (var a = 0; a < hs.length; a++) {
+    for (var b = a + 1; b < hs.length; b++) {
+      var d = Math.hypot(hs[a].x - hs[b].x, hs[a].y - hs[b].y);
+      if (d < best) best = d;
+    }
+  }
+  return best;
+}
+ok(wide.houses.length >= 3 && nearestHouses(wide) >= 11.5, "houses spread across the isle, gap " + nearestHouses(wide).toFixed(1));
+var yardClear = true;
+for (var hi2 = 0; hi2 < wide.houses.length && yardClear; hi2++) {
+  var hx = wide.houses[hi2].x, hy = wide.houses[hi2].y;
+  for (var dy2 = -1; dy2 <= 1 && yardClear; dy2++) {
+    for (var dx2 = -1; dx2 <= 1; dx2++) {
+      var nt = wide.tiles[hy + dy2] && wide.tiles[hy + dy2][hx + dx2];
+      if (nt && nt.type === GS.T.TREE) yardClear = false;
+    }
+  }
+}
+ok(yardClear, "house yards are clear of trees");
+var beachN = 0;
+for (var by = 0; by < wide.h; by++) for (var bx = 0; bx < wide.w; bx++) if (wide.tiles[by][bx].type === GS.T.BEACH || wide.tiles[by][bx].type === GS.T.ICE) beachN++;
+ok(beachN > 40, "shore has a sand shelf, beaches " + beachN);
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

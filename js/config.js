@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "3.0.2",
+    version: "3.0.3",
     saveVersion: 4,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -45,7 +45,7 @@
       minLandAbs: 520,
       houseBase: 4,
       housePerDifficulty: 0.9,
-      houseSpacing: 26,
+      houseSpacing: 12,
       sizes: {
         small: { minW: 88, maxW: 104, minH: 66, maxH: 78 },
         medium: { minW: 112, maxW: 132, minH: 84, maxH: 100 },

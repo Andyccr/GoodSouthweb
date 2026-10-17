@@ -258,6 +258,27 @@
     this.cell(gx, gy, dir.ch, highlight ? C.LCYAN : C.YELLOW, highlight ? "#003344" : "#3a2a00");
   };
 
+  Renderer.prototype._orderRing = function (tx, ty, radius, color, alpha) {
+    if (!radius || radius < 1) return;
+    var ctx = this.ctx;
+    var steps = Math.max(16, (radius * 5) | 0);
+    var i, a, p;
+    ctx.save();
+    ctx.globalAlpha = alpha == null ? 0.45 : alpha;
+    ctx.strokeStyle = this.tint(color || "#55ffff");
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    for (i = 0; i <= steps; i++) {
+      a = (i / steps) * Math.PI * 2;
+      p = this._tilePx(tx + 0.5 + Math.cos(a) * radius, ty + 0.5 + Math.sin(a) * radius);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  };
+
   Renderer.prototype._orderMark = function (tx, ty, order, highlight) {
     if (!order || order === "hunt") return;
     var mark = (GS.Battle && GS.Battle.orderMark) ? GS.Battle.orderMark(order) : (order === "guard" ? "⌂" : "□");
@@ -417,10 +438,14 @@
         }
       }
       if (pulseAll || pulseDirs) {
+        var shownLanding = {};
         for (i = 0; i < island.landings.length; i++) {
           var L = island.landings[i];
           if (L.x < x0 || L.y < y0 || L.x >= x1 || L.y >= y1) continue;
           if (pulseDirs && !pulseDirs[L.dir]) continue;
+          var lkey = ((L.x / 4) | 0) + "," + ((L.y / 4) | 0) + ":" + L.dir;
+          if (shownLanding[lkey]) continue;
+          shownLanding[lkey] = 1;
           var bg = pulseAll ? "#3a2a00" : "#4a1800";
           var lch = island.tiles[L.y][L.x].ch;
           var lfg = island.tiles[L.y][L.x].fg;
@@ -475,6 +500,13 @@
       if (!placedSq.placed) continue;
       this._facingArrow(placedSq.tx, placedSq.ty, placedSq.facing, placedSq.id === battle.selected);
       this._orderMark(placedSq.tx, placedSq.ty, placedSq.order, placedSq.id === battle.selected);
+      if (placedSq.order === "hold" && battle._orderRadius) {
+        this._orderRing(
+          placedSq.tx, placedSq.ty, battle._orderRadius(placedSq),
+          placedSq.id === battle.selected ? "#55ffff" : "#1a5555",
+          placedSq.id === battle.selected ? 0.75 : 0.28
+        );
+      }
     }
 
     for (i = 0; i < battle.projectiles.length; i++) {
