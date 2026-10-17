@@ -414,7 +414,7 @@
       "toggle-sheet",
       "save-menu", "load-menu", "save-slot", "load-slot", "quicksave", "quickload",
       "resume-or-title", "confirm-new-campaign", "warhorn", "voyage-pick",
-      "spawn-shaman", "spawn-hound",
+      "spawn-shaman", "spawn-hound", "cycle-order", "form-up", "lang", "settings",
     ];
     acts.forEach(function (a) {
       self.ui.on(a, function (arg) { self.dispatch(a, arg); });
@@ -524,6 +524,8 @@
         return;
       case "launch-campaign": return this._startCampaignNow();
       case "buy-work": return this.buyWork(arg);
+      case "refund-work": return this.refundWork(arg);
+      case "form-up": return this.formUp();
       case "rank-pick": return this._pickRank(arg);
       case "settings":
         this.menuOpen = true;
@@ -1116,6 +1118,38 @@
       this.autosave(GS.t("slotWork"));
     }
     this.screens.preview(this.island, this.army, this.campaign);
+  };
+
+  Game.prototype.refundWork = function (id) {
+    if (!this.campaign || !this.island) return;
+    var node = GS.Campaign.getNode(this.campaign, this.campaign.current);
+    var res = GS.Meta.refundWork(this.army, node, id);
+    if (!res.ok) {
+      this.ui.toast(GS.t("toastNoRefund"), "warn");
+    } else {
+      this.island.works = node.works;
+      if (GS.audio) GS.audio.coin();
+      this.ui.toast(GS.t("toastRefund", GS.loc(res.work), res.work.cost), "ok");
+    }
+    this.screens.preview(this.island, this.army, this.campaign);
+  };
+
+  Game.prototype.formUp = function () {
+    if (!this.battle || this.battle.phase !== "deploy" || !GS.Deploy) return;
+    var n = GS.Deploy.formUp(this.battle);
+    if (!n) {
+      this.ui.toast(GS.t("toastFormNone"), "warn");
+      return;
+    }
+    var placed = this.battle.livingSquads().filter(function (s) { return s.placed; });
+    var anchor = placed[0];
+    if (anchor && this.renderer) {
+      this.renderer.centerOn(anchor.tx, anchor.ty, this.battle.w, this.battle.h);
+      this.renderer._followLock = 40;
+    }
+    if (GS.audio) GS.audio.place();
+    this.ui.toast(GS.t("toastFormed", n), "ok");
+    this.hudDirty = true;
   };
 
   Game.prototype._pickRank = function (arg) {

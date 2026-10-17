@@ -181,8 +181,8 @@
         var done = ui.chip(GS.t("waves"), waveDone + "/" + b.waves.length);
         if (!nw || b.phase === "deploy") return done;
         var eta = Math.max(0, nw.t - b.t);
-        var dir = GS.DIRS[nw.dir] || GS.DIRS[2];
-        return done + ui.chip(GS.t("nextWave"), GS.loc(dir) + "\u00a0" + dir.ch + " " + eta.toFixed(0) + "s", eta < 6 ? "warn" : "hi");
+        var brief = GS.Waves.blurb ? GS.Waves.blurb(nw) : "";
+        return done + ui.chip(GS.t("nextWave"), brief + " " + eta.toFixed(0) + "s", eta < 6 ? "warn" : "hi");
       }()) : ui.chip(GS.t("mode"), GS.t("sandboxMode"), "cyan")) +
       (game.compact ? "" : ui.chip("t", b.t.toFixed(1))));
 
@@ -200,6 +200,7 @@
     var items = [];
     if (b.phase === "deploy") {
       items.push({ act: "start", label: GS.t("startFight"), kbd: "G", primary: true });
+      if (game.mode === "battle") items.push({ act: "form-up", label: GS.t("formUp"), kbd: "V" });
       items.push({ act: "rotate", label: GS.t("rotate"), kbd: "R" });
       items.push({ act: "cycle-order", label: GS.t("orderCycle"), kbd: "O" });
       items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: GS.t("zoomIn") });
@@ -263,6 +264,7 @@
       cmds.push({ act: "zoom", arg: "-1", label: "−" });
       cmds.push({ act: "center-cam", label: GS.t("center") });
       cmds.push({ act: "cycle-order", label: GS.t("orderCycle") });
+      if (b.phase === "deploy" && game.mode === "battle") cmds.push({ act: "form-up", label: GS.t("formUp") });
       if (b.phase === "fight") {
         cmds.push({ act: "spd", arg: "1", label: "1×", active: b.speed === 1 });
         cmds.push({ act: "spd", arg: "2", label: "2×", active: b.speed === 2 });
@@ -282,8 +284,11 @@
       { act: "toggle-sheet", arg: "left", label: GS.t("intel") },
       { act: "toggle-sheet", arg: "right", label: GS.t("troops") },
       b.phase === "deploy"
-        ? { act: "start", label: GS.t("startFight") }
+        ? { act: "form-up", label: GS.t("formUp") }
         : { act: "pause", label: b.speed ? GS.t("pause") : GS.t("resume") },
+      b.phase === "deploy"
+        ? { act: "start", label: GS.t("startFight") }
+        : { act: "warhorn", label: GS.t("warhorn") },
       { act: "rotate", label: GS.t("rotate") },
       { act: "cycle-order", label: GS.t("orderCycle") },
       { act: "pause-menu", label: GS.t("menu") },

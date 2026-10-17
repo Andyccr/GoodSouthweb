@@ -410,7 +410,7 @@
       rankTitle: "炉边兵法",
       rankBody: "{0} 升了级。为这支兵团选一门兵法，下一战生效。",
       toastRank: "{0} 领悟「{1}」",
-      coachPlace: "向导：把兵团点到陆地上。弓手放高地，盾兵朝海滩。",
+      coachPlace: "向导：点空地，或按 V 列阵。弓手放高地，盾兵朝海滩。",
       coachFace: "向导：右键或 R 让枪兵正面朝向登陆方向，然后按 G。",
       coachFight: "向导：近战会自己追击，弓手驻守。O 切换号令。",
       coachHorn: "向导：长船靠岸时按 U。号角会让整波北蛮变慢。",
@@ -422,6 +422,20 @@
       ledgerRetreats: "撤退 {0}　失岛 {1}",
       slotWork: "工事",
       slotRank: "兵法",
+      forecastHead: "来袭",
+      forecastMeta: "{0} 波 · {1} 人",
+      sneakMark: "偷 ",
+      adviceStakes: "破门手很多。滩头拒马，再用枪兵正面拦住。",
+      adviceJarl: "领主会压阵。把盾兵留在最后一波的方向。",
+      adviceWatch: "投斧和萨满很多。弓手占高地，能添薪就添。",
+      adviceShields: "蛮力士和狂战士多。盾兵卡口，别让他们贴上弓手。",
+      adviceBalanced: "波次混杂。盾兵对滩，弓手占丘。",
+      workRefund: "已筑 · 退还 {0}",
+      toastRefund: "退还 {0}，+{1} 钱币",
+      toastNoRefund: "这道工事还没筑。",
+      formUp: "列阵",
+      toastFormed: "已列阵 {0} 队，仍可改站位。",
+      toastFormNone: "兵团都已就位。",
     },
     en: {
       langName: "English",
@@ -764,7 +778,7 @@
       rankTitle: "Doctrine by the hearth",
       rankBody: "{0} has gained a level. Choose a doctrine. It takes effect next fight.",
       toastRank: "{0} learns {1}",
-      coachPlace: "Guide: place companies on land. Bows on the hill, shields toward the beach.",
+      coachPlace: "Guide: tap ground, or press V to form up. Bows on the hill, shields toward the beach.",
       coachFace: "Guide: right-click or R so the pikes face the landing, then press G.",
       coachFight: "Guide: melee hunts, bows hold. O cycles orders.",
       coachHorn: "Guide: press U as the longships beach. The horn slows the whole wave.",
@@ -776,6 +790,20 @@
       ledgerRetreats: "Retreats {0}  isles lost {1}",
       slotWork: "works",
       slotRank: "doctrine",
+      forecastHead: "Incoming",
+      forecastMeta: "{0} waves · {1} northmen",
+      sneakMark: "sneak ",
+      adviceStakes: "Many sappers. Stake the beach and meet them with pikes.",
+      adviceJarl: "A jarl is in the last wave. Keep shields facing that landing.",
+      adviceWatch: "Many axe-throwers and shamans. Hills for the bows; feed the beacons.",
+      adviceShields: "Brutes and berserks. Hold the choke with shields so they never reach the bows.",
+      adviceBalanced: "A mixed landing. Shields on the beach, bows on the hill.",
+      workRefund: "built · refund {0}",
+      toastRefund: "Refunded {0}, +{1} coin",
+      toastNoRefund: "That work is not built.",
+      formUp: "Form up",
+      toastFormed: "Formed {0}. You can still move them.",
+      toastFormNone: "Every company is already placed.",
     },
   };
 
@@ -798,6 +826,7 @@
         "<li>Struck houses send <strong>militia</strong>. South-lamp adds one more.</li>" +
         "<li>Each isle has an <strong>omen</strong> (this fight) and a <strong>relic</strong> (kept if you hold). Before sailing, make a pact: length, threat, and a guide on the first isle. Before landing, spend coin on works. A promotion lets you choose a doctrine.</li>" +
         "<li>Higher threats include <strong>sappers π</strong>. They ignore soldiers and break doors. Meet them with pikes, or stake the beach.</li>" +
+        "<li>The landing brief lists <strong>every wave</strong>. Works can be refunded before the fight. <b>V</b> forms the companies toward the beaches; you can still move them.</li>" +
         "<li>Click a friendly to select; click the same company again to turn. Open ground places/re-forms.</li>" +
         "<li><b>LMB click</b> place/select, <b>LMB drag</b> pans. <b>WASD</b> hold-to-pan; arrows / HJKL move the cursor. Wheel zooms. Map edges nudge the camera.</li>" +
         "<li>Northmen always arrive by longship from deep water, then beach.</li>" +
@@ -842,6 +871,7 @@
       "<li>屋舍遇袭时会冲出<strong>乡勇</strong>拖延敌人。持南灯则多一人。</li>" +
         "<li>每座岛有<strong>征兆</strong>（本场）与<strong>圣物</strong>（守住后永久）。出航前可立约：航程、威胁、第一岛向导。登岛前能花钱筑工事。队长升级后可选一门兵法。</li>" +
         "<li>高威胁会出现<strong>破门手 π</strong>：不追兵，直扑屋舍。用枪兵正面拦住，或在滩头筑拒马。</li>" +
+        "<li>登岛简报会列出<strong>每一波的方向和兵种</strong>。工事在开战前可以退款。<b>V</b> 按来袭方向自动列阵，之后仍可改站位。</li>" +
       "<li>点击己方士兵选中该兵团；再点同一兵团会旋转朝向。点空地才布置/换阵。</li>" +
       "<li><b>左键点</b>就位/选中，<b>左键拖</b>平移镜头。<b>WASD</b> 持续平移；方向键 / HJKL 移光标。滚轮缩放。画布边缘会慢速推镜。</li>" +
       "<li>北蛮一律乘长船从深海驶向海滩，靠岸后才下船。</li>" +
