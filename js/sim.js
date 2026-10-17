@@ -72,7 +72,7 @@
     this.sandbox = !!opts.sandbox;
     this.w = island.w;
     this.h = island.h;
-    this.rng = GS.rng(opts.battleSeed || (island.seed ^ 0x9e3779b9));
+    this.rng = GS.rng(opts.battleSeed || (GS.Waves.battleSeed ? GS.Waves.battleSeed(island) : ((island.seed || 0) ^ 0x9e3779b9)));
     this.entities = [];
     this.squads = [];
     this.projectiles = [];

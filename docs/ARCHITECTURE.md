@@ -50,7 +50,7 @@
 
 `voyage` 只在胜利后由 `GS.Meta.rollVoyage` 决定是否进入；选项经 `voyage-pick` 交给 `GS.Meta.applyVoyage`，再回海图。空事件不得进入该模式。
 
-`setup` 是新战役立约（航程 / 威胁 / 向导），确认后才 `Campaign.create(seed, null, draft)`。`rank` 在战后、航程之前消化 `army.pendingRanks`。工事写在岛节点的 `works` 上，`generateIsland` 把同一对象交给战场；`Meta.stampHouses` / `foldWorks` 在 `prepareBattle` 之后生效。威胁倍率只进 `Waves.make(..., { mul })` 和 `spawnEnemy`，不改地图种子。
+`setup` 是新战役立约（航程 / 威胁 / 向导），确认后才 `Campaign.create(seed, null, draft)`。`rank` 在战后、航程之前消化 `army.pendingRanks`。工事写在岛节点的 `works` 上，`generateIsland` 把同一对象交给战场；`Meta.stampHouses` / `foldWorks` 在 `prepareBattle` 之后生效。威胁倍率只进 `Waves.make(..., { mul })` 和 `spawnEnemy`，不改地图种子。`Waves.forecast` 用和战场相同的 `battleSeed`，所以简报上的波次就是开战时的波次。`Deploy.formUp` 只在布置阶段填未就位的兵团。
 
 ## 事件总线 `GS.bus`
 

@@ -191,6 +191,16 @@
     return { ok: true, work: w };
   }
 
+  function refundWork(army, node, id) {
+    var w = workById(id);
+    if (!w || !army || !node || !node.works || !node.works[id]) return { ok: false, reason: "none" };
+    delete node.works[id];
+    army.coins += w.cost;
+    if (army.stats && army.stats.works > 0) army.stats.works--;
+    if (GS.bus && GS.EV) GS.bus.emit(GS.EV.ARMY_CHANGED, { army: army, reason: "refund", work: id });
+    return { ok: true, work: w };
+  }
+
   function foldWorks(battle) {
     if (!battle || !battle.works || !battle.mods || battle._worksFolded) return battle;
     battle._worksFolded = true;
@@ -382,6 +392,7 @@
     lengthCount: lengthCount,
     threatOf: threatOf,
     buyWork: buyWork,
+    refundWork: refundWork,
     foldWorks: foldWorks,
     stampHouses: stampHouses,
     coachLine: coachLine,
