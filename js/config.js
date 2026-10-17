@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "2.3.0",
+    version: "3.0.0",
     saveVersion: 4,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -11,6 +11,12 @@
 
     campaign: {
       islandCount: 16,
+      lengths: { short: 8, south: 16, far: 24 },
+      threats: {
+        hold: { id: "hold", mul: 0.82, coin: 1, name: "守势" },
+        war: { id: "war", mul: 1, coin: 1, name: "正战" },
+        blood: { id: "blood", mul: 1.22, coin: 1.25, name: "血潮" },
+      },
       startCoins: 12,
       recruitHealOnVictory: "full",
       coinPerHouse: 1,
@@ -107,8 +113,8 @@
     },
 
     ui: {
-      palettes: ["df", "green", "amber"],
-      paletteNames: { df: "经典 DF", green: "绿磷", amber: "琥珀" },
+      palettes: ["df", "green", "amber", "ink"],
+      paletteNames: { df: "经典 DF", green: "绿磷", amber: "琥珀", ink: "素纸" },
     },
   };
 

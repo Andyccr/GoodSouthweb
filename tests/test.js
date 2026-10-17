@@ -54,7 +54,7 @@ ok(hit === 5, "event bus accumulates");
 
 console.log("Config / Util");
 ok(GS.CONFIG.saveVersion >= 4, "save schema v4+");
-ok(GS.CONFIG.version.indexOf("2.") === 0, "game version 2.x");
+ok(GS.CONFIG.version.indexOf("3.") === 0, "game version 3.x");
 ok(GS.CONFIG.campaign.islandCount === 16 && GS.CONFIG.campaign.startCoins === 12, "campaign v2 scale");
 ok(GS.CONFIG.hire.skirmisher && GS.CONFIG.hire.skirmisher.cost === 7, "hire table includes skirmisher");
 ok(GS.CONFIG.battle.zoomMobile >= 16, "mobile zoom default");
@@ -201,7 +201,7 @@ ok(GS.Waves.nextPending(waves) === waves[0], "next pending is first unlaunched w
 waves[0].launched = true;
 ok(GS.Waves.nextPending(waves) === waves[1], "next pending skips launched waves");
 ok(GS.t("waveSplit", 1, 3, "南", "北").indexOf("北") >= 0, "waveSplit fills the fourth landing");
-ok(GS.CONFIG.version.indexOf("2.3") === 0, "orders version 2.3");
+ok(GS.CONFIG.version.indexOf("3.0") === 0, "release version 3.0");
 
 console.log("Mapgen islands");
 var fps = {};
@@ -561,7 +561,7 @@ ok(restOrd.squads[0].order === "guard", "deserialize order");
 
 bo.setOrder("hold1", "hunt");
 ok(bo.squads[0].order === "hunt", "can return to hunt");
-ok(GS.CONFIG.version.indexOf("2.3") === 0, "orders version 2.3");
+ok(GS.CONFIG.version.indexOf("3.0") === 0, "release version 3.0");
 ok(GS.CONFIG.battle.orders.holdMelee >= 4, "hold radius knobs");
 
 console.log("Battle serialize");
@@ -666,6 +666,60 @@ GS.Army.grantRelic(mig.army, "eagle");
 ok(GS.Save.writeSlot("2", mig.army, mig.campaign, { label: "v4" }), "write v4 slot");
 var round = GS.Save.readSlot("2");
 ok(round && round.v === 4 && round.army.relics.indexOf("eagle") >= 0, "v4 relic roundtrip");
+
+console.log("Release pact / works / ranks");
+ok(GS.ROLES.sapper && GS.Waves.rosterFor(4).indexOf("sapper") >= 0, "sapper joins mid-threat roster");
+ok(GS.Waves.rosterFor(3).indexOf("sapper") < 0, "sapper stays off low-threat roster");
+var waveIsle = GS.mapgen.island(7, { difficulty: 4, size: "small" });
+function waveBodies(mul) {
+  var ws = GS.Waves.make(waveIsle, GS.rng(3), 4, { mul: mul });
+  var n = 0;
+  for (var wi = 0; wi < ws.length; wi++) n += ws[wi].units.length + (ws[wi].extraUnits ? ws[wi].extraUnits.length : 0);
+  return n;
+}
+ok(waveBodies(1.8) > waveBodies(0.55), "threat multiplier scales raiders");
+
+var shortC = GS.Campaign.create(99, null, { length: "short", threat: "hold", guide: true });
+ok(shortC.islands.length === 8 && shortC.threat === "hold" && shortC.threatMul < 1 && shortC.guide === true, "short hold pact");
+var farC = GS.Campaign.create(99, null, { length: "far", threat: "blood", guide: false });
+ok(farC.islands.length === 24 && farC.threat === "blood" && farC.threatMul > 1 && farC.coinMul > 1 && farC.guide === false, "far blood pact " + farC.islands.length);
+
+var fortNode = farC.islands[1];
+var fortArmy = GS.Army.create(GS.rng(3));
+fortArmy.coins = 2;
+ok(GS.Meta.buyWork(fortArmy, fortNode, "timber").ok && fortNode.works.timber && fortArmy.coins === 0, "buy timber");
+ok(GS.Meta.buyWork(fortArmy, fortNode, "stakes").reason === "coins", "works respect coin");
+ok(GS.Meta.buyWork(fortArmy, fortNode, "timber").reason === "owned", "works are once per isle");
+ok(fortArmy.stats.works === 1, "ledger counts works");
+
+var fortIsle = GS.mapgen.island(11, { difficulty: 1, size: "small", houses: 2 });
+var beforeHp = fortIsle.houses[0].maxHp;
+fortIsle.works = { timber: true, levy: true, stakes: true, watch: true };
+var fortBattle = new GS.Battle(fortIsle, GS.Army.create(GS.rng(4)), { threatMul: 1.22, coinMul: 1.25, guide: true });
+ok(fortBattle.houses[0].maxHp === Math.round(beforeHp * 1.4), "timber raises house HP " + fortBattle.houses[0].maxHp + " vs " + beforeHp);
+ok(fortBattle.mods.militiaBonus >= 1 && fortBattle.works.stakes, "levy and stakes reach the battle");
+ok(fortBattle.threatMul === 1.22 && fortBattle.guide, "battle stores pact");
+ok(GS.Meta.coachLine(fortBattle) === "coachPlace", "guide coaches unplaced companies");
+
+var rankArmy = GS.Army.create(GS.rng(8));
+var cap = null;
+for (var ci = 0; ci < rankArmy.commanders.length; ci++) if (rankArmy.commanders[ci].cls === "archer") cap = rankArmy.commanders[ci];
+cap.trait = "eagle";
+var offer = GS.Army.rankOffer(GS.rng(5), cap);
+ok(offer && offer.options.length === 2 && offer.options.indexOf("eagle") < 0 && offer.options.indexOf("wall") < 0, "rank offer is two fitting doctrines");
+ok(GS.Army.applyDoctrine(rankArmy, cap.id, offer.options[0]) && cap.doctrine === offer.options[0], "doctrine sticks");
+ok(GS.Army.applyDoctrine(rankArmy, cap.id, "wall") === false, "unfitting doctrine rejected");
+
+GS.Army.noteBattle(rankArmy, { kind: "victory", slain: 9, housesLeft: 3, housesTotal: 4, horns: 1 });
+ok(rankArmy.stats.slain === 9 && rankArmy.stats.housesSaved === 3 && rankArmy.stats.housesLost === 1 && rankArmy.stats.horns === 1, "ledger records the fight");
+
+GS.Save.saveSettings({ palette: "ink", muted: false, lang: "zh", volume: 0.4, shake: false, reduceMotion: true });
+var feel = GS.Save.loadSettings();
+ok(feel.palette === "ink" && feel.volume === 0.4 && feel.shake === false && feel.reduceMotion === true, "feel settings persist");
+ok(GS.t("setupTitle") === "立约出航", "setup copy is localized");
+GS.setLang("en");
+ok(GS.t("threatBlood") === "Blood tide" && GS.loc(GS.ROLES.sapper) === "Sapper", "English pact and sapper");
+GS.setLang("zh");
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

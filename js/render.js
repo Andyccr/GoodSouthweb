@@ -40,6 +40,7 @@
     if (this.palette === "df") return hex;
     if (this.palette === "green") return this._mix(hex, "#55ff55", 0.55);
     if (this.palette === "amber") return this._mix(hex, "#ffb000", 0.55);
+    if (this.palette === "ink") return this._mix(hex, "#f3efe2", 0.62);
     return hex;
   };
 
@@ -374,8 +375,8 @@
     if (opts.followCursor) {
       this.followTile(battle.cursor.x, battle.cursor.y, island.w, island.h);
     }
-    this.time += this.lowFx ? 0.032 : 0.016;
-    if (!this.lowFx) this.shake *= 0.85;
+    this.time += (this.lowFx || this.reduceMotion) ? 0.032 : 0.016;
+    if (!this.lowFx && this.allowShake !== false && !this.reduceMotion) this.shake *= 0.85;
     else this.shake = 0;
     var t = this.time;
     var x, y, i;
@@ -392,7 +393,7 @@
     var y1 = Math.min(island.h, ((this.camY + this.cssH / this.th) | 0) + 2);
 
     var wc = this._waterCells;
-    if (!this.lowFx) {
+    if (!this.lowFx && !this.reduceMotion) {
       for (i = 0; i < wc.length; i += 3) {
         x = wc[i]; y = wc[i + 1];
         if (x < x0 || y < y0 || x >= x1 || y >= y1) continue;

@@ -6,13 +6,17 @@
     var roster = ["raider"];
     if (difficulty >= 2) roster.push("thrower");
     if (difficulty >= 3) roster.push("shield", "hound");
-    if (difficulty >= 4) roster.push("brute");
+    if (difficulty >= 4) roster.push("brute", "sapper");
     if (difficulty >= 5) roster.push("shaman");
     if (difficulty >= 6) roster.push("berserk");
     return roster;
   }
 
-  function makeWaves(island, rng, difficulty) {
+  function makeWaves(island, rng, difficulty, opts) {
+    opts = opts || {};
+    var mul = opts.mul != null ? opts.mul : 1;
+    if (mul < 0.55) mul = 0.55;
+    if (mul > 1.8) mul = 1.8;
     var dirs = island.landingDirs && island.landingDirs.length ? island.landingDirs.slice() : [2];
     var waves = [];
     var n = 3 + Math.min(5, difficulty);
@@ -23,7 +27,7 @@
     for (var i = 0; i < n; i++) {
       var dir = dirs[i % dirs.length];
       if (rng.chance(0.35)) dir = rng.pick(dirs);
-      var count = 5 + i * 2 + difficulty + rng.int(0, 3);
+      var count = Math.max(3, Math.round((5 + i * 2 + difficulty + rng.int(0, 3)) * mul));
       if (island.landCount > 400) count += 1 + ((island.landCount - 400) / 220) | 0;
       var units = [];
       for (var k = 0; k < count; k++) {
@@ -34,8 +38,10 @@
         }
         if (difficulty >= 5 && rng.chance(0.08)) role = "shaman";
         if (difficulty >= 3 && rng.chance(0.1)) role = "hound";
+        if (difficulty >= 4 && i > 0 && rng.chance(0.14)) role = "sapper";
         units.push(role);
       }
+      if (i >= 2 && difficulty >= 5 && units.length) units[units.length - 1] = "sapper";
       if (i === n - 1 && difficulty >= 7) units.push("jarl");
 
       var wave = {

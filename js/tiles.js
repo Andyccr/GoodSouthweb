@@ -206,6 +206,11 @@
       id: "hound", name: "猎犬", ch: "d", fg: C.BROWN, enemy: true,
       hp: 12, dmg: 5.5, range: 1.05, speed: 3.35, cd: 0.42, acc: 0.78,
     },
+    sapper: {
+      id: "sapper", name: "破门手", ch: "π", fg: C.RED, enemy: true,
+      hp: 28, dmg: 8, range: 1.05, speed: 1.75, cd: 0.72, acc: 0.7, sapper: true,
+      desc: "不追兵，直扑屋舍，破门极狠。用枪兵正面拦住。",
+    },
     militia: {
       id: "militia", name: "乡勇", ch: "☺", fg: C.BROWN, commander: "☺",
       hp: 12, dmg: 4.5, range: 1.05, speed: 2.1, cd: 0.55, acc: 0.68,

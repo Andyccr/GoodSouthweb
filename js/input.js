@@ -143,10 +143,31 @@
       return;
     }
 
+    if (game.mode === "setup") {
+      if (k === "1") game.dispatch("pact-length", "short");
+      if (k === "2") game.dispatch("pact-length", "south");
+      if (k === "3") game.dispatch("pact-length", "far");
+      if (k === "7") game.dispatch("pact-threat", "hold");
+      if (k === "8") game.dispatch("pact-threat", "war");
+      if (k === "9") game.dispatch("pact-threat", "blood");
+      if (k === "g" || k === "G") game.dispatch("pact-guide");
+      if (k === "Enter") game.dispatch("launch-campaign");
+      if (k === "Escape" || k === "q" || k === "Q") game.dispatch("title");
+      return;
+    }
+    if (game.mode === "rank") {
+      if (k === "1") game.dispatch("rank-pick", "0");
+      if (k === "2") game.dispatch("rank-pick", "1");
+      return;
+    }
     if (game.mode === "preview") {
       if (k === "g" || k === "G") game.dispatch("fight");
       if (k === "q" || k === "Q" || k === "Escape") game.dispatch("back-camp");
       if (k === "n" || k === "N") game.dispatch("hire");
+      if (k === "1") game.dispatch("buy-work", "timber");
+      if (k === "2") game.dispatch("buy-work", "stakes");
+      if (k === "3") game.dispatch("buy-work", "levy");
+      if (k === "4") game.dispatch("buy-work", "watch");
       return;
     }
     if (game.mode === "hire") {
