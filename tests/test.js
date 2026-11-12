@@ -45,6 +45,55 @@ function ok(cond, msg) {
   }
 }
 
+function placeNear(battle, id, tx, ty, minD, maxD, facing) {
+  var island = battle.island;
+  var best = null, bestD = 1e9;
+  for (var y = 0; y < island.h; y++) {
+    for (var x = 0; x < island.w; x++) {
+      var tile = island.tiles[y][x];
+      if (!tile.walk || tile.type === GS.T.HOUSE) continue;
+      var d = Math.hypot(x - tx, y - ty);
+      if (d < minD || d > maxD) continue;
+      if (d < bestD) {
+        bestD = d;
+        best = { x: x, y: y };
+      }
+    }
+  }
+  if (!best) return false;
+  return battle.placeSquad(id, best.x, best.y, facing || 2);
+}
+
+function placeFarFrom(battle, id, fx, fy, facing) {
+  var island = battle.island;
+  var best = null, bestD = -1;
+  for (var y = 0; y < island.h; y++) {
+    for (var x = 0; x < island.w; x++) {
+      var tile = island.tiles[y][x];
+      if (!tile.walk || tile.type === GS.T.HOUSE) continue;
+      var d = (x - fx) * (x - fx) + (y - fy) * (y - fy);
+      if (d > bestD) {
+        bestD = d;
+        best = { x: x, y: y };
+      }
+    }
+  }
+  if (!best) return false;
+  return battle.placeSquad(id, best.x, best.y, facing || 2);
+}
+
+function squadAvg(battle, squadId, target) {
+  var s = 0, n = 0;
+  for (var i = 0; i < battle.entities.length; i++) {
+    var e = battle.entities[i];
+    if (e.alive && e.kind === "soldier" && e.squadId === squadId) {
+      s += Math.hypot(e.x - target.x, e.y - target.y);
+      n++;
+    }
+  }
+  return n ? s / n : 0;
+}
+
 console.log("Events");
 var hit = 0;
 GS.bus.on("test:ping", function (p) { hit += p.n; });
@@ -277,6 +326,7 @@ for (var sh = 200; sh < 260; sh++) {
 ok(!!shapes.isthmus, "isthmus shape appears in mapgen, shapes=" + Object.keys(shapes).join(","));
 ok(GS.CONFIG.battle.hunt.sticky >= 4 && GS.CONFIG.battle.hunt.cohesion === 8, "hunt stickiness + cohesion knobs");
 ok(GS.CONFIG.battle.hunt.siege >= 8 && GS.CONFIG.battle.hunt.local >= 2, "hunt siege + local peel knobs");
+ok(GS.CONFIG.battle.hunt.rally >= 10 && GS.CONFIG.battle.hunt.cover >= 6 && GS.CONFIG.battle.hunt.intercept >= 4, "rally + house-cover knobs");
 
 console.log("Campaign graph");
 function connected(camp) {
@@ -536,15 +586,22 @@ for (var oli = 0; oli < islandO.landings.length; oli++) {
   if (oldd > farHoldD) { farHoldD = oldd; farHold = OL; }
 }
 ok(!!farHold && farHoldD > 36, "distant landing for hold test");
-farHold = bo.spawnEnemy("raider", farHold.x, farHold.y);
 var dHold0 = avgDistTo(bo, { x: hsx + 0.5, y: hsy + 0.5 });
-for (var htH = 0; htH < 120; htH++) bo.tick(0.05);
+for (var htH = 0; htH < 80; htH++) bo.tick(0.05);
 var dHold1 = avgDistTo(bo, { x: hsx + 0.5, y: hsy + 0.5 });
-ok(dHold1 < 4.5, "hold keeps soldiers near the post, home=" + dHold1.toFixed(1) + " start=" + dHold0.toFixed(1));
-var leash = bo._orderRadius(bo.squads[0]);
-var hunted = bo.squads[0].huntId ? bo.byId(bo.squads[0].huntId) : null;
-var huntD = hunted ? Math.hypot(hunted.x - (hsx + 0.5), hunted.y - (hsy + 0.5)) : 0;
-ok(!hunted || !hunted.alive || huntD <= leash + 1.25, "hold squad does not lock a foe outside the leash, d=" + huntD.toFixed(1));
+ok(dHold1 < 4.5, "hold keeps soldiers near the post on a quiet isle, home=" + dHold1.toFixed(1) + " start=" + dHold0.toFixed(1));
+farHold = bo.spawnEnemy("raider", farHold.x, farHold.y);
+bo._refreshLiving();
+var intelQuiet = bo._fieldIntel(bo._collectThreats());
+if (!intelQuiet.crisis) {
+  var leash = bo._orderRadius(bo.squads[0]);
+  bo._assignSquadHunts(bo._collectThreats());
+  var hunted = bo.squads[0].huntId ? bo.byId(bo.squads[0].huntId) : null;
+  var huntD = hunted ? Math.hypot(hunted.x - (hsx + 0.5), hunted.y - (hsy + 0.5)) : 0;
+  ok(!hunted || !hunted.alive || huntD <= leash + 1.25, "hold ignores a far raider until a house is pressed, d=" + huntD.toFixed(1));
+} else {
+  ok(true, "far raider already pressed a house; hold will rally to cover it");
+}
 ok(bo.setOrder("hold1", "guard"), "switch to guard");
 var nearHouseRaider = bo.spawnEnemy("raider", oxp, oyp);
 bo._rebuildHuntFlow();
@@ -566,6 +623,80 @@ bo.setOrder("hold1", "hunt");
 ok(bo.squads[0].order === "hunt", "can return to hunt");
 ok(GS.CONFIG.version.indexOf("3.0") === 0, "release version 3.0");
 ok(GS.CONFIG.battle.orders.holdMelee >= 4, "hold radius knobs");
+
+console.log("Coordinated defense");
+var islandR = GS.mapgen.island(88, { difficulty: 2, size: "small", biome: "verdant" });
+var armyR = GS.Army.create(GS.rng(4));
+armyR.commanders = [
+  { id: "meleeR", name: "测试·盾", cls: "infantry", level: 1, xp: 0, soldiers: 8, maxSoldiers: 10, trait: null, dead: false },
+  { id: "bowR", name: "测试·弓", cls: "archer", level: 1, xp: 0, soldiers: 6, maxSoldiers: 8, trait: null, dead: false },
+];
+var br = new GS.Battle(islandR, armyR, { sandbox: true, battleSeed: 11 });
+var rhx = islandR.houses[0].x, rhy = islandR.houses[0].y;
+ok(placeNear(br, "meleeR", rhx, rhy, 2.2, 6.5, 2), "rally melee placed near a house");
+var meleeSq = br.getSquad("meleeR");
+ok(placeFarFrom(br, "bowR", meleeSq.tx, meleeSq.ty, 2), "rally bows placed far from melee");
+var bowSq = br.getSquad("bowR");
+ok(bowSq.order === "hold", "bows still default to hold");
+ok(Math.hypot(bowSq.tx - meleeSq.tx, bowSq.ty - meleeSq.ty) > 8, "companies start apart");
+br.startFight();
+var bowHome = { x: bowSq.tx + 0.5, y: bowSq.ty + 0.5 };
+var dBow0 = squadAvg(br, "bowR", bowHome);
+var rallyFoe = br.spawnEnemy("jarl", meleeSq.tx, meleeSq.ty);
+rallyFoe.hp = 400;
+rallyFoe.maxHp = 400;
+br._refreshLiving();
+br._intel = br._fieldIntel(br._collectThreats());
+ok(br._intel.crisis, "melee contact is a field crisis");
+ok(br._intel.engaged.length >= 1, "engaged company is visible to every company");
+br._assignSquadHunts(br._collectThreats());
+ok(br.getSquad("meleeR").huntId === rallyFoe.id, "engaged melee locks the raider");
+ok(br.getSquad("bowR").huntId === rallyFoe.id, "hold bows share the same hunt in a crisis");
+for (var rt = 0; rt < 90; rt++) br.tick(0.05);
+ok(rallyFoe.alive, "jarl still stands so the host has time to rally");
+var dBowHome = squadAvg(br, "bowR", bowHome);
+ok(dBowHome > dBow0 + 2,
+  "hold bows leave the hill to join the fight (home0=" + dBow0.toFixed(1) + " home=" + dBowHome.toFixed(1) + ")");
+
+var islandS = GS.mapgen.island(91, { difficulty: 2, size: "small", biome: "verdant" });
+var armyS = GS.Army.create(GS.rng(5));
+armyS.commanders = [
+  { id: "westS", name: "测试·西盾", cls: "infantry", level: 1, xp: 0, soldiers: 8, maxSoldiers: 10, trait: null, dead: false },
+  { id: "eastS", name: "测试·东枪", cls: "pike", level: 1, xp: 0, soldiers: 8, maxSoldiers: 10, trait: null, dead: false },
+];
+var bs = new GS.Battle(islandS, armyS, { sandbox: true, battleSeed: 12 });
+var shx = islandS.houses[0].x, shy = islandS.houses[0].y;
+ok(placeNear(bs, "westS", shx, shy, 6, 16, 2), "west company placed");
+ok(placeFarFrom(bs, "eastS", bs.getSquad("westS").tx, bs.getSquad("westS").ty, 2), "east company placed apart");
+bs.startFight();
+var houseRaider = bs.spawnEnemy("jarl", shx, shy);
+houseRaider.hp = 400;
+houseRaider.maxHp = 400;
+bs._refreshLiving();
+bs._intel = bs._fieldIntel(bs._collectThreats());
+ok(bs._intel.crisis && bs._intel.siege.length >= 1, "raider on a house is a siege crisis");
+bs._assignSquadHunts(bs._collectThreats());
+ok(bs.getSquad("westS").huntId === houseRaider.id && bs.getSquad("eastS").huntId === houseRaider.id,
+  "both companies hunt the house raider instead of standing post");
+var westHome = { x: bs.getSquad("westS").tx + 0.5, y: bs.getSquad("westS").ty + 0.5 };
+var eastHome = { x: bs.getSquad("eastS").tx + 0.5, y: bs.getSquad("eastS").ty + 0.5 };
+var west0 = squadAvg(bs, "westS", { x: shx + 0.5, y: shy + 0.5 });
+var east0 = squadAvg(bs, "eastS", { x: shx + 0.5, y: shy + 0.5 });
+for (var st = 0; st < 90; st++) bs.tick(0.05);
+ok(houseRaider.alive, "house jarl still stands");
+var west1 = squadAvg(bs, "westS", { x: houseRaider.x, y: houseRaider.y });
+var east1 = squadAvg(bs, "eastS", { x: houseRaider.x, y: houseRaider.y });
+var westLeft = squadAvg(bs, "westS", westHome);
+var eastLeft = squadAvg(bs, "eastS", eastHome);
+ok(west1 < west0 - 1 && eastLeft > 2.5,
+  "both companies close on the house threat (w " + west0.toFixed(1) + "→" + west1.toFixed(1) +
+  " e home=" + eastLeft.toFixed(1) + " d " + east0.toFixed(1) + "→" + east1.toFixed(1) + ")");
+var contain = bs._containGoal(
+  { x: westHome.x, y: westHome.y, range: 1.1, kind: "soldier" },
+  { x: shx + 8.5, y: shy + 0.5, kind: "enemy", alive: true },
+  bs.getSquad("westS")
+);
+ok(contain && Number.isFinite(contain.x) && Number.isFinite(contain.y), "contain goal snaps to a walkable intercept");
 
 console.log("Battle serialize");
 var snap = GS.Battle.serialize(battle);

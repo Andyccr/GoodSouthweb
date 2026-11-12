@@ -211,7 +211,7 @@
       hintBattle: "点空地就位 · O 号令（追击/驻守/护屋） · R转向 · G开战",
       hintSandbox: "点空地就位 · O 号令 · 拖/WASD平移 · 滚轮缩放 · 右键转向",
       hintBattleTouch: "点空地就位 · 号令在底栏 · 拖平移 · 点同一兵团转向",
-      bannerDeploy: "就位 — 点空地放下。弓手默认驻守，其余追击。O 切换号令 · G 开战",
+      bannerDeploy: "就位 — 点空地放下。弓手先占高地，一队接敌则全军防反。O 切换号令 · G 开战",
       bannerDeployTouch: "点空地放下 · 号令在底栏 · 转向看箭头 · 拖动画布",
       bannerDeployCount: "未就位 {0} 队 · 登陆 {1} · G 开战",
       bannerDeployReady: "全部就位 · 登陆 {0} · G 开战",
@@ -292,7 +292,7 @@
       palDf: "经典 DF",
       palGreen: "绿磷",
       palAmber: "琥珀",
-      deployHint: "点空地就位。弓手默认驻守，其余追击。O 切换号令。",
+      deployHint: "点空地就位。弓手先占高地；一队接敌则全军一起防反，并护住屋舍。O 切换号令。",
       shipName: "北境长船",
       wreck: "搁浅的龙骨",
       miss: "空",
@@ -412,7 +412,7 @@
       toastRank: "{0} 领悟「{1}」",
       coachPlace: "向导：点空地，或按 V 列阵。弓手放高地，盾兵朝海滩。",
       coachFace: "向导：右键或 R 让枪兵正面朝向登陆方向，然后按 G。",
-      coachFight: "向导：近战会自己追击，弓手驻守。O 切换号令。",
+      coachFight: "向导：近战追击，弓手先占高地；一队接敌则全军一起防反。O 切换号令。",
       coachHorn: "向导：长船靠岸时按 U。号角会让整波北蛮变慢。",
       ledgerTitle: "航程账册",
       ledgerSlain: "击退北蛮 {0}",
@@ -580,7 +580,7 @@
       hintBattle: "tap ground to place · O orders (hunt/hold/guard) · R turn · G fight",
       hintSandbox: "tap to place · O orders · drag/WASD pan · wheel zoom · RMB turn",
       hintBattleTouch: "tap ground · orders on the dock · drag pan · re-tap company to turn",
-      bannerDeploy: "Place companies. Bows hold their hill; others hunt. O cycles orders · G fight",
+      bannerDeploy: "Place companies. Bows take a hill; the host rallies when one is engaged. O cycles orders · G fight",
       bannerDeployTouch: "Tap ground to place · orders on the dock · turn by the arrow",
       bannerDeployCount: "{0} companies unplaced · landings {1} · G to fight",
       bannerDeployReady: "All formed up · landings {0} · G to fight",
@@ -660,7 +660,7 @@
       palDf: "Classic DF",
       palGreen: "Phosphor",
       palAmber: "Amber",
-      deployHint: "Tap open ground to place. Bows hold; others hunt. O cycles orders.",
+      deployHint: "Tap open ground to place. Bows take a hill; the host rallies together and covers the houses. O cycles orders.",
       shipName: "North longship",
       wreck: "beached keel",
       miss: "miss",
@@ -780,7 +780,7 @@
       toastRank: "{0} learns {1}",
       coachPlace: "Guide: tap ground, or press V to form up. Bows on the hill, shields toward the beach.",
       coachFace: "Guide: right-click or R so the pikes face the landing, then press G.",
-      coachFight: "Guide: melee hunts, bows hold. O cycles orders.",
+      coachFight: "Guide: melee hunts, bows take a hill; the host rallies when one is engaged. O cycles orders.",
       coachHorn: "Guide: press U as the longships beach. The horn slows the whole wave.",
       ledgerTitle: "Voyage ledger",
       ledgerSlain: "Northmen broken {0}",
@@ -819,8 +819,8 @@
         "<li>Switching browser tabs auto-pauses a fight.</li>" +
         "<li><b>I</b> toggles Chinese / English (pause menu has a button too).</li>" +
         "</ul><h3>Fieldcraft</h3><ul>" +
-        "<li>Deploy is a <strong>form-up point</strong>. After the horn, melee companies <strong>hunt</strong> (houses first); bows <strong>hold</strong> the hill. <b>O</b> cycles Hunt / Hold / Guard. Re-placing mid-fight sets Hold. Facing arrows sit on the form-up tile. RMB / R / Turn / Shift+wheel rotate.</li>" +
-        "<li>Default four companies (two shields, one bow, one pike). You can hire <strong>skirmishers ‡</strong>. Bows/javelins kite; shields/pikes charge threats to houses.</li>" +
+        "<li>Deploy is a <strong>form-up point</strong>. After the horn, melee companies <strong>hunt</strong> (houses first); bows <strong>hold</strong> the hill. When one company is engaged, the whole host <strong>rallies</strong> to defend and counter, still covering the houses. <b>O</b> cycles Hunt / Hold / Guard. Re-placing mid-fight sets Hold. Facing arrows sit on the form-up tile. RMB / R / Turn / Shift+wheel rotate.</li>" +
+        "<li>Default four companies (two shields, one bow, one pike). You can hire <strong>skirmishers ‡</strong>. Companies share a field picture: melee intercepts paths to houses, bows/javelins kite and support the same fight.</li>" +
         "<li><b>U horn</b>: once per battle (twice with Horn-stone), briefly slows all northmen — including longships.</li>" +
         "<li><b>Beacons ¥</b>: nearby archers gain range and bite.</li>" +
         "<li>Struck houses send <strong>militia</strong>. South-lamp adds one more.</li>" +
@@ -864,8 +864,8 @@
       "<li>切换浏览器标签会自动暂停战斗。</li>" +
       "<li><b>I</b> 切换中文 / English（暂停菜单也有按钮）。</li>" +
       "</ul><h3>战地技巧</h3><ul>" +
-      "<li>布置是<strong>就位点</strong>。开战近战兵团默认<strong>追击</strong>（先保屋），弓手默认<strong>驻守</strong>高地。<b>O</b> 在追击 / 驻守 / 护屋间切换。战斗中换阵会改为驻守。朝向用箭头画在就位点上，右键 / R / 转向 / Shift+滚轮旋转。</li>" +
-      "<li>每局默认四支部队（两盾、一弓、一枪）。可再招募<strong>投矛手 ‡</strong>。弓手/投矛会拉开身位；盾兵/枪兵冲向威胁屋舍的北蛮。</li>" +
+      "<li>布置是<strong>就位点</strong>。开战近战兵团默认<strong>追击</strong>（先保屋），弓手默认<strong>驻守</strong>高地。任一兵团接敌后全军一起<strong>防御和反击</strong>，并优先护住屋舍。<b>O</b> 在追击 / 驻守 / 护屋间切换。战斗中换阵会改为驻守。朝向用箭头画在就位点上，右键 / R / 转向 / Shift+滚轮旋转。</li>" +
+      "<li>每局默认四支部队（两盾、一弓、一枪）。可再招募<strong>投矛手 ‡</strong>。兵团共享全局战场：盾兵/枪兵截断通往屋舍的路，弓手/投矛拉开身位并支援同一场战斗。</li>" +
       "<li><b>U 号角</b>：每场一次（持有号角石可两次），短时减缓全部北蛮（含长船）。</li>" +
       "<li><b>烽火台 ¥</b>：弓手靠近可提升射程与伤害。</li>" +
       "<li>屋舍遇袭时会冲出<strong>乡勇</strong>拖延敌人。持南灯则多一人。</li>" +
@@ -1095,7 +1095,7 @@
       GS.CONFIG.ui.paletteNamesEn = { df: "Classic DF", green: "Phosphor", amber: "Amber", ink: "Ink paper" };
     }
     if (GS.CONFIG && GS.CONFIG.battle) {
-      GS.CONFIG.battle.deployHintEn = "Tap open ground to place. After the horn they hunt on their own.";
+      GS.CONFIG.battle.deployHintEn = "Tap open ground to place. After the horn they hunt and rally together.";
     }
   };
 

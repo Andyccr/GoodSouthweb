@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "3.0.3",
+    version: "3.0.4",
     saveVersion: 4,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -62,8 +62,8 @@
 
     battle: {
       moveCooldown: 3.2,
-      deployHint: "点空地就位。开战后天兵默认追击；弓手默认驻守高地。O 切换号令。",
-      deployHintEn: "Place companies on open ground. They hunt after the horn; bows hold their hill. O cycles orders.",
+      deployHint: "点空地就位。近战默认追击，弓手先占高地；一队接敌则全军一起防反，并护住屋舍。O 切换号令。",
+      deployHintEn: "Place companies on open ground. Melee hunts, bows take a hill; the host rallies together and covers the houses. O cycles orders.",
       maxSpeed: 3,
       hudIntervalMs: 120,
       zoomMin: 10,
@@ -86,6 +86,7 @@
         distMelee: 0.18,
         distArcher: 0.08,
         pile: 4,
+        pileRally: 1.4,
         house: 24,
         alarm: 10,
         wounded: 5,
@@ -97,6 +98,11 @@
         sticky: 4,
         siege: 10,
         local: 2.15,
+        rally: 16,
+        cluster: 6.5,
+        engage: 5.5,
+        cover: 8.5,
+        intercept: 8,
       },
       orders: {
         holdMelee: 5.2,

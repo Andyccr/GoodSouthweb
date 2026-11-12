@@ -109,6 +109,7 @@
     this.flow = null;
     this.huntFlow = null;
     this._huntFlowT = 0;
+    this._intel = null;
     this._occ = null;
     this.warhornReady = true;
     this.warhornT = 0;
@@ -1044,6 +1045,183 @@
     return p;
   };
 
+  Battle.prototype._foePoint = function (foe) {
+    if (!foe) return { x: 0, y: 0 };
+    if (foe.kind === "ship") {
+      var bx = foe.beachX != null ? foe.beachX : foe.x;
+      var by = foe.beachY != null ? foe.beachY : foe.y;
+      return { x: bx + 0.5, y: by + 0.5 };
+    }
+    return { x: foe.x, y: foe.y };
+  };
+
+  Battle.prototype._squadEngaged = function (sq, threats, radius) {
+    var living = this._squadLiving(sq);
+    if (!living.length) return null;
+    radius = radius != null ? radius : 5.5;
+    var best = null, bd = radius;
+    for (var i = 0; i < living.length; i++) {
+      var foe = this._nearestThreat(living[i], threats, bd);
+      if (!foe) continue;
+      var d = dist(living[i], foe);
+      if (d < bd) {
+        bd = d;
+        best = foe;
+      }
+    }
+    return best;
+  };
+
+  /**
+   * Island-wide picture: who is fighting, which houses are pressed, where to rally.
+   */
+  Battle.prototype._fieldIntel = function (threats) {
+    var W = (GS.CONFIG.battle && GS.CONFIG.battle.hunt) || {};
+    var engageR = W.engage != null ? W.engage : 5.5;
+    var houseR = W.cover != null ? W.cover : 8.5;
+    var squads = [];
+    var engaged = [];
+    var i, j, sq, living, center, foe, h, pt, near, close;
+    threats = threats || [];
+    for (i = 0; i < this.squads.length; i++) {
+      sq = this.squads[i];
+      living = this._squadLiving(sq);
+      if (!living.length) continue;
+      center = this._squadCenter(living);
+      foe = this._squadEngaged(sq, threats, engageR);
+      var info = { sq: sq, living: living, center: center, engaged: foe, role: sq.role };
+      squads.push(info);
+      if (foe) engaged.push(info);
+    }
+    var siege = [];
+    var cover = [];
+    for (i = 0; i < this.houses.length; i++) {
+      h = this.houses[i];
+      if (!h.alive) continue;
+      pt = { x: h.x + 0.5, y: h.y + 0.5 };
+      near = [];
+      close = [];
+      for (j = 0; j < threats.length; j++) {
+        var fp = this._foePoint(threats[j]);
+        var hd = dist(fp, pt);
+        if (hd <= 3.5) close.push(threats[j]);
+        if (hd <= houseR) near.push(threats[j]);
+      }
+      if (close.length) siege.push({ house: h, threats: close, pt: pt });
+      else if (near.length) cover.push({ house: h, threats: near, pt: pt });
+    }
+    var primary = null;
+    if (siege.length) {
+      var bestH = siege[0];
+      for (i = 1; i < siege.length; i++) {
+        if (siege[i].house.hp < bestH.house.hp) bestH = siege[i];
+      }
+      var bestFoe = bestH.threats[0], bestD = 1e9;
+      for (i = 0; i < bestH.threats.length; i++) {
+        var sd = dist(this._foePoint(bestH.threats[i]), bestH.pt);
+        if (sd < bestD) {
+          bestD = sd;
+          bestFoe = bestH.threats[i];
+        }
+      }
+      primary = { kind: "siege", foe: bestFoe, pt: bestH.pt, house: bestH.house, cluster: bestH.threats };
+    } else if (engaged.length) {
+      var hot = engaged[0];
+      for (i = 1; i < engaged.length; i++) {
+        if (dist(engaged[i].center, engaged[i].engaged) < dist(hot.center, hot.engaged)) hot = engaged[i];
+      }
+      primary = { kind: "rally", foe: hot.engaged, pt: hot.center, squad: hot.sq, cluster: [hot.engaged] };
+    } else if (cover.length) {
+      var bestC = cover[0];
+      var coverFoe = bestC.threats[0], coverD = 1e9;
+      for (i = 0; i < cover.length; i++) {
+        for (j = 0; j < cover[i].threats.length; j++) {
+          var cd = dist(this._foePoint(cover[i].threats[j]), cover[i].pt);
+          if (cd < coverD) {
+            coverD = cd;
+            coverFoe = cover[i].threats[j];
+            bestC = cover[i];
+          }
+        }
+      }
+      primary = { kind: "cover", foe: coverFoe, pt: bestC.pt, house: bestC.house, cluster: bestC.threats };
+    }
+    return {
+      squads: squads,
+      engaged: engaged,
+      siege: siege,
+      cover: cover,
+      crisis: !!(siege.length || engaged.length || cover.length),
+      primary: primary,
+      threats: threats,
+    };
+  };
+
+  Battle.prototype._inPrimaryCluster = function (foe, intel) {
+    if (!foe || !intel) return false;
+    var W = (GS.CONFIG.battle && GS.CONFIG.battle.hunt) || {};
+    var r = W.cluster != null ? W.cluster : 6.5;
+    var p = intel.primary;
+    var fp = this._foePoint(foe);
+    if (p) {
+      if (p.foe && p.foe.id === foe.id) return true;
+      if (p.foe && dist(fp, this._foePoint(p.foe)) <= r) return true;
+      if (p.pt && dist(fp, p.pt) <= r) return true;
+    }
+    var i, j;
+    for (i = 0; i < (intel.siege || []).length; i++) {
+      for (j = 0; j < intel.siege[i].threats.length; j++) {
+        if (intel.siege[i].threats[j].id === foe.id) return true;
+      }
+    }
+    return false;
+  };
+
+  Battle.prototype._crisisPool = function (threats, intel) {
+    if (!intel || !intel.crisis) return threats;
+    var W = (GS.CONFIG.battle && GS.CONFIG.battle.hunt) || {};
+    var clusterR = W.cluster != null ? W.cluster : 6.5;
+    var seen = {};
+    var out = [];
+    var self = this;
+    function add(foe) {
+      if (!foe || !foe.alive || seen[foe.id]) return;
+      seen[foe.id] = 1;
+      out.push(foe);
+    }
+    function addNear(pt) {
+      if (!pt) return;
+      for (var i = 0; i < threats.length; i++) {
+        var p = self._foePoint(threats[i]);
+        if (p && dist(p, pt) <= clusterR) add(threats[i]);
+      }
+    }
+    var i, j, s;
+    if (intel.primary) {
+      add(intel.primary.foe);
+      addNear(intel.primary.foe ? this._foePoint(intel.primary.foe) : intel.primary.pt);
+      if (intel.primary.cluster) {
+        for (i = 0; i < intel.primary.cluster.length; i++) add(intel.primary.cluster[i]);
+      }
+    }
+    for (i = 0; i < intel.siege.length; i++) {
+      s = intel.siege[i];
+      for (j = 0; j < s.threats.length; j++) add(s.threats[j]);
+      addNear(s.pt);
+    }
+    for (i = 0; i < intel.cover.length; i++) {
+      s = intel.cover[i];
+      for (j = 0; j < s.threats.length; j++) add(s.threats[j]);
+      addNear(s.pt);
+    }
+    for (i = 0; i < intel.engaged.length; i++) {
+      add(intel.engaged[i].engaged);
+      addNear(intel.engaged[i].center);
+      addNear(this._foePoint(intel.engaged[i].engaged));
+    }
+    return out.length ? out : threats;
+  };
+
   /**
    * Island-wide hunt score. Higher = this soldier should go fight that foe.
    * pile = how many friendlies already assigned to this foe this tick.
@@ -1051,7 +1229,8 @@
   Battle.prototype.huntScore = function (e, foe, pile) {
     if (!e || !foe || !foe.alive) return -1e9;
     var W = (GS.CONFIG.battle && GS.CONFIG.battle.hunt) || {};
-    var d = dist(e, foe);
+    var fp = this._foePoint(foe);
+    var d = dist(e, fp);
     var score = 8;
     var distW = (e.range > 1.8) ? (W.distArcher || 0.16) : (W.distMelee || 0.42);
     score -= d * distW;
@@ -1059,8 +1238,7 @@
     score += houseP * (W.house || 24);
     if (houseP > 0.18) score += W.alarm || 10;
     var landA = this._landId(e.x, e.y);
-    var landB = this._landId(foe.kind === "ship" ? (foe.beachX || foe.x) : foe.x,
-      foe.kind === "ship" ? (foe.beachY || foe.y) : foe.y);
+    var landB = this._landId(fp.x, fp.y);
     if (landA && landB && landA !== landB) score -= 50;
     if (foe.kind === "ship" && !foe.landing) score -= 8;
     if (foe.maxHp) {
@@ -1088,12 +1266,21 @@
       score -= home * 0.55;
       if (d > 10) score -= 20;
     }
-    score -= (pile || 0) * (W.pile || 5);
+    var intel = this._intel;
+    var pileW = W.pile || 5;
+    if (intel && intel.crisis && this._inPrimaryCluster(foe, intel)) {
+      score += W.rally || 16;
+      pileW = W.pileRally != null ? W.pileRally : 1.4;
+    }
+    score -= (pile || 0) * pileW;
     if (e.hp < e.maxHp * 0.35 && d < 3 && e.range <= 1.8) score -= 4;
-    var house = this.nearestHouse(foe.x, foe.y);
-    if (house && house.hp < house.maxHp) {
-      var hd = dist(foe, { x: house.x + 0.5, y: house.y + 0.5 });
-      if (hd < 2.6) score += W.siege || 10;
+    var house = this.nearestHouse(fp.x, fp.y);
+    if (house) {
+      var hx = house.x + 0.5, hy = house.y + 0.5;
+      var hd = dist(fp, { x: hx, y: hy });
+      var sd = dist(e, { x: hx, y: hy });
+      if (house.hp < house.maxHp && hd < 2.6) score += W.siege || 10;
+      if (hd < sd) score += (W.intercept || 8) * (1 / (0.8 + hd));
     }
     return score;
   };
@@ -1131,16 +1318,35 @@
     var claimed = {};
     var W = (GS.CONFIG.battle && GS.CONFIG.battle.hunt) || {};
     var sticky = W.sticky != null ? W.sticky : 4;
-    for (var s = 0; s < this.squads.length; s++) {
-      var sq = this.squads[s];
-      var living = this._squadLiving(sq);
+    var intel = this._intel || this._fieldIntel(threats);
+    this._intel = intel;
+    var crisis = intel.crisis;
+    var crisisPool = crisis ? this._crisisPool(threats, intel) : threats;
+    var s, i, sq, living;
+    for (s = 0; s < this.squads.length; s++) {
+      if (!this._squadLiving(this.squads[s]).length) this.squads[s].huntId = 0;
+    }
+    var work = (intel.squads || []).slice().sort(function (a, b) {
+      function rank(info) {
+        if (info.engaged) return 0;
+        if (info.role === "pike" || info.role === "infantry") return 1;
+        if (info.role === "skirmisher") return 2;
+        return 3;
+      }
+      return rank(a) - rank(b);
+    });
+    for (s = 0; s < work.length; s++) {
+      sq = work[s].sq;
+      living = work[s].living;
       if (!living.length) {
         sq.huntId = 0;
         continue;
       }
       var order = sq.order || "hunt";
       var pool = threats;
-      if (order === "hold") {
+      if (crisis) {
+        pool = crisisPool;
+      } else if (order === "hold") {
         pool = this._threatsNear(sq.tx + 0.5, sq.ty + 0.5, threats, this._orderRadius(sq));
         if (!pool.length) {
           sq.huntId = 0;
@@ -1153,12 +1359,12 @@
           continue;
         }
       }
-      var c = this._squadCenter(living);
+      var c = work[s].center;
       var leader = this._squadLeader(living);
       var roleDef = GS.ROLES[sq.role] || {};
       var probe = {
-        x: order === "hold" ? sq.tx + 0.5 : c.x,
-        y: order === "hold" ? sq.ty + 0.5 : c.y,
+        x: (!crisis && order === "hold") ? sq.tx + 0.5 : c.x,
+        y: (!crisis && order === "hold") ? sq.ty + 0.5 : c.y,
         role: sq.role,
         hp: leader ? leader.hp : 20,
         maxHp: leader ? leader.maxHp : 20,
@@ -1167,8 +1373,11 @@
       var best = null, bestS = -1e8;
       var old = sq.huntId ? this.byId(sq.huntId) : null;
       var keepS = -1e9;
-      if (old && old.alive) keepS = this.huntScore(probe, old, claimed[old.id] || 0);
-      for (var i = 0; i < pool.length; i++) {
+      if (old && old.alive) {
+        var holdSticky = !intel.siege.length || this._inPrimaryCluster(old, intel) || this._isGuardThreat(old);
+        if (holdSticky) keepS = this.huntScore(probe, old, claimed[old.id] || 0);
+      }
+      for (i = 0; i < pool.length; i++) {
         var sc = this.huntScore(probe, pool[i], claimed[pool[i].id] || 0);
         if (sc > bestS) {
           bestS = sc;
@@ -1182,7 +1391,8 @@
       if (best) {
         sq.huntId = best.id;
         claimed[best.id] = (claimed[best.id] || 0) + 1;
-        var dx = best.x - c.x, dy = best.y - c.y;
+        var aim = this._foePoint(best);
+        var dx = aim.x - c.x, dy = aim.y - c.y;
         if (Math.abs(dx) >= Math.abs(dy)) sq.marchFacing = dx >= 0 ? 1 : 3;
         else sq.marchFacing = dy >= 0 ? 2 : 0;
       } else {
@@ -1359,12 +1569,39 @@
 
   Battle.prototype._huntGoal = function (foe) {
     if (!foe) return null;
-    if (foe.kind === "ship") {
-      var bx = foe.beachX != null ? foe.beachX : foe.x;
-      var by = foe.beachY != null ? foe.beachY : foe.y;
-      return GS.path.snap(this.passable, this.w, this.h, bx, by, 12) || { x: bx | 0, y: by | 0 };
+    var pt = this._foePoint(foe);
+    return GS.path.snap(this.passable, this.w, this.h, pt.x, pt.y, 12) || { x: pt.x | 0, y: pt.y | 0 };
+  };
+
+  /** Cut the raider off from the house and stagger sister companies on the flanks. */
+  Battle.prototype._containGoal = function (e, foe, sq) {
+    var pt = this._foePoint(foe);
+    if (!pt) return this._huntGoal(foe);
+    var house = this.nearestHouse(pt.x, pt.y);
+    var gx = pt.x, gy = pt.y;
+    var px = 1, py = 0;
+    if (house) {
+      var hx = house.x + 0.5, hy = house.y + 0.5;
+      var dx = hx - pt.x, dy = hy - pt.y;
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var cut = Math.min(2.2, len * 0.45);
+      gx = pt.x + dx / len * cut;
+      gy = pt.y + dy / len * cut;
+      px = -dy / len;
+      py = dx / len;
     }
-    return GS.path.snap(this.passable, this.w, this.h, foe.x, foe.y, 12);
+    if (sq) {
+      var idx = 0, n = 0, i;
+      for (i = 0; i < this.squads.length; i++) {
+        if (!this._squadLiving(this.squads[i]).length) continue;
+        if (this.squads[i].id === sq.id) idx = n;
+        n++;
+      }
+      var mag = (idx % 3 - 1) * 2.4;
+      gx += px * mag;
+      gy += py * mag;
+    }
+    return GS.path.snap(this.passable, this.w, this.h, gx, gy, 8) || this._huntGoal(foe);
   };
 
   Battle.prototype._tryMove = function (e, nx, ny) {
@@ -1594,11 +1831,15 @@
     var refresh = (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.55;
     var W = (GS.CONFIG.battle && GS.CONFIG.battle.hunt) || {};
     var cohesion = W.cohesion != null ? W.cohesion : 8;
+    this._refreshLiving();
     var threats = this._collectThreats();
     var i, e, foe, attack, range, inRange, slot, sq, leader, living;
+    this._intel = this._fieldIntel(threats);
     this._rebuildOcc();
     this._assignSquadHunts(threats);
     var militiaClaimed = {};
+    var crisis = this._intel && this._intel.crisis;
+    var primary = this._intel && this._intel.primary;
 
     for (i = 0; i < this._livingSoldiers.length; i++) {
       e = this._livingSoldiers[i];
@@ -1615,7 +1856,7 @@
       var order = (sq && sq.order) || "hunt";
       var close = this._nearestThreat(e, threats, Math.max(range + 0.4, 2.6));
       var localR = W.local != null ? W.local : 2.15;
-      if (sq && (order === "hold" || order === "guard") && close) {
+      if (!crisis && sq && (order === "hold" || order === "guard") && close) {
         var post = { x: sq.tx + 0.5, y: sq.ty + 0.5 };
         if (order === "hold" && dist(close, post) > this._orderRadius(sq)) close = null;
         else if (order === "guard" && dist(e, close) > localR && !this._isGuardThreat(close)) close = null;
@@ -1623,13 +1864,13 @@
       if (e.militia) {
         foe = this._pickHuntTarget(e, threats, militiaClaimed);
         if (foe) militiaClaimed[foe.id] = (militiaClaimed[foe.id] || 0) + 1;
-      } else if (order === "hold") {
+      } else if (order === "hold" && !crisis) {
         foe = (sq && sq.huntId) ? this.byId(sq.huntId) : null;
         if (foe && !foe.alive) foe = null;
         if (!foe) foe = close;
         if (foe && sq) {
           var holdPost = { x: sq.tx + 0.5, y: sq.ty + 0.5 };
-          if (dist(foe, holdPost) > this._orderRadius(sq)) foe = close;
+          if (dist(this._foePoint(foe), holdPost) > this._orderRadius(sq)) foe = close;
         }
       } else if (close && dist(e, close) <= localR) {
         foe = close;
@@ -1637,6 +1878,8 @@
         foe = this.byId(sq.huntId);
         if (foe && !foe.alive) foe = null;
       } else foe = this._pickHuntTarget(e, threats, {});
+
+      if (!foe && crisis && primary && primary.foe && primary.foe.alive) foe = primary.foe;
 
       attack = (close && dist(e, close) <= range + 0.18) ? close : foe;
       e.targetId = (foe && foe.id) || (attack && attack.id) || 0;
@@ -1670,7 +1913,7 @@
         this._chase(e, foe, dt, refresh);
         continue;
       }
-      if (!foe && dist(e, slot) > 0.28) {
+      if (!foe && dist(e, slot) > 0.28 && !crisis) {
         this._goHome(e, slot, dt, refresh);
       }
     }
@@ -1678,7 +1921,14 @@
   };
 
   Battle.prototype._chase = function (e, foe, dt, refresh) {
-    var goal = this._huntGoal(foe) || { x: foe.x | 0, y: foe.y | 0 };
+    var goal;
+    if (e.kind === "soldier" && !e.militia && e.range <= 1.8 && foe && foe.kind !== "soldier") {
+      var sqChase = e.squadId ? this.getSquad(e.squadId) : null;
+      goal = this._containGoal(e, foe, sqChase) || this._huntGoal(foe);
+    } else {
+      goal = this._huntGoal(foe);
+    }
+    if (!goal) goal = { x: foe.x | 0, y: foe.y | 0 };
     var ranged = e.range > 1.8 && e.kind === "soldier" && foe.kind !== "soldier";
     var dest = goal;
     if (ranged) {
