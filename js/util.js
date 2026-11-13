@@ -17,6 +17,22 @@
       });
     },
 
+    escapeAttr: function (s) {
+      return String(s).replace(/[&"<>]/g, function (c) {
+        return ({ "&": "&amp;", "\"": "&quot;", "<": "&lt;", ">": "&gt;" })[c];
+      });
+    },
+
+    /** Skip innerHTML when the markup is unchanged so buttons keep focus and listeners. */
+    setHtml: function (node, html) {
+      if (!node) return false;
+      html = html || "";
+      if (node._gsHtml === html) return false;
+      node._gsHtml = html;
+      node.innerHTML = html;
+      return true;
+    },
+
     uid: function (prefix) {
       return (prefix || "id") + Math.random().toString(36).slice(2, 9);
     },

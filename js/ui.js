@@ -26,8 +26,10 @@
     root.id = "ui-chrome";
     var toolbar = el("div", "toolbar hidden");
     toolbar.id = "toolbar";
+    toolbar.setAttribute("role", "toolbar");
     var commands = el("div", "commands hidden");
     commands.id = "commands";
+    commands.setAttribute("role", "toolbar");
     if (tbHost) tbHost.appendChild(toolbar);
     else root.appendChild(toolbar);
     if (cmdHost) cmdHost.appendChild(commands);
@@ -72,23 +74,40 @@
     }, 2600);
   };
 
-  UI.prototype.setTooltip = function (html, clientX, clientY) {
-    if (!html) {
-      this.tooltip.classList.add("hidden");
-      this.tooltip.innerHTML = "";
-      return;
-    }
-    this.tooltip.innerHTML = html;
-    this.tooltip.classList.remove("hidden");
+  UI.prototype.placeTooltip = function (clientX, clientY) {
+    if (!this.tooltip || this.tooltip.classList.contains("hidden")) return;
     var pad = 14;
-    var tw = this.tooltip.offsetWidth || 180;
-    var th = this.tooltip.offsetHeight || 60;
+    var tw = this._ttW || 180;
+    var th = this._ttH || 60;
     var x = clientX + pad;
     var y = clientY + pad;
     if (x + tw > window.innerWidth - 8) x = clientX - tw - pad;
     if (y + th > window.innerHeight - 8) y = clientY - th - pad;
-    this.tooltip.style.left = Math.max(4, x) + "px";
-    this.tooltip.style.top = Math.max(4, y) + "px";
+    var left = Math.max(4, x) + "px";
+    var top = Math.max(4, y) + "px";
+    if (this.tooltip.style.left !== left) this.tooltip.style.left = left;
+    if (this.tooltip.style.top !== top) this.tooltip.style.top = top;
+  };
+
+  UI.prototype.setTooltip = function (html, clientX, clientY) {
+    if (!html) {
+      this.tooltip.classList.add("hidden");
+      if (this.tooltip._html) {
+        this.tooltip._html = "";
+        this.tooltip.innerHTML = "";
+      }
+      return;
+    }
+    if (this.tooltip._html !== html) {
+      this.tooltip._html = html;
+      this.tooltip.innerHTML = html;
+      this.tooltip.classList.remove("hidden");
+      this._ttW = this.tooltip.offsetWidth || 180;
+      this._ttH = this.tooltip.offsetHeight || 60;
+    } else {
+      this.tooltip.classList.remove("hidden");
+    }
+    this.placeTooltip(clientX, clientY);
   };
 
   UI.prototype.hideTooltip = function () {
@@ -98,40 +117,43 @@
   UI.prototype.setToolbar = function (items) {
     if (!items || !items.length) {
       this.toolbar.classList.add("hidden");
-      this.toolbar.innerHTML = "";
+      GS.util.setHtml(this.toolbar, "");
       return;
     }
     this.toolbar.classList.remove("hidden");
-    this.toolbar.innerHTML = items.map(function (it) {
-      if (it.sep) return '<span class="tb-sep"></span>';
+    var html = items.map(function (it) {
+      if (it.sep) return '<span class="tb-sep" aria-hidden="true"></span>';
       var cls = "tb-btn" + (it.active ? " active" : "") + (it.danger ? " danger" : "") + (it.primary ? " primary" : "");
       return '<button type="button" class="' + cls + '" data-act="' + it.act + '"' +
-        (it.arg != null ? ' data-arg="' + it.arg + '"' : "") +
-        (it.title ? ' title="' + it.title + '"' : "") +
+        (it.arg != null ? ' data-arg="' + GS.util.escapeAttr(it.arg) + '"' : "") +
+        (it.title ? ' title="' + GS.util.escapeAttr(it.title) + '"' : "") +
+        (it.active ? ' aria-pressed="true"' : "") +
         (it.disabled ? " disabled" : "") + ">" +
         (it.kbd ? '<kbd>' + it.kbd + "</kbd>" : "") +
         "<span>" + it.label + "</span></button>";
     }).join("");
-    this.bindClicks(this.toolbar);
+    if (GS.util.setHtml(this.toolbar, html)) this.bindClicks(this.toolbar);
   };
 
   UI.prototype.setCommands = function (items) {
     var app = document.getElementById("app");
     if (!items || !items.length) {
       this.commands.classList.add("hidden");
-      this.commands.innerHTML = "";
+      GS.util.setHtml(this.commands, "");
       if (app) app.classList.remove("has-cmd-strip");
       return;
     }
     this.commands.classList.remove("hidden");
-    this.commands.innerHTML = items.map(function (it) {
+    var html = items.map(function (it) {
       var cls = "cmd-btn" + (it.active ? " active" : "");
       return '<button type="button" class="' + cls + '" data-act="' + it.act + '"' +
-        (it.arg != null ? ' data-arg="' + it.arg + '"' : "") +
+        (it.arg != null ? ' data-arg="' + GS.util.escapeAttr(it.arg) + '"' : "") +
+        (it.title ? ' title="' + GS.util.escapeAttr(it.title) + '"' : "") +
+        (it.active ? ' aria-pressed="true"' : "") +
         (it.disabled ? " disabled" : "") + ">" +
         (it.kbd ? "<kbd>" + it.kbd + "</kbd> " : "") + it.label + "</button>";
     }).join("");
-    this.bindClicks(this.commands);
+    if (GS.util.setHtml(this.commands, html)) this.bindClicks(this.commands);
     if (app) app.classList.add("has-cmd-strip");
   };
 

@@ -15,8 +15,8 @@
   Hud.prototype._setTop = function (brand, chipsHtml) {
     var b = $("top-brand");
     var c = $("top-chips");
-    if (b) b.textContent = brand || "GOOD SOUTH";
-    if (c) c.innerHTML = chipsHtml || "";
+    if (b && b.textContent !== (brand || "GOOD SOUTH")) b.textContent = brand || "GOOD SOUTH";
+    GS.util.setHtml(c, chipsHtml || "");
   };
 
   Hud.prototype._setHint = function (text) {
@@ -24,10 +24,24 @@
     if (h) h.textContent = text || "";
   };
 
+  Hud.prototype.noteChrome = function () {
+    var top = $("topbar");
+    var bot = $("bottom");
+    if (!this.game.renderer) return;
+    var h = (top ? top.offsetHeight : 0) + (bot ? bot.offsetHeight : 0);
+    if (this._chromeH == null || h !== this._chromeH) this.game.renderer._needMeasure = true;
+    this._chromeH = h;
+    if (top && typeof document !== "undefined") {
+      document.documentElement.style.setProperty("--chrome-top", top.offsetHeight + "px");
+    }
+  };
+
   Hud.prototype.render = function (force) {
     var game = this.game;
     var now = performance.now ? performance.now() : Date.now();
-    if (!force && !game.hudDirty && now - this._last < ((game.compact ? 180 : 0) || GS.CONFIG.battle.hudIntervalMs)) return;
+    var gap = game.compact ? 180 : (GS.CONFIG.battle.hudIntervalMs || 120);
+    if (game.hudDirty) gap = Math.min(gap, 48);
+    if (!force && now - this._last < gap) return;
     game.hudDirty = false;
     this._last = now;
 
@@ -37,7 +51,13 @@
     var right = $("right");
     var tools = $("sandbox-tools");
     var banner = $("phase-banner");
-    if (tools) tools.classList.toggle("visible", mode === "sandbox");
+    if (tools) {
+      var showTools = mode === "sandbox";
+      if (tools.classList.contains("visible") !== showTools) {
+        tools.classList.toggle("visible", showTools);
+        if (game.renderer) game.renderer._needMeasure = true;
+      }
+    }
 
     if (mode === "setup" || mode === "rank") {
       this._setTop("GOOD SOUTH", ui.chip(GS.t("mode"), mode === "setup" ? GS.t("setupTitle") : GS.t("rankTitle"), "hi"));
@@ -46,6 +66,7 @@
       ui.setCommands([]);
       this._dock(game, []);
       if (banner) banner.classList.add("hidden");
+      this.noteChrome();
       return;
     }
 
@@ -62,17 +83,20 @@
         { act: "lang", label: GS.t("langToggle") },
       ]);
       if (banner) banner.classList.add("hidden");
+      this.noteChrome();
       return;
     }
 
     if (mode === "campaign") {
       this._campaign(game, left, right, banner);
+      this.noteChrome();
       return;
     }
 
     if ((mode === "battle" || mode === "sandbox") && game.battle) {
       this._battle(game, left, right, banner);
     }
+    this.noteChrome();
   };
 
   Hud.prototype._campaign = function (game, left, right, banner) {
@@ -86,8 +110,8 @@
       ui.chip(GS.t("relics"), (game.army.relics || []).length, "cyan") +
       ui.chip(GS.t("pact"), GS.t(game.campaign.threat === "hold" ? "threatHold" : game.campaign.threat === "blood" ? "threatBlood" : "threatWar")) +
       ui.chip(GS.t("palette"), game.palette));
-    left.innerHTML = this.campLeft(game, node);
-    right.innerHTML = this.roster(game.army) + this.relicList(game.army) + this.islandList(game) + this.legend();
+    GS.util.setHtml(left, this.campLeft(game, node));
+    GS.util.setHtml(right, this.roster(game.army) + this.relicList(game.army) + this.islandList(game) + this.legend());
     this._setHint(game.touch ? GS.t("hintChartTouch") : GS.t("hintChart"));
     if (game.compact) {
       ui.setToolbar([]);
@@ -122,8 +146,8 @@
     }
     ui.setCommands(campCmds);
     this._dock(game, [
-      { act: "toggle-sheet", arg: "left", label: GS.t("intel") },
-      { act: "toggle-sheet", arg: "right", label: GS.t("roster") },
+      { act: "toggle-sheet", arg: "left", label: GS.t("intel"), on: game.sheet === "left" },
+      { act: "toggle-sheet", arg: "right", label: GS.t("roster"), on: game.sheet === "right" },
       { act: "hire", label: GS.t("hireTitle") },
       { act: "pause-menu", label: GS.t("menu") },
     ]);
@@ -156,6 +180,7 @@
         banner.classList.remove("hidden");
         banner.textContent = GS.t(coach);
       } else banner.classList.add("hidden");
+      banner.classList.toggle("paused", b.phase === "fight" && !b.speed);
     }
 
     this._setTop(GS.loc(b.island) || b.island.name,
@@ -183,11 +208,10 @@
         var eta = Math.max(0, nw.t - b.t);
         var brief = GS.Waves.blurb ? GS.Waves.blurb(nw) : "";
         return done + ui.chip(GS.t("nextWave"), brief + " " + eta.toFixed(0) + "s", eta < 6 ? "warn" : "hi");
-      }()) : ui.chip(GS.t("mode"), GS.t("sandboxMode"), "cyan")) +
-      (game.compact ? "" : ui.chip("t", b.t.toFixed(1))));
+      }()) : ui.chip(GS.t("mode"), GS.t("sandboxMode"), "cyan")));
 
-    left.innerHTML = this.battleLeft(game, b);
-    right.innerHTML = this.squadList(b) + this.logHtml(b) + this.legend();
+    GS.util.setHtml(left, this.battleLeft(game, b));
+    GS.util.setHtml(right, this.squadList(b) + this.logHtml(b) + this.legend());
     this._setHint((game.touch || game.compact)
       ? GS.t("hintBattleTouch")
       : (game.mode === "sandbox" ? GS.t("hintSandbox") : GS.t("hintBattle")));
@@ -255,57 +279,67 @@
         act: "select-squad",
         arg: sqs[i].id,
         label: GS.ROLES[sqs[i].role].ch + " " + GS.loc(sqs[i]).split(/[· ]/)[0],
+        title: GS.loc(sqs[i]),
         kbd: String(i + 1),
         active: sqs[i].id === b.selected,
       });
     }
     if (game.compact) {
-      cmds.push({ act: "zoom", arg: "1", label: "+" });
-      cmds.push({ act: "zoom", arg: "-1", label: "−" });
-      cmds.push({ act: "center-cam", label: GS.t("center") });
-      cmds.push({ act: "cycle-order", label: GS.t("orderCycle") });
-      if (b.phase === "deploy" && game.mode === "battle") cmds.push({ act: "form-up", label: GS.t("formUp") });
+      var lead = [
+        { act: "rotate", label: GS.t("rotate"), title: GS.t("rotate") },
+        { act: "cycle-order", label: GS.t("orderCycle"), title: GS.t("orderCycle") },
+      ];
       if (b.phase === "fight") {
-        cmds.push({ act: "spd", arg: "1", label: "1×", active: b.speed === 1 });
-        cmds.push({ act: "spd", arg: "2", label: "2×", active: b.speed === 2 });
-        cmds.push({ act: "spd", arg: "3", label: "3×", active: b.speed === 3 });
-        if (game.mode === "battle") {
-          cmds.push({
-            act: "warhorn",
-            label: b.warhornReady ? (b.warhornCharges > 1 ? GS.t("warhornN", b.warhornCharges) : GS.t("warhorn")) : GS.t("hornUsed"),
-            active: b.warhornT > 0,
-            disabled: !b.warhornReady && b.warhornT <= 0,
-          });
-        }
+        lead.push({ act: "spd", arg: "1", label: "1×", active: b.speed === 1 });
+        lead.push({ act: "spd", arg: "2", label: "2×", active: b.speed === 2 });
+        lead.push({ act: "spd", arg: "3", label: "3×", active: b.speed === 3 });
       }
+      lead.push({ act: "zoom", arg: "1", label: "+", title: GS.t("zoomIn") });
+      lead.push({ act: "zoom", arg: "-1", label: "−", title: GS.t("zoomOut") });
+      lead.push({ act: "center-cam", label: GS.t("center"), title: GS.t("center") });
+      cmds = lead.concat(cmds);
     }
     ui.setCommands(cmds);
-    this._dock(game, [
-      { act: "toggle-sheet", arg: "left", label: GS.t("intel") },
-      { act: "toggle-sheet", arg: "right", label: GS.t("troops") },
-      b.phase === "deploy"
-        ? { act: "form-up", label: GS.t("formUp") }
-        : { act: "pause", label: b.speed ? GS.t("pause") : GS.t("resume") },
-      b.phase === "deploy"
-        ? { act: "start", label: GS.t("startFight") }
-        : { act: "warhorn", label: GS.t("warhorn") },
-      { act: "rotate", label: GS.t("rotate") },
-      { act: "cycle-order", label: GS.t("orderCycle") },
-      { act: "pause-menu", label: GS.t("menu") },
-    ]);
+    var dockItems = [
+      { act: "toggle-sheet", arg: "left", label: GS.t("intel"), on: game.sheet === "left" },
+      { act: "toggle-sheet", arg: "right", label: GS.t("troops"), on: game.sheet === "right" },
+    ];
+    if (b.phase === "deploy") {
+      if (game.mode === "battle") dockItems.push({ act: "form-up", label: GS.t("formUp") });
+      dockItems.push({ act: "start", label: GS.t("startFight"), primary: true });
+    } else if (b.phase === "fight") {
+      dockItems.push({
+        act: "pause",
+        label: b.speed ? GS.t("pause") : GS.t("resume"),
+        on: !b.speed,
+      });
+      if (game.mode === "battle") {
+        dockItems.push({
+          act: "warhorn",
+          label: b.warhornReady ? (b.warhornCharges > 1 ? GS.t("warhornN", b.warhornCharges) : GS.t("warhorn")) : GS.t("hornUsed"),
+          on: b.warhornT > 0,
+          disabled: !b.warhornReady && b.warhornT <= 0,
+        });
+      }
+    }
+    dockItems.push({ act: "pause-menu", label: GS.t("menu") });
+    this._dock(game, dockItems);
   };
 
   Hud.prototype._dock = function (game, items) {
     var dock = $("dock");
     if (!dock) return;
     if (!game.compact) {
-      dock.innerHTML = "";
+      GS.util.setHtml(dock, "");
       return;
     }
-    dock.innerHTML = (items || []).map(function (it) {
-      return '<button type="button" data-act="' + it.act + '"' +
-        (it.arg != null ? ' data-arg="' + it.arg + '"' : "") + ">" + it.label + "</button>";
-    }).join("");
+    GS.util.setHtml(dock, (items || []).map(function (it) {
+      var cls = (it.on ? " on" : "") + (it.primary ? " primary" : "");
+      return '<button type="button" class="' + cls.trim() + '" data-act="' + it.act + '"' +
+        (it.arg != null ? ' data-arg="' + it.arg + '"' : "") +
+        (it.on ? ' aria-pressed="true"' : "") +
+        (it.disabled ? " disabled" : "") + ">" + it.label + "</button>";
+    }).join(""));
   };
 
   Hud.prototype.campLeft = function (game, node) {
@@ -334,9 +368,10 @@
       var is = game.campaign.islands[i];
       if (is.status === "hidden") continue;
       var omShort = (is.omen && is.status === "scouted" && GS.Meta) ? GS.loc(GS.Meta.omen(is.omen)) : "";
+      var stLabel = { hidden: GS.t("unknown"), scouted: GS.t("unfought"), cleared: GS.t("recovered"), lost: GS.t("fallen") }[is.status] || is.status;
       html += '<div class="island-item' + (is.id === game.campCursor ? " sel" : "") +
         '" data-act="select-island" data-arg="' + is.id + '">' +
-        "<span>" + GS.loc(is) + "</span><span class=\"hint\">" + is.status + " ▲" + is.difficulty +
+        "<span>" + GS.loc(is) + "</span><span class=\"hint\">" + stLabel + " ▲" + is.difficulty +
         (omShort ? " · " + omShort : "") + "</span></div>";
     }
     return html;
@@ -365,7 +400,9 @@
         "<br>" + GS.t("orderNow", GS.Battle.orderMark(sq.order), GS.t(GS.Battle.orderKey(sq.order))) +
         "<br>" + GS.t("xpOf", sq.xp || 0, (sq.level || 1) * 12) + " · Lv" + (sq.level || 1) +
         (sq.moveCd > 0 ? "<br><span class='hint'>" + GS.t("moveCd") + " " + sq.moveCd.toFixed(1) + "s</span>" : "") +
-        "</p><p class=\"sheet-actions\"><button type=\"button\" data-act=\"cycle-order\">" + GS.t("orderCycle") + " (O)</button></p>" +
+        "</p><p class=\"sheet-actions\">" +
+        "<button type=\"button\" data-act=\"rotate\">" + GS.t("rotate") + "</button>" +
+        "<button type=\"button\" data-act=\"cycle-order\">" + GS.t("orderCycle") + "</button></p>" +
         "<p class=\"hint\">" + (GS.loc(role, "desc") || role.desc) + "</p>";
     }
     html += "<h3>" + GS.t("houses") + "</h3><ul>";
@@ -418,7 +455,8 @@
         '" data-act="select-squad" data-arg="' + s.id + '">' +
         '<span class="idx">' + idx + "</span>" +
         "<span>" + role.ch + " " + GS.loc(s) + "</span>" +
-        "<span class=\"hint\">" + GS.Battle.orderMark(s.order) + " " + s.soldiers + (s.placed ? "" : " ·") + "</span></div>";
+        "<span class=\"hint\">" + (GS.DIRS[s.facing] ? GS.DIRS[s.facing].ch + " " : "") +
+        GS.Battle.orderMark(s.order) + " " + s.soldiers + (s.placed ? "" : " ·") + "</span></div>";
     }
     return html;
   };

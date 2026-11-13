@@ -50,16 +50,17 @@
     window.addEventListener("pointerup", function (e) {
       if (self._pts[e.pointerId]) self.onPointerUp(e);
     });
-    window.addEventListener("resize", function () {
-      game.applyDevice();
-      game.hudDirty = true;
-    });
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", function () {
+    var resizeTimer = 0;
+    function onResize() {
+      if (resizeTimer) return;
+      resizeTimer = setTimeout(function () {
+        resizeTimer = 0;
         game.applyDevice();
         game.hudDirty = true;
-      });
+      }, 80);
     }
+    window.addEventListener("resize", onResize);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", onResize);
     document.body.addEventListener("pointerdown", function () { GS.audio.unlock(); }, { once: true });
 
     ["left", "right", "dock"].forEach(function (id) {
