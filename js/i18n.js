@@ -809,7 +809,7 @@
 
   GS.I18N.helpHtml = function () {
     if (GS.LANG === "en") {
-      return '<div class="panel help-panel"><h2>' + GS.t("helpTitle") + "</h2>" +
+      return '<div class="panel help-panel scene-quiet"><h2>' + GS.t("helpTitle") + "</h2>" +
         "<h3>Save and pause</h3><ul>" +
         "<li><b>Esc</b> opens the pause menu (chart, battle, sandbox).</li>" +
         "<li><b>Space</b> soft-pauses a fight; on the chart it lands the selected isle.</li>" +
@@ -854,7 +854,7 @@
         "</ul>" +
         '<div class="menu"><button data-act="resume-or-title"><kbd>Q</kbd> ' + GS.t("back") + "</button></div></div>";
     }
-    return '<div class="panel help-panel"><h2>' + GS.t("helpTitle") + "</h2>" +
+    return '<div class="panel help-panel scene-quiet"><h2>' + GS.t("helpTitle") + "</h2>" +
       "<h3>保存与暂停</h3><ul>" +
       "<li><b>Esc</b> 打开/关闭暂停菜单（战役、战斗、沙盒）。</li>" +
       "<li><b>空格</b> 战斗中软暂停；海图上空格登陆当前岛。</li>" +

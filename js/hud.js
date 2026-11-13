@@ -104,12 +104,10 @@
     var node = GS.Campaign.getNode(game.campaign, game.campCursor);
     var ui = game.ui;
     this._setTop("GOOD SOUTH",
-      ui.chip(GS.t("chart"), GS.t("isles"), "cyan") +
       ui.chip(GS.t("coins"), game.army.coins, "hi") +
       ui.chip(GS.t("cleared"), game.army.islandsCleared, "ok") +
-      ui.chip(GS.t("relics"), (game.army.relics || []).length, "cyan") +
-      ui.chip(GS.t("pact"), GS.t(game.campaign.threat === "hold" ? "threatHold" : game.campaign.threat === "blood" ? "threatBlood" : "threatWar")) +
-      ui.chip(GS.t("palette"), game.palette));
+      ui.chip(GS.t("relics"), (game.army.relics || []).length) +
+      ui.chip(GS.t("pact"), GS.t(game.campaign.threat === "hold" ? "threatHold" : game.campaign.threat === "blood" ? "threatBlood" : "threatWar")));
     GS.util.setHtml(left, this.campLeft(game, node));
     GS.util.setHtml(right, this.roster(game.army) + this.relicList(game.army) + this.islandList(game) + this.legend());
     this._setHint(game.touch ? GS.t("hintChartTouch") : GS.t("hintChart"));
@@ -184,15 +182,7 @@
     }
 
     this._setTop(GS.loc(b.island) || b.island.name,
-      (game.compact ? "" : ui.chip(GS.t("eco"), GS.loc(GS.BIOMES[b.island.biome]))) +
-      ui.chip(GS.t("stage"), phaseLabel, b.phase === "deploy" ? "hi" : "cyan") +
-      (function () {
-        var sel = b.getSquad(b.selected);
-        if (!sel) return "";
-        var d = GS.DIRS[sel.facing] || GS.DIRS[2];
-        return ui.chip(GS.t("facing"), GS.loc(d) + "\u00a0" + d.ch, "cyan") +
-          ui.chip(GS.t("orderCycle"), GS.Battle.orderMark(sel.order) + "\u00a0" + GS.t(GS.Battle.orderKey(sel.order)), sel.order === "hunt" ? "hi" : "cyan");
-      }()) +
+      ui.chip(GS.t("stage"), phaseLabel, b.phase === "deploy" ? "hi" : "") +
       ui.chip(GS.t("houses"), cnt.houses + "/" + b.houses.length, cnt.houses < b.houses.length ? "warn" : "ok") +
       ui.chip(GS.t("ours"), cnt.soldiers) +
       ui.chip(GS.t("northmen"), cnt.enemies, cnt.enemies ? "warn" : "") +
@@ -278,7 +268,8 @@
       cmds.push({
         act: "select-squad",
         arg: sqs[i].id,
-        label: GS.ROLES[sqs[i].role].ch + " " + GS.loc(sqs[i]).split(/[· ]/)[0],
+        glyph: GS.ROLES[sqs[i].role].ch,
+        name: GS.loc(sqs[i]).split(/[· ]/)[0],
         title: GS.loc(sqs[i]),
         kbd: String(i + 1),
         active: sqs[i].id === b.selected,
@@ -297,7 +288,7 @@
       lead.push({ act: "zoom", arg: "1", label: "+", title: GS.t("zoomIn") });
       lead.push({ act: "zoom", arg: "-1", label: "−", title: GS.t("zoomOut") });
       lead.push({ act: "center-cam", label: GS.t("center"), title: GS.t("center") });
-      cmds = lead.concat(cmds);
+      cmds = cmds.concat(lead);
     }
     ui.setCommands(cmds);
     var dockItems = [
@@ -494,7 +485,7 @@
   };
 
   Hud.prototype.legend = function () {
-    return "<h3>" + GS.t("legend") + "</h3><pre class='legend'>" + GS.t("legendBody") + "</pre>";
+    return "<details class=\"legend-fold\"><summary>" + GS.t("legend") + "</summary><pre class='legend'>" + GS.t("legendBody") + "</pre></details>";
   };
 
   GS.Hud = Hud;
