@@ -3,6 +3,8 @@
   var GS = g.GS || (g.GS = {});
   var C = GS.C;
 
+  function sortByY(a, b) { return a.y - b.y; }
+
   function Renderer(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
@@ -28,20 +30,33 @@
     this._waterCells = [];
     this._houseMap = {};
     this._followLock = 0;
+    this._tintCache = {};
+    this._shores = [];
+    this._shoreKey = "";
+    this._needMeasure = true;
+    this._drawEnts = [];
+    this._clock = 0;
   }
 
   Renderer.prototype.setPalette = function (p) {
     this.palette = p;
+    this._tintCache = {};
     this._terrainKey = "";
     this._campSeaKey = "";
+    this._shoreKey = "";
   };
 
   Renderer.prototype.tint = function (hex) {
-    if (this.palette === "df") return hex;
-    if (this.palette === "green") return this._mix(hex, "#55ff55", 0.55);
-    if (this.palette === "amber") return this._mix(hex, "#ffb000", 0.55);
-    if (this.palette === "ink") return this._mix(hex, "#f3efe2", 0.62);
-    return hex;
+    if (!hex || this.palette === "df") return hex;
+    var cache = this._tintCache || (this._tintCache = {});
+    var hit = cache[hex];
+    if (hit) return hit;
+    var mixed = hex;
+    if (this.palette === "green") mixed = this._mix(hex, "#55ff55", 0.55);
+    else if (this.palette === "amber") mixed = this._mix(hex, "#ffb000", 0.55);
+    else if (this.palette === "ink") mixed = this._mix(hex, "#f3efe2", 0.62);
+    cache[hex] = mixed;
+    return mixed;
   };
 
   Renderer.prototype._mix = function (a, b, t) {
@@ -90,8 +105,21 @@
   Renderer.prototype.layoutView = function (mapW, mapH) {
     this.useCam = true;
     var wrap = this.canvas.parentElement;
-    var cw = Math.max(320, wrap.clientWidth || 800);
-    var ch = Math.max(240, wrap.clientHeight || 600);
+    if (this._needMeasure || !this._boxW) {
+      var rectW = (wrap && wrap.clientWidth) || 800;
+      var rectH = (wrap && wrap.clientHeight) || 600;
+      var padX = 0, padY = 0;
+      if (wrap && typeof window !== "undefined" && window.getComputedStyle) {
+        var cs = window.getComputedStyle(wrap);
+        padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+        padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      }
+      this._boxW = Math.max(160, rectW - padX);
+      this._boxH = Math.max(120, rectH - padY);
+      this._needMeasure = false;
+    }
+    var cw = this._boxW;
+    var ch = this._boxH;
     var z = this.zoom;
     this.tw = z;
     this.th = Math.max(z, Math.round(z * 1.12));
@@ -183,11 +211,16 @@
     ctx.textBaseline = "middle";
   };
 
+  Renderer.prototype._nearView = function (e, x0, y0, x1, y1) {
+    var ex = e.x | 0, ey = e.y | 0;
+    return ex >= x0 - 2 && ey >= y0 - 2 && ex < x1 + 2 && ey < y1 + 2;
+  };
+
   Renderer.prototype.cell = function (x, y, ch, fg, bg) {
     var ctx = this.ctx;
     var px = (x - (this.useCam ? this.camX : 0)) * this.tw + this.ox;
     var py = (y - (this.useCam ? this.camY : 0)) * this.th + this.oy;
-    if (this.shake > 0) {
+    if (this.shake > 0.35) {
       px += (Math.random() - 0.5) * this.shake;
       py += (Math.random() - 0.5) * this.shake;
     }
@@ -367,24 +400,66 @@
     tctx.textAlign = "center";
     tctx.textBaseline = "middle";
 
-    this._waterCells = [];
+    this._shores = [];
+    this._shoreKey = "";
     var tw = this.tw, th = this.th;
-    var x, y;
+    var shores = this._shores;
+    var x, y, tile, typ, wetN, shore;
+    function wet(t) {
+      return t === GS.T.DEEP || t === GS.T.SHALLOW || t === GS.T.REEF || t === GS.T.LAVA;
+    }
     for (y = 0; y < h; y++) {
       for (x = 0; x < w; x++) {
-        var tile = island.tiles[y][x];
-        var typ = tile.type;
-        if (typ === GS.T.DEEP || typ === GS.T.SHALLOW || typ === GS.T.REEF || typ === GS.T.LAVA) {
-          this._waterCells.push(x, y, typ);
-          tctx.fillStyle = this.tint(tile.bg);
-          tctx.fillRect(x * tw, y * th, tw, th);
-          continue;
-        }
+        tile = island.tiles[y][x];
+        typ = tile.type;
         tctx.fillStyle = this.tint(tile.bg);
         tctx.fillRect(x * tw, y * th, tw, th);
+        if (wet(typ)) {
+          shore = typ !== GS.T.DEEP;
+          if (!shore) {
+            wetN = (y > 0 && wet(island.tiles[y - 1][x].type)) &&
+              (y + 1 < h && wet(island.tiles[y + 1][x].type)) &&
+              (x > 0 && wet(island.tiles[y][x - 1].type)) &&
+              (x + 1 < w && wet(island.tiles[y][x + 1].type));
+            shore = !wetN;
+          }
+          tctx.fillStyle = this.tint(tile.fg);
+          tctx.fillText(tile.ch, x * tw + tw / 2, y * th + th / 2 + 0.5);
+          if (shore) {
+            shores.push({
+              x: x, y: y, typ: typ,
+              fg: this.tint(tile.fg),
+              bg: this.tint(tile.bg),
+            });
+          }
+          continue;
+        }
         tctx.fillStyle = this.tint(tile.fg);
         tctx.fillText(tile.ch, x * tw + tw / 2, y * th + th / 2 + 0.5);
       }
+    }
+  };
+
+  /** Repaint only the shoreline currently on screen. Deep water stays in the terrain cache. */
+  Renderer.prototype._paintShore = function (phase, x0, y0, x1, y1) {
+    var tctx = this._terrainCtx;
+    var list = this._shores;
+    if (!tctx || !list || !list.length) return;
+    var tw = this.tw, th = this.th;
+    var i, s, wave, ch;
+    tctx.font = this._font;
+    tctx.textAlign = "center";
+    tctx.textBaseline = "middle";
+    for (i = 0; i < list.length; i++) {
+      s = list[i];
+      if (s.x < x0 || s.y < y0 || s.x >= x1 || s.y >= y1) continue;
+      wave = (s.x + s.y + phase * (s.typ === GS.T.LAVA ? 2 : 1)) % 4;
+      if (wave < 0) wave += 4;
+      ch = wave === 1 ? "~" : wave === 2 ? "∼" : "≈";
+      tctx.fillStyle = s.bg;
+      tctx.fillRect(s.x * tw, s.y * th, tw, th);
+      tctx.fillStyle = s.fg;
+      tctx.fillText(ch, s.x * tw + tw / 2, s.y * th + th / 2 + 0.5);
     }
   };
 
@@ -396,35 +471,32 @@
     if (opts.followCursor) {
       this.followTile(battle.cursor.x, battle.cursor.y, island.w, island.h);
     }
-    this.time += (this.lowFx || this.reduceMotion) ? 0.032 : 0.016;
+    var now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    var step = this._clock ? Math.min(0.05, (now - this._clock) / 1000) : 0.016;
+    this._clock = now;
+    this.time += (this.lowFx || this.reduceMotion) ? step * 0.35 : step;
     if (!this.lowFx && this.allowShake !== false && !this.reduceMotion) this.shake *= 0.85;
     else this.shake = 0;
     var t = this.time;
-    var x, y, i;
+    var x, y, i, ch;
 
     this._rebuildTerrain(island, battle.terrainGen || 0);
-    var srcX = this.camX * this.tw;
-    var srcY = this.camY * this.th;
-    this.ctx.drawImage(this._terrainCanvas, srcX, srcY, this.cssW, this.cssH, 0, 0, this.cssW, this.cssH);
-    this._applyFont();
-
     var x0 = Math.max(0, (this.camX | 0) - 1);
     var y0 = Math.max(0, (this.camY | 0) - 1);
     var x1 = Math.min(island.w, ((this.camX + this.cssW / this.tw) | 0) + 2);
     var y1 = Math.min(island.h, ((this.camY + this.cssH / this.th) | 0) + 2);
-
-    var wc = this._waterCells;
-    if (!this.lowFx && !this.reduceMotion) {
-      for (i = 0; i < wc.length; i += 3) {
-        x = wc[i]; y = wc[i + 1];
-        if (x < x0 || y < y0 || x >= x1 || y >= y1) continue;
-        var typ = wc[i + 2];
-        var wave = ((x + y + (t * (typ === GS.T.LAVA ? 8 : 3))) | 0) % 4;
-        var ch = wave === 0 ? "≈" : wave === 1 ? "~" : wave === 2 ? "∼" : "≈";
-        var tile = island.tiles[y][x];
-        this.cell(x, y, ch, tile.fg, null);
+    if (!this.lowFx && !this.reduceMotion && this._shores.length) {
+      var phase = (t * 4) | 0;
+      var bucket = (this.camX | 0) + ":" + (this.camY | 0) + ":" + phase + ":" + this.cssW + "x" + this.cssH;
+      if (bucket !== this._shoreKey) {
+        this._shoreKey = bucket;
+        this._paintShore(phase, Math.max(0, x0 - 2), Math.max(0, y0 - 2), Math.min(island.w, x1 + 2), Math.min(island.h, y1 + 2));
       }
     }
+    var srcX = this.camX * this.tw;
+    var srcY = this.camY * this.th;
+    this.ctx.drawImage(this._terrainCanvas, srcX, srcY, this.cssW, this.cssH, 0, 0, this.cssW, this.cssH);
+    this._applyFont();
 
     if (this.showLandings) {
       var pulseAll = battle.phase === "deploy";
@@ -463,18 +535,25 @@
       this.cell(k.x | 0, k.y | 0, k.ch, k.fg, null);
     }
 
-    var ents;
+    var ents = this._drawEnts || (this._drawEnts = []);
+    ents.length = 0;
     if (battle.phase === "fight" && battle._livingSoldiers && battle._livingEnemies) {
-      ents = battle._livingSoldiers.concat(battle._livingEnemies);
+      for (i = 0; i < battle._livingSoldiers.length; i++) {
+        if (this._nearView(battle._livingSoldiers[i], x0, y0, x1, y1)) ents.push(battle._livingSoldiers[i]);
+      }
+      for (i = 0; i < battle._livingEnemies.length; i++) {
+        if (this._nearView(battle._livingEnemies[i], x0, y0, x1, y1)) ents.push(battle._livingEnemies[i]);
+      }
     } else {
-      ents = battle.entities.filter(function (e) {
-        return e.alive && (e.kind === "soldier" || e.kind === "enemy");
-      });
+      for (i = 0; i < battle.entities.length; i++) {
+        var ent0 = battle.entities[i];
+        if (ent0.alive && (ent0.kind === "soldier" || ent0.kind === "enemy") && this._nearView(ent0, x0, y0, x1, y1)) ents.push(ent0);
+      }
     }
     for (i = 0; i < battle.entities.length; i++) {
-      if (battle.entities[i].alive && battle.entities[i].kind === "ship") ents.push(battle.entities[i]);
+      if (battle.entities[i].alive && battle.entities[i].kind === "ship" && this._nearView(battle.entities[i], x0, y0, x1, y1)) ents.push(battle.entities[i]);
     }
-    ents.sort(function (a, b) { return a.y - b.y; });
+    ents.sort(sortByY);
     for (i = 0; i < ents.length; i++) {
       var e = ents[i];
       var ex = e.x | 0, ey = e.y | 0;

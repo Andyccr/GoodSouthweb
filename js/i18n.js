@@ -832,7 +832,7 @@
         "<li>Northmen always arrive by longship from deep water, then beach.</li>" +
         "</ul><h3>Phone</h3><ul>" +
         "<li>Tap ground to place; tap a soldier to select, tap the same company to turn. Drag pans, pinch zooms. On the chart tap an isle, then tap or hold to land.</li>" +
-        "<li>Turn (dock or hold) shows facing. Dock opens intel / troops / orders. Tap Fight. Bars zoom and change speed.</li>" +
+        "<li>The dock is five keys: intel, troops, fight or pause, form-up or horn, and menu. The strip scrolls through companies, turn, orders, zoom, and speed. A hold on the map also turns a company.</li>" +
         "<li>Sandbox paint / spawn / new isle live in the Intel sheet so they do not cover the map.</li>" +
         "<li>Narrow screens use smaller isles and lower FX.</li>" +
         "</ul><h3>Desktop</h3><pre class=\"keys\">" +
@@ -877,7 +877,7 @@
       "<li>北蛮一律乘长船从深海驶向海滩，靠岸后才下船。</li>" +
       "</ul><h3>手机</h3><ul>" +
       "<li>点空地就位；点士兵选中，再点同一兵团转向。拖动画布平移，双指缩放。海图点岛选中，再点或长按登陆。</li>" +
-      "<li>转向（底栏或长按）会弹出朝向。底栏打开情报 / 部队抽屉，点开战或号令。条上可缩放与变速。</li>" +
+      "<li>底栏五项：情报、部队、开战或暂停、列阵或号角、菜单。兵团条可横滑，用来选队、转向、号令、缩放和变速。长按地图也能转向。</li>" +
       "<li>沙盒的刷地 / 刷兵 / 新岛在「情报」抽屉里，避免挡住地图。</li>" +
       "<li>窄屏会自动用较小岛屿、降低特效，避免卡顿。</li>" +
       "</ul><h3>桌面操作</h3><pre class=\"keys\">" +
@@ -1140,6 +1140,8 @@
       }
       var gen = document.getElementById("genbtn");
       if (gen) gen.textContent = t("genIsle");
+      var mark = tools.querySelector(":scope > span");
+      if (mark) mark.textContent = t("sandboxMode");
     }
   };
 

@@ -109,6 +109,11 @@ ok(GS.CONFIG.hire.skirmisher && GS.CONFIG.hire.skirmisher.cost === 7, "hire tabl
 ok(GS.CONFIG.battle.zoomMobile >= 16, "mobile zoom default");
 ok(GS.util.clamp(5, 0, 3) === 3, "clamp");
 ok(GS.util.escapeHtml("<a>") === "&lt;a&gt;", "escapeHtml");
+ok(GS.util.escapeAttr('a"b') === "a&quot;b", "escapeAttr");
+ok(GS.util.setHtml(null, "x") === false, "setHtml ignores a missing node");
+var htmlNode = { innerHTML: "" };
+ok(GS.util.setHtml(htmlNode, "<b>a</b>") === true && htmlNode.innerHTML === "<b>a</b>", "setHtml writes markup");
+ok(GS.util.setHtml(htmlNode, "<b>a</b>") === false, "setHtml skips identical markup");
 ok(!GS.util.device.compact({ innerWidth: 1440, innerHeight: 900, navigator: { maxTouchPoints: 0 }, matchMedia: function () { return { matches: false }; } }), "desktop is not compact");
 ok(GS.util.device.compact({ innerWidth: 390, innerHeight: 844, navigator: { maxTouchPoints: 5 }, matchMedia: function () { return { matches: true }; } }), "phone is compact");
 ok(GS.util.device.lowFx({ innerWidth: 390, innerHeight: 844, navigator: { maxTouchPoints: 5 }, matchMedia: function () { return { matches: false }; } }), "phone uses low fx");

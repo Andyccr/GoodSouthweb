@@ -74,6 +74,7 @@
     }
     GS.bus.emit(GS.EV.MODE_CHANGE, { from: prev, to: mode, data: data });
     this.hudDirty = true;
+    if (this.renderer) this.renderer._needMeasure = true;
 
     if (mode === "title") {
       this.battle = null;
@@ -161,6 +162,8 @@
 
   Game.prototype.toggleLang = function () {
     GS.setLang(GS.LANG === "en" ? "zh" : "en");
+    this._tipKey = null;
+    this._tipIsle = null;
     this._persistSettings();
     this.ui.toast(GS.t("toastLang"), "ok");
     this.hudDirty = true;
@@ -188,6 +191,7 @@
     if (this.renderer) {
       this.renderer.lowFx = d.lowFx;
       this.renderer._resizeKey = "";
+      this.renderer._needMeasure = true;
     }
     var size = $("sizebox");
     if (size) {
@@ -209,6 +213,7 @@
     if (right) right.classList.toggle("open", want === "right");
     this.sheet = want;
     if (scrim) scrim.classList.toggle("hidden", !want);
+    this.hudDirty = true;
   };
 
   Game.prototype._fitBattleCam = function () {
@@ -1309,6 +1314,11 @@
     var hit = GS.Campaign.pickAt(this.campaign, tile.x, tile.y, (GS.CONFIG.campaign && GS.CONFIG.campaign.pickRadius) || 4);
     if (hit) {
       var best = hit.island;
+      if (this._tipIsle === best.id) {
+        this.ui.placeTooltip(cx, cy);
+        return;
+      }
+      this._tipIsle = best.id;
       var st = { scouted: GS.t("unfought"), cleared: GS.t("recovered"), lost: GS.t("fallen") }[best.status] || best.status;
       var om = best.omen && GS.Meta ? GS.Meta.omen(best.omen) : null;
       var landHint = best.status !== "scouted"
@@ -1321,12 +1331,23 @@
         "<div>" + landHint + "</div>",
         cx, cy
       );
-    } else this.ui.hideTooltip();
+    } else {
+      this._tipIsle = null;
+      this.ui.hideTooltip();
+    }
   };
 
   Game.prototype.updateBattleTooltip = function (tile, cx, cy) {
     var b = this.battle;
     if (!b) return;
+    var now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    var key = tile.x + "," + tile.y + (b.look ? ":look" : "");
+    if (this._tipKey === key && now - (this._tipAt || 0) < 120) {
+      this.ui.placeTooltip(cx, cy);
+      return;
+    }
+    this._tipKey = key;
+    this._tipAt = now;
     if (b.look) {
       this.lookText = b.lookAt(tile.x, tile.y);
       this.hudDirty = true;
