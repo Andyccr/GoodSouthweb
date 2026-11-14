@@ -1,19 +1,19 @@
 :root {
-  --bg: #12181c;
-  --panel: rgba(18, 22, 24, 0.72);
-  --panel-2: rgba(28, 34, 36, 0.88);
-  --fg: #e7e1d4;
-  --hi: #e4d2a8;
-  --dim: #8d948c;
-  --cyan: #d4b483;
-  --red: #c46a5a;
-  --green: #9cba8a;
-  --blue: #8aa0ab;
-  --ink: #1c1812;
-  --border: rgba(228, 210, 168, 0.28);
-  --border-soft: rgba(231, 225, 212, 0.08);
-  --font: "Segoe UI", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif;
-  --display: "Iowan Old Style", Palatino, "Palatino Linotype", "Songti SC", serif;
+  --bg: #05070c;
+  --panel: #070b14;
+  --panel-2: #0a1020;
+  --fg: #c8c8d0;
+  --hi: #ffe566;
+  --dim: #8a8a9a;
+  --cyan: #5ce1e6;
+  --red: #ff6b6b;
+  --green: #6dff9a;
+  --blue: #7aa2ff;
+  --ink: #05070c;
+  --border: #2a3a6a;
+  --border-soft: #1a2440;
+  --font: ui-monospace, "Source Code Pro", "Sarasa Mono SC", "PingFang SC", "Noto Sans SC", monospace;
+  --display: ui-monospace, "Source Code Pro", "Sarasa Mono SC", "PingFang SC", monospace;
   --mono: ui-monospace, "Source Code Pro", "Sarasa Mono SC", monospace;
   --radius: 18px;
   --dock-h: 64px;
@@ -1559,3 +1559,104 @@ html[data-mode="voyage"] .toasts {
 #sandbox-tools select { flex: 1; min-width: 0; }
 #sandbox-tools #genbtn { width: 100%; }
 .is-compact #sandbox-fold { display: none !important; }
+
+/* Terminal chrome: the coastal wash left buttons and type the same color as the page. */
+#app {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 35%, #0b1630 0%, #05070c 62%),
+    #05070c;
+}
+#topbar {
+  background: #0c1428;
+  border-bottom: 1px solid var(--border);
+  color: var(--hi);
+}
+#topbar .brand { color: var(--cyan); letter-spacing: 0.08em; }
+#bottom {
+  background: #081022;
+  border-top: 1px solid var(--border);
+  color: var(--fg);
+}
+#bottom .hint-line { color: var(--cyan); }
+#left, #right {
+  background: rgba(7, 11, 20, 0.94);
+  border-color: var(--border-soft);
+}
+#left h3, #right h3 { color: var(--cyan); }
+#stage { background: #05070c; }
+#stage::before { background: none; }
+button, select, input, textarea, .tb-btn, .cmd-btn, .menu button, .slot-btn {
+  background: #101828;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+button:hover:not(:disabled), .tb-btn:hover:not(:disabled), .cmd-btn:hover:not(:disabled) {
+  border-color: var(--cyan);
+  color: var(--fg);
+  background: #142033;
+}
+.tb-btn.active, .cmd-btn.active, .squad-item.sel, .island-item.sel {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: #102028;
+}
+.tb-btn.primary, button.primary, .choice.on, .is-compact #dock button.primary,
+.scene-title .menu button.primary, .scene-brief .brief-actions button.primary,
+.scene-pact .menu button.primary, .scene-epitaph .menu button:first-child {
+  background: #102830;
+  color: var(--cyan);
+  border-color: var(--cyan);
+}
+.tb-btn.primary kbd, button.primary kbd, .scene-title .menu button.primary kbd { color: var(--cyan); }
+.chip {
+  background: #101828;
+  border: 1px solid var(--border-soft);
+  border-radius: 2px;
+  padding: 2px 8px;
+}
+.chip.cyan .chip-v { color: var(--cyan); }
+.chip.hi .chip-v { color: var(--hi); }
+.panel {
+  background: #0a1020;
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+#overlay { background: rgba(5, 7, 12, 0.82); }
+.scene-pact .choice, .scene-rank .menu button, .scene-fork .menu button, .scene-hall .menu button {
+  background: #101828;
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+.scene-pact .choice.on {
+  background: #102830;
+  border-color: var(--cyan);
+  color: var(--fg);
+}
+.scene-pact .choice.on b { color: var(--cyan); }
+kbd, .menu button kbd, .panel kbd { color: var(--cyan); }
+.is-compact #dock {
+  background: #081022;
+  border-top: 1px solid var(--border);
+}
+.is-compact #dock button {
+  background: #101828;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 2px;
+}
+.look, .keys, .legend, .preview-panel .mini {
+  color: var(--fg);
+  border-left-color: var(--cyan);
+}
+.toast, .tooltip {
+  background: #0a1020;
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+.scene-title .menu button {
+  border: 1px solid var(--border);
+  background: #101828;
+  color: var(--fg);
+}
+.scene-title .wordmark { color: var(--cyan); }
