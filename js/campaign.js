@@ -13,6 +13,10 @@
     camp.threat = threat.id || "war";
     camp.threatMul = threat.mul != null ? threat.mul : 1;
     camp.coinMul = threat.coin != null ? threat.coin : 1;
+    camp.wavePace = threat.pace || 0;
+    camp.waveFlankMul = threat.flankMul != null ? threat.flankMul : 1;
+    camp.waveFlankAdd = threat.flankAdd || 0;
+    camp.earlyElites = threat.earlyElites || 0;
     camp.lengthId = opts.length || (count <= 8 ? "short" : count >= 24 ? "far" : "south");
     camp.guide = opts.guide !== false;
     return camp;

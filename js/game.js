@@ -364,6 +364,7 @@
     this.screens.pause({
       inBattle: this.mode === "battle" || this.mode === "sandbox",
       canSave: !!(this.army && this.campaign) || this.mode === "sandbox",
+      canLedger: !!(this.army && this.campaign),
       mode: this.mode,
     });
     this.hudDirty = true;
@@ -478,7 +479,7 @@
       }
       if (this.battle.phase === "over" && this.mode === "battle" && this.battle.outcome) {
         if (!this._resultShown) this._onBattleOver();
-      }
+      } else this._maybeFightSave(dt);
     }
 
     this.renderWorld();
@@ -571,6 +572,9 @@
       case "lang": return this.toggleLang();
       case "back-camp":
         this.closeMenu();
+        this.battle = null;
+        this._fightSaveT = 0;
+        this.autosave(GS.t("slotChart"));
         return this.setMode("campaign");
       case "hire": return this.setMode("hire");
       case "buy": return this.buy(arg);
@@ -631,11 +635,27 @@
         return;
       case "spd-down":
         if (this.menuOpen) return;
-        if (this.battle) {
-          if (this.battle.phase === "deploy") this.battle.startFight();
+        if (this.battle && this.battle.phase !== "deploy") {
           this.battle.setSpeed(Math.max(0, (this.battle.speed || 1) - 1));
         }
         this.hudDirty = true;
+        return;
+      case "zoom-abs": {
+        if (!arg || !this.renderer) return;
+        var zmap = this.mode === "campaign" && this.campaign
+          ? { w: this.campaign.w, h: this.campaign.h, lim: GS.CONFIG.campaign }
+          : (this.battle ? { w: this.battle.w, h: this.battle.h, lim: GS.CONFIG.battle } : null);
+        if (!zmap) return;
+        this.renderer.setZoom(arg.z, zmap.w, zmap.h, arg.x, arg.y, zmap.lim);
+        if (this.mode === "campaign") this._campZoom = this.renderer.zoom;
+        this.hudDirty = true;
+        return;
+      }
+      case "ledger":
+        if (!this.army) return;
+        this.menuOpen = true;
+        this.menuKind = "ledger";
+        this.screens.ledger(this.army);
         return;
       case "rotate": {
         if (!this.battle) return;
@@ -739,6 +759,7 @@
         if (!this.battle) return;
         var nextOrd = this.battle.cycleOrder(this.battle.selected);
         if (nextOrd) {
+          if (this.battle) this.battle._guideReady = true;
           this.ui.toast(GS.t("toastOrder", GS.t(GS.Battle.orderKey(nextOrd))), "info");
           this.hudDirty = true;
           if (GS.audio) GS.audio.ui();
@@ -888,9 +909,30 @@
     this.setMode("campaign");
   };
 
+  Game.prototype._saveMeta = function () {
+    return {
+      rngSeed: this.rng ? this.rng.seed : 0,
+      rngDraws: this.rng && this.rng.draws ? this.rng.draws() : 0,
+      pendingVoyage: this.pendingVoyage || null,
+    };
+  };
+
+  Game.prototype._maybeFightSave = function (dt) {
+    if (this.mode !== "battle" || !this.battle || this.battle.phase !== "fight") return;
+    this._fightSaveT = (this._fightSaveT || 0) + dt;
+    var launched = 0;
+    var waves = this.battle.waves || [];
+    for (var i = 0; i < waves.length; i++) if (waves[i].launched) launched++;
+    if (this._fightSaveWave == null) this._fightSaveWave = launched;
+    if (this._fightSaveT < 20 && launched === this._fightSaveWave) return;
+    this._fightSaveT = 0;
+    this._fightSaveWave = launched;
+    this.autosave(GS.t("slotFight"));
+  };
+
   Game.prototype.autosave = function (label) {
     if (!this.army || !this.campaign) return false;
-    var opts = { label: label || GS.t("autoSlot") };
+    var opts = { label: label || GS.t("autoSlot"), meta: this._saveMeta() };
     if ((this.mode === "battle" || this.mode === "sandbox") && this.battle && this.battle.phase !== "over") {
       opts.battle = GS.Save.captureBattle(this);
     }
@@ -902,7 +944,7 @@
       this.ui.toast(GS.t("toastNothing"), "warn");
       return false;
     }
-    var opts = { label: slot === "auto" ? GS.t("autoSlot") : GS.t("manualSlot", slot) };
+    var opts = { label: slot === "auto" ? GS.t("autoSlot") : GS.t("manualSlot", slot), meta: this._saveMeta() };
     if ((this.mode === "battle" || this.mode === "sandbox") && this.battle && this.battle.phase !== "over") {
       opts.battle = GS.Save.captureBattle(this);
     }
@@ -921,7 +963,7 @@
       this.ui.toast(GS.t("toastNoQsave"), "warn");
       return;
     }
-    var opts = { label: GS.t("slotQuick") };
+    var opts = { label: GS.t("slotQuick"), meta: this._saveMeta() };
     if ((this.mode === "battle" || this.mode === "sandbox") && this.battle && this.battle.phase !== "over") {
       opts.battle = GS.Save.captureBattle(this);
     }
@@ -957,11 +999,23 @@
     this.army = data.army;
     this.campaign = data.campaign;
     this.campCursor = this.campaign.current || 0;
+    if (data.meta && data.meta.rngSeed != null) {
+      this.rng = GS.rng(data.meta.rngSeed);
+      if (this.rng.skip && data.meta.rngDraws) this.rng.skip(data.meta.rngDraws);
+    }
+    this.pendingVoyage = (data.meta && data.meta.pendingVoyage) || null;
     this._campArmed = null;
     this._resultShown = false;
     this.closeMenu(true);
 
-    if (data.battle && data.battle.snapshot) {
+    var snapOk = false;
+    if (data.battle && data.battle.snapshot && data.campaign && data.campaign.islands) {
+      var nodeNow = data.campaign.islands[data.campaign.current];
+      var snapIsle = data.battle.snapshot.island;
+      snapOk = !!(nodeNow && snapIsle && nodeNow.status !== "cleared" && nodeNow.status !== "lost" &&
+        (nodeNow.seed == null || snapIsle.seed == null || nodeNow.seed === snapIsle.seed));
+    }
+    if (snapOk) {
       var restored = GS.Battle.deserialize(data.battle.snapshot, this.army);
       if (restored) {
         this.battle = restored;
@@ -1011,10 +1065,16 @@
   Game.prototype.enterBattle = function () {
     this._resultShown = false;
     var camp = this.campaign || {};
+    this._fightSaveT = 0;
+    this._fightSaveWave = null;
     this.battle = new GS.Battle(this.island, this.army, {
       sandbox: false,
       threatMul: camp.threatMul != null ? camp.threatMul : 1,
       coinMul: camp.coinMul != null ? camp.coinMul : 1,
+      wavePace: camp.wavePace || 0,
+      waveFlankMul: camp.waveFlankMul,
+      waveFlankAdd: camp.waveFlankAdd,
+      earlyElites: camp.earlyElites || 0,
       guide: !!(camp.guide && (this.army.islandsCleared || 0) === 0),
     });
     this.sandboxTool = "place";
@@ -1039,7 +1099,11 @@
 
   Game.prototype._startFight = function () {
     if (!this.battle) return;
-    this.battle.startFight();
+    if (!this.battle.startFight()) {
+      this.ui.toast(GS.t(this.battle.sandbox ? "needPlace" : "needAll"), "warn");
+      this.hudDirty = true;
+      return;
+    }
     this.ui.toast(GS.t("toastHornStart"), "warn");
     this.hudDirty = true;
   };
@@ -1068,8 +1132,18 @@
       GS.Army.applyBattleOutcome(this.army, o);
     }
     if (GS.Army.noteBattle) GS.Army.noteBattle(this.army, o);
-    GS.Save.writeSlot("auto", this.army, this.campaign, { label: GS.t("slotAfter") });
+    GS.Save.writeSlot("auto", this.army, this.campaign, { label: GS.t("slotAfter"), battle: null, meta: this._saveMeta() });
     this.setMode("result", o);
+  };
+
+  Game.prototype._voyageFate = function () {
+    var camp = this.campaign;
+    if (!camp || !camp.islands || !camp.islands.length) return "held";
+    var cleared = 0;
+    for (var i = 0; i < camp.islands.length; i++) {
+      if (camp.islands[i].status === "cleared") cleared++;
+    }
+    return cleared * 2 >= camp.islands.length ? "held" : "lost";
   };
 
   Game.prototype.afterResult = function () {
@@ -1084,7 +1158,7 @@
     }
     if (GS.Campaign.isFinished(this.campaign)) {
       this.mode = "result";
-      this.screens.finale(this.army);
+      this.screens.finale(this.army, this._voyageFate());
       return;
     }
     if (this.battle && this.battle.outcome && this.battle.outcome.kind === "victory") {
@@ -1155,6 +1229,7 @@
       this.renderer.centerOn(anchor.tx, anchor.ty, this.battle.w, this.battle.h);
       this.renderer._followLock = 40;
     }
+    if (this.battle) this.battle._guideReady = true;
     if (GS.audio) GS.audio.place();
     this.ui.toast(GS.t("toastFormed", n), "ok");
     this.hudDirty = true;

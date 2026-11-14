@@ -178,7 +178,8 @@ healA.commanders[1].soldiers = 0;
 healA.commanders[1].dead = true;
 var max0 = healA.commanders[0].maxSoldiers;
 GS.Army.applyBattleOutcome(healA, { kind: "victory", coins: 1 });
-ok(healA.commanders[0].soldiers === max0, "victory restores a surviving squad to full");
+var halfHeal = Math.min(max0, 3 + Math.ceil((max0 - 3) / 2) + 1);
+ok(healA.commanders[0].soldiers === halfHeal, "victory restores half the missing ranks plus one");
 ok(healA.commanders[1].dead && healA.commanders[1].soldiers === 0, "wiped squad stays dead");
 
 var camp = GS.Campaign.create(2026, 14);
@@ -241,7 +242,9 @@ var wheatA = GS.Army.create(GS.rng(7));
 wheatA.commanders[0].soldiers = 4;
 GS.Army.grantRelic(wheatA, "wheat");
 GS.Army.applyBattleOutcome(wheatA, { kind: "victory", coins: 3, wheatCoins: 2 });
-ok(wheatA.coins === 12 + 3 + 2 && wheatA.commanders[0].soldiers === wheatA.commanders[0].maxSoldiers, "wheat bonus coins on victory");
+var wheatMax = wheatA.commanders[0].maxSoldiers;
+var wheatLeft = Math.min(wheatMax, 4 + Math.ceil((wheatMax - 4) / 2) + 1);
+ok(wheatA.coins === 12 + 3 + 2 && wheatA.commanders[0].soldiers === wheatLeft, "wheat bonus coins on victory");
 
 console.log("Waves");
 var isle0 = GS.mapgen.island(7, { difficulty: 4 });
@@ -331,7 +334,7 @@ for (var sh = 200; sh < 260; sh++) {
 ok(!!shapes.isthmus, "isthmus shape appears in mapgen, shapes=" + Object.keys(shapes).join(","));
 ok(GS.CONFIG.battle.hunt.sticky >= 4 && GS.CONFIG.battle.hunt.cohesion === 8, "hunt stickiness + cohesion knobs");
 ok(GS.CONFIG.battle.hunt.siege >= 8 && GS.CONFIG.battle.hunt.local >= 2, "hunt siege + local peel knobs");
-ok(GS.CONFIG.battle.hunt.rally >= 10 && GS.CONFIG.battle.hunt.cover >= 6 && GS.CONFIG.battle.hunt.intercept >= 4, "rally + house-cover knobs");
+ok(GS.CONFIG.battle.hunt.rally >= 10 && GS.CONFIG.battle.hunt.cover >= 3 && GS.CONFIG.battle.hunt.cover <= 5 && GS.CONFIG.battle.hunt.intercept >= 4, "rally + house-cover knobs");
 
 console.log("Campaign graph");
 function connected(camp) {
@@ -656,12 +659,12 @@ ok(br._intel.crisis, "melee contact is a field crisis");
 ok(br._intel.engaged.length >= 1, "engaged company is visible to every company");
 br._assignSquadHunts(br._collectThreats());
 ok(br.getSquad("meleeR").huntId === rallyFoe.id, "engaged melee locks the raider");
-ok(br.getSquad("bowR").huntId === rallyFoe.id, "hold bows share the same hunt in a crisis");
+ok(br.getSquad("bowR").huntId !== rallyFoe.id, "hold bows keep their post when the fight is outside the ring");
 for (var rt = 0; rt < 90; rt++) br.tick(0.05);
 ok(rallyFoe.alive, "jarl still stands so the host has time to rally");
 var dBowHome = squadAvg(br, "bowR", bowHome);
-ok(dBowHome > dBow0 + 2,
-  "hold bows leave the hill to join the fight (home0=" + dBow0.toFixed(1) + " home=" + dBowHome.toFixed(1) + ")");
+ok(dBowHome < dBow0 + 3,
+  "hold bows stay on the hill (home0=" + dBow0.toFixed(1) + " home=" + dBowHome.toFixed(1) + ")");
 
 var islandS = GS.mapgen.island(91, { difficulty: 2, size: "small", biome: "verdant" });
 var armyS = GS.Army.create(GS.rng(5));
@@ -959,6 +962,86 @@ ok(yardClear, "house yards are clear of trees");
 var beachN = 0;
 for (var by = 0; by < wide.h; by++) for (var bx = 0; bx < wide.w; bx++) if (wide.tiles[by][bx].type === GS.T.BEACH || wide.tiles[by][bx].type === GS.T.ICE) beachN++;
 ok(beachN > 40, "shore has a sand shelf, beaches " + beachN);
+
+console.log("Feel / save / i18n gaps");
+var pikeB = new GS.Battle(GS.mapgen.island(6, { difficulty: 1, size: "small" }), GS.Army.create(GS.rng(1)), { sandbox: true });
+var pike = { x: 20.5, y: 20.5, facing: 0, front: 2.35, facingLocked: true, dmg: 10, acc: 1, cd: 1, cooldown: 0, team: "player", kind: "soldier", alive: true, role: "pike", range: 1.55, id: 9001 };
+var rear = { x: 20.5, y: 22.2, alive: true, hp: 100, maxHp: 100, team: "enemy", kind: "enemy", id: 9002 };
+ok(pikeB._facingBonus(pike, { x: 20.5, y: 18.8 }) > 2, "pike front cone");
+ok(pikeB._facingBonus(pike, rear) < 0.7, "pike rear cone");
+pikeB._melee(pike, rear);
+ok(pike.facing === 0, "locked pike does not turn before the thrust");
+ok(rear.hp > 88, "rear thrust stays under a frontal blow, hp=" + rear.hp);
+
+function armAway(battle, hx, hy) {
+  var sq = battle.squads[0];
+  var placed = false;
+  for (var y = 0; y < battle.h && !placed; y++) {
+    for (var x = 0; x < battle.w && !placed; x++) {
+      var tile = battle.island.tiles[y][x];
+      if (!tile.walk || tile.type === GS.T.HOUSE) continue;
+      if (Math.hypot(x - hx, y - hy) < 10) continue;
+      placed = battle.placeSquad(sq.id, x, y, 2);
+    }
+  }
+  return placed && battle.startFight();
+}
+var houndIsle = GS.mapgen.island(18, { difficulty: 3, size: "small" });
+var houndB = new GS.Battle(houndIsle, GS.Army.create(GS.rng(3)), { sandbox: true, battleSeed: 4 });
+var hHouse = houndB.houses[0];
+ok(armAway(houndB, hHouse.x, hHouse.y), "hound fixture started");
+var hp0 = hHouse.hp;
+houndB.spawnEnemy("hound", hHouse.x + 2, hHouse.y, { homeX: hHouse.x + 2, homeY: hHouse.y });
+houndB._refreshLiving();
+houndB._livingSoldiers = [];
+for (var hd = 0; hd < 40; hd++) {
+  houndB._livingSoldiers = [];
+  houndB.tick(0.05);
+}
+ok(hHouse.hp === hp0, "hound does not burn an empty house");
+
+var sapB = new GS.Battle(GS.mapgen.island(19, { difficulty: 4, size: "small" }), GS.Army.create(GS.rng(4)), { sandbox: true });
+var sapHouse = sapB.houses[0];
+ok(armAway(sapB, sapHouse.x, sapHouse.y), "sapper fixture started");
+var sap = sapB.spawnEnemy("sapper", sapHouse.x + 4, sapHouse.y);
+var sap0 = Math.hypot(sap.x - (sapHouse.x + 0.5), sap.y - (sapHouse.y + 0.5));
+for (var sd = 0; sd < 40; sd++) {
+  sapB._livingSoldiers = [];
+  sapB.tick(0.05);
+}
+var sap1 = Math.hypot(sap.x - (sapHouse.x + 0.5), sap.y - (sapHouse.y + 0.5));
+ok(sap1 < sap0 - 0.2, "sapper walks at the house, " + sap0.toFixed(1) + "→" + sap1.toFixed(1));
+
+var zhKeys = Object.keys(GS.I18N.zh);
+var enKeys = Object.keys(GS.I18N.en);
+var keyMiss = zhKeys.filter(function (k) { return enKeys.indexOf(k) < 0; })
+  .concat(enKeys.filter(function (k) { return zhKeys.indexOf(k) < 0; }));
+ok(keyMiss.length === 0, "i18n keys match " + keyMiss.join(","));
+
+var fs = require("fs");
+var gameSrc = fs.readFileSync(require("path").join(__dirname, "../js/game.js"), "utf8");
+var inputSrc = fs.readFileSync(require("path").join(__dirname, "../js/input.js"), "utf8");
+var actRe = /dispatch\(\s*"([^"]+)"/g;
+var actMiss = [];
+var actSeen = {};
+var am;
+while ((am = actRe.exec(inputSrc))) {
+  if (actSeen[am[1]]) continue;
+  actSeen[am[1]] = 1;
+  if (gameSrc.indexOf('case "' + am[1] + '"') < 0) actMiss.push(am[1]);
+}
+ok(actMiss.length === 0, "input actions reach dispatch " + actMiss.join(","));
+ok(gameSrc.indexOf('case "zoom-abs"') >= 0 && gameSrc.indexOf('case "ledger"') >= 0, "zoom and ledger are dispatched");
+
+var dirsN = 0;
+var dirSum = 0;
+for (var ds = 1; ds <= 12; ds++) {
+  var di = GS.mapgen.island(ds, { difficulty: 2 });
+  if (!di) continue;
+  dirsN++;
+  dirSum += di.landingDirs.length;
+}
+ok(dirsN === 12 && dirSum / dirsN <= 3.5, "landing directions stay readable, avg " + (dirSum / dirsN).toFixed(2));
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

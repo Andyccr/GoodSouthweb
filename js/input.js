@@ -120,7 +120,7 @@
         if (game.mode === "title") {
           game.closeMenu(true);
           game.setMode("title");
-        } else if (game.menuKind === "save" || game.menuKind === "load" || game.menuKind === "help") {
+        } else if (game.menuKind === "save" || game.menuKind === "load" || game.menuKind === "help" || game.menuKind === "ledger" || game.menuKind === "settings") {
           game.openPauseMenu();
         } else {
           game.dispatch("resume");
@@ -151,7 +151,7 @@
       if (k === "7") game.dispatch("pact-threat", "hold");
       if (k === "8") game.dispatch("pact-threat", "war");
       if (k === "9") game.dispatch("pact-threat", "blood");
-      if (k === "g" || k === "G") game.dispatch("pact-guide");
+      if (k === "h" || k === "H") game.dispatch("pact-guide");
       if (k === "Enter") game.dispatch("launch-campaign");
       if (k === "Escape" || k === "q" || k === "Q") game.dispatch("title");
       return;
@@ -213,9 +213,19 @@
     }
     var panKeys = ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "w", "a", "s", "d", "W", "A", "S", "D", "h", "j", "k", "l", "H", "J", "K", "L"];
     if (panKeys.indexOf(k) >= 0) e.preventDefault();
-    if (k === "Enter" || k === "g" || k === "G" || k === " ") {
+    if (k === "Enter" || k === "g" || k === "G") {
       e.preventDefault();
       game.dispatch("open-island", String(game.campCursor));
+    }
+    if (k === " ") {
+      e.preventDefault();
+      if (game._campArmed === game.campCursor) game.dispatch("open-island", String(game.campCursor));
+      else {
+        game._campArmed = game.campCursor;
+        game._focusIsland(game.campCursor);
+        var armed = GS.Campaign.getNode(game.campaign, game.campCursor);
+        if (armed) game.ui.toast(GS.t("toastArm", GS.loc(armed)), "info");
+      }
     }
     if (k === "n" || k === "N") game.dispatch("hire");
     if (k === "q" || k === "Q") { e.preventDefault(); game.dispatch("pause-menu"); }
@@ -452,7 +462,11 @@
         self._gesture.long = true;
         self._gesture.tap = false;
         if (game.mode === "battle" || game.mode === "sandbox") game.dispatch("rotate");
-        else if (game.mode === "campaign") game.dispatch("open-island", String(game.campCursor));
+        else if (game.mode === "campaign") {
+          var held = self._tile({ clientX: self._gesture.sx, clientY: self._gesture.sy });
+          if (held) game.pointerCampaign(held, { forceLand: true });
+          else game.dispatch("open-island", String(game.campCursor));
+        }
       }, 420);
       return;
     }
@@ -487,12 +501,10 @@
     if (this._gesture && this._gesture.pinch && this._ids().length >= 2 && canCam && map) {
       e.preventDefault();
       var dist = this._span();
-      var lim = game.mode === "campaign" ? GS.CONFIG.campaign : GS.CONFIG.battle;
       var z = GS.util.touch.pinchZoom(this._gesture.startDist, dist, this._gesture.startZoom);
       var mid = this._mid();
       var tileZ = game.renderer.tileAtPointer(mid.x, mid.y, map.w, map.h);
-      game.renderer.setZoom(z, map.w, map.h, tileZ ? tileZ.x : null, tileZ ? tileZ.y : null, lim);
-      if (game.mode === "campaign") game._campZoom = game.renderer.zoom;
+      game.dispatch("zoom-abs", { z: z, x: tileZ ? tileZ.x : null, y: tileZ ? tileZ.y : null });
       if (this._gesture.lastMid) {
         var r = game.renderer;
         r.pan(

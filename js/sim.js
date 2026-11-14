@@ -104,7 +104,15 @@
     this.guide = !!opts.guide && !this.sandbox;
     this.slain = 0;
     this.hornsBlown = 0;
-    this.waves = this.sandbox ? [] : GS.Waves.make(island, this.rng, island.difficulty || 1, { mul: this.threatMul });
+    this._waveOpts = {
+      mul: this.threatMul,
+      pace: opts.wavePace || 0,
+      flankMul: opts.waveFlankMul,
+      flankAdd: opts.waveFlankAdd,
+      earlyElites: opts.earlyElites || 0,
+      crowd: !!this.sandbox,
+    };
+    this.waves = (this.sandbox || opts.restore) ? [] : GS.Waves.make(island, this.rng, island.difficulty || 1, this._waveOpts);
     this.ships = [];
     this.flow = null;
     this.huntFlow = null;
@@ -120,22 +128,26 @@
     this.terrainGen = 0;
     this._livingEnemies = [];
     this._livingSoldiers = [];
-    this.say("arrive", C.LCYAN, function () {
-      return [loc(island), loc(GS.BIOMES[island.biome], "flavor") || island.flavor];
-    });
-    this.say("landingsLine", C.YELLOW, function () {
-      var dirs = island.landingDirs.map(function (d) { return loc(GS.DIRS[d]); });
-      return [GS.joinList ? GS.joinList(dirs) : dirs.join("、")];
-    });
-    if (this.beacons.length) {
-      var nBeacons = this.beacons.length;
-      this.say("beaconLine", C.YELLOW, function () { return [nBeacons]; });
+    if (!opts.restore) {
+      this.say("arrive", C.LCYAN, function () {
+        return [loc(island), loc(GS.BIOMES[island.biome], "flavor") || island.flavor];
+      });
+      this.say("landingsLine", C.YELLOW, function () {
+        var dirs = island.landingDirs.map(function (d) { return loc(GS.DIRS[d]); });
+        return [GS.joinList ? GS.joinList(dirs) : dirs.join("、")];
+      });
+      if (this.beacons.length) {
+        var nBeacons = this.beacons.length;
+        this.say("beaconLine", C.YELLOW, function () { return [nBeacons]; });
+      }
+      this._spawnSquads(army);
     }
-    this._spawnSquads(army);
     this._cachePass();
-    if (GS.Meta && GS.Meta.prepareBattle) GS.Meta.prepareBattle(this);
-    if (GS.Meta && GS.Meta.foldWorks) GS.Meta.foldWorks(this);
-    if (GS.Meta && GS.Meta.stampHouses) GS.Meta.stampHouses(this);
+    if (!opts.restore) {
+      if (GS.Meta && GS.Meta.prepareBattle) GS.Meta.prepareBattle(this);
+      if (GS.Meta && GS.Meta.foldWorks) GS.Meta.foldWorks(this);
+      if (GS.Meta && GS.Meta.stampHouses) GS.Meta.stampHouses(this);
+    }
   }
 
   Battle.prototype._cachePass = function () {
@@ -475,8 +487,8 @@
         team: "player",
         role: sq.role,
         squadId: sq.id,
-        name: i === 0 ? sq.name : sq.name + "之卒",
-        nameEn: i === 0 ? (sq.nameEn || sq.name) : (sq.nameEn || sq.name) + "'s man",
+        name: i === 0 ? sq.name : sq.name + ((GS.I18N && GS.I18N.zh && GS.I18N.zh.soldierSuffix) || "之卒"),
+        nameEn: i === 0 ? (sq.nameEn || sq.name) : (sq.nameEn || sq.name) + ((GS.I18N && GS.I18N.en && GS.I18N.en.soldierSuffix) || "'s man"),
         ch: i === 0 ? def.commander : def.ch,
         fg: def.fg,
         x: hx + 0.5,
@@ -492,6 +504,7 @@
         wrath: false,
         front: def.front || 1,
         facing: sq.facing,
+        facingLocked: !!sq.facingLocked,
         cooldown: this.rng.float(0, 0.4),
         slotX: sl.x,
         slotY: sl.y,
@@ -520,17 +533,28 @@
       living[i].slotX = slots[i].x;
       living[i].slotY = slots[i].y;
       living[i].facing = sq.facing;
+      living[i].facingLocked = !!sq.facingLocked;
       living[i].path = null;
     }
   };
 
   Battle.prototype.startFight = function () {
-    if (this.phase !== "deploy") return;
-    var any = false;
-    for (var i = 0; i < this.squads.length; i++) if (this.squads[i].placed) any = true;
-    if (!any && !this.sandbox) {
-      this.say("needPlace", C.LRED);
-      return;
+    if (this.phase !== "deploy") return false;
+    var i;
+    if (!this.sandbox) {
+      for (i = 0; i < this.squads.length; i++) {
+        if (this.squads[i].soldiers > 0 && !this.squads[i].placed) {
+          this.say("needAll", C.LRED);
+          return false;
+        }
+      }
+    } else {
+      var any = false;
+      for (i = 0; i < this.squads.length; i++) if (this.squads[i].placed) any = true;
+      if (!any) {
+        this.say("needPlace", C.LRED);
+        return false;
+      }
     }
     this.phase = "fight";
     this.speed = 1;
@@ -539,6 +563,7 @@
     this._rebuildHuntFlow();
     this._refreshLiving();
     if (GS.audio) GS.audio.horn();
+    return true;
   };
 
   Battle.prototype.blowWarhorn = function () {
@@ -546,7 +571,10 @@
     var charges = this.warhornCharges != null ? this.warhornCharges : (this.warhornReady ? 1 : 0);
     if (charges <= 0 && !this.warhornReady) return false;
     if (charges <= 0) return false;
-    var dur = (GS.CONFIG.battle && GS.CONFIG.battle.warhornDuration) || 6.5;
+    var dur = (GS.CONFIG.battle && GS.CONFIG.battle.warhornDuration) || 4.5;
+    if ((this.hornsBlown || 0) >= 1) {
+      dur = Math.max(2.5, dur - ((GS.CONFIG.battle && GS.CONFIG.battle.warhornSecondCut) || 1));
+    }
     this.warhornCharges = charges - 1;
     this.warhornReady = this.warhornCharges > 0;
     this.warhornT = dur;
@@ -559,7 +587,9 @@
   Battle.prototype._rebuildFlow = function () {
     var goals = [];
     for (var i = 0; i < this.houses.length; i++) {
-      if (this.houses[i].alive) goals.push({ x: this.houses[i].x, y: this.houses[i].y });
+      if (!this.houses[i].alive) continue;
+      var door = GS.path.snap(this.passable, this.w, this.h, this.houses[i].x, this.houses[i].y, 2);
+      if (door) goals.push(door);
     }
     this.flow = goals.length ? GS.path.flowField(this.passable, this.cost, this.w, this.h, goals) : null;
   };
@@ -650,11 +680,9 @@
   };
 
   Battle.prototype.spawnMilitia = function (house) {
-    var n = Math.min(
-      house.villagers || 2,
-      (GS.CONFIG.battle && GS.CONFIG.battle.militiaPerHouse) || 2
-    );
-    if (this.mods && this.mods.militiaBonus) n += this.mods.militiaBonus;
+    var bonus = (this.mods && this.mods.militiaBonus) || 0;
+    var cap = ((GS.CONFIG.battle && GS.CONFIG.battle.militiaPerHouse) || 2) + bonus;
+    var n = Math.min(house.villagers || cap, cap);
     if (n <= 0) return;
     house.militiaSpawned = true;
     var def = GS.ROLES.militia;
@@ -668,8 +696,8 @@
         team: "player",
         role: "militia",
         squadId: null,
-        name: house.name + "乡勇",
-        nameEn: (house.nameEn || house.name) + " militia",
+        name: house.name + ((GS.I18N && GS.I18N.zh && GS.I18N.zh.militiaSuffix) || "乡勇"),
+        nameEn: (house.nameEn || house.name) + ((GS.I18N && GS.I18N.en && GS.I18N.en.militiaSuffix) || " militia"),
         ch: def.ch,
         fg: def.fg,
         x: x + 0.5,
@@ -718,7 +746,9 @@
     var spots = this.island.landings.filter(function (s) { return s.dir === dir; });
     if (!spots.length) spots = this.island.landings;
     if (!spots.length) return null;
-    var beach = this.rng.pick(spots);
+    if (!this._landingBeach) this._landingBeach = {};
+    var beach = this._landingBeach[dir] || this.rng.pick(spots);
+    this._landingBeach[dir] = beach;
     var spawn = GS.mapgen.seaSpawn(this.island, beach, dir);
     if (!spawn) {
       // last resort: any deep-water cell on that edge
@@ -762,7 +792,7 @@
     return ship;
   };
 
-  Battle.prototype.spawnEnemy = function (role, x, y) {
+  Battle.prototype.spawnEnemy = function (role, x, y, extra) {
     var def = GS.ROLES[role] || GS.ROLES.raider;
     var nm = GS.names.northPair ? GS.names.northPair(this.rng) : { name: GS.names.north(this.rng) };
     var e = this.addEntity({
@@ -789,6 +819,8 @@
       houseId: -1,
       facing: 0,
       alive: true,
+      homeX: extra && extra.homeX != null ? extra.homeX : x,
+      homeY: extra && extra.homeY != null ? extra.homeY : y,
     });
     if (this.mods && GS.Meta) GS.Meta.applyToEnemy(e, this.mods);
     return e;
@@ -881,7 +913,8 @@
     this._tickShips(dt);
     this._tickProjectiles(dt);
     this._huntFlowT = (this._huntFlowT || 0) + dt;
-    if (this._huntFlowT >= 0.65) this._rebuildHuntFlow();
+    var flowEvery = (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.55;
+    if (this._huntFlowT >= flowEvery) this._rebuildHuntFlow();
     this._tickEnemies(dt);
     this._tickSoldiers(dt);
     this._tickHouses(dt);
@@ -910,7 +943,7 @@
 
   Battle.prototype._tickShips = function (dt) {
     var slow = this.warhornT > 0
-      ? ((GS.CONFIG.battle && GS.CONFIG.battle.warhornSlow) || 0.42)
+      ? ((GS.CONFIG.battle && GS.CONFIG.battle.warhornSlow) || 0.55)
       : 1;
     var step = dt * slow;
     for (var i = 0; i < this.entities.length; i++) {
@@ -946,7 +979,7 @@
           e.cooldown = 0.42;
           var role = e.cargo.shift();
           var land = this._disembarkTile(e.beachX, e.beachY);
-          this.spawnEnemy(role, land.x, land.y);
+          this.spawnEnemy(role, land.x, land.y, { homeX: e.beachX, homeY: e.beachY });
         }
         if (!e.cargo.length) {
           e.alive = false;
@@ -1344,7 +1377,7 @@
       }
       var order = sq.order || "hunt";
       var pool = threats;
-      if (crisis) {
+      if (crisis && order !== "hold") {
         pool = crisisPool;
       } else if (order === "hold") {
         pool = this._threatsNear(sq.tx + 0.5, sq.ty + 0.5, threats, this._orderRadius(sq));
@@ -1468,8 +1501,14 @@
     var speed = 9;
     var dmg = from.dmg;
     var rangeBonus = 0;
-    var h1 = this._heightOf(from), h2 = this._heightOf(to);
-    if (h1 > h2) dmg *= 1.28;
+      var h1 = this._heightOf(from), h2 = this._heightOf(to);
+    if (h1 > h2) {
+      var hd = h1 - h2;
+      var per = (GS.CONFIG.battle && GS.CONFIG.battle.heightRange) || 0.4;
+      var cap = (GS.CONFIG.battle && GS.CONFIG.battle.heightRangeCap) || 0.8;
+      dmg *= (GS.CONFIG.battle && GS.CONFIG.battle.heightDmg) || 1.12;
+      rangeBonus += Math.min(cap, hd * per);
+    }
     if (from.wrath && from.hp < from.maxHp * 0.4) dmg *= 1.35;
     if (from.role === "archer" && this._nearBeacon(from)) {
       var watch = this.works && this.works.watch ? 1.16 : 1;
@@ -1498,8 +1537,10 @@
   };
 
   Battle.prototype._melee = function (from, to) {
-    this._faceToward(from, to);
-    var dmg = from.dmg * this._facingBonus(from, to);
+    var bonus = this._facingBonus(from, to);
+    var keepFace = from.facingLocked && from.front > 1;
+    if (!keepFace) this._faceToward(from, to);
+    var dmg = from.dmg * bonus;
     if (from.wrath && from.hp < from.maxHp * 0.4) dmg *= 1.35;
     if (this.rng.next() > from.acc) {
       this.floater(to.x, to.y, t("miss"), C.DGRAY);
@@ -1519,10 +1560,24 @@
     target.hp -= dmg;
     this.floater(target.x, target.y - 0.2, String(-Math.round(dmg)), target.team === "player" ? C.LRED : C.YELLOW);
     if (from && from.role === "shaman" && target.team === "player") {
-      target.hexT = 4.2;
+      target.hexT = (GS.CONFIG.battle && GS.CONFIG.battle.hexDuration) || 4.2;
       this.floater(target.x, target.y + 0.3, t("hexMark"), C.LMAGENTA);
     }
     if (target.hp <= 0) this._kill(target, from);
+  };
+
+  Battle.prototype._disbandSquad = function (sq) {
+    if (!sq || sq.captainFallen) return;
+    sq.captainFallen = true;
+    for (var i = 0; i < this.entities.length; i++) {
+      var man = this.entities[i];
+      if (!man.alive || man.squadId !== sq.id) continue;
+      man.militia = true;
+      man.squadId = null;
+      man.commander = false;
+    }
+    sq.soldiers = 0;
+    sq.entities = [];
   };
 
   Battle.prototype._kill = function (e, from) {
@@ -1543,7 +1598,10 @@
       var sq2 = this.getSquad(e.squadId);
       if (sq2) {
         sq2.soldiers = Math.max(0, sq2.soldiers - 1);
-        if (e.commander) this.say("captainDead", C.LRED, function () { return [loc(sq2)]; });
+        if (e.commander) {
+          this.say("captainDead", C.LRED, function () { return [loc(sq2)]; });
+          this._disbandSquad(sq2);
+        }
       }
     }
     if (GS.audio) GS.audio.die();
@@ -1693,8 +1751,10 @@
       }
     }
     if (this._tryMove(e, nx, ny)) {
-      if (Math.abs(dx) > Math.abs(dy)) e.facing = dx > 0 ? 1 : 3;
-      else e.facing = dy > 0 ? 2 : 0;
+      if (!(e.facingLocked && e.front > 1)) {
+        if (Math.abs(dx) > Math.abs(dy)) e.facing = dx > 0 ? 1 : 3;
+        else e.facing = dy > 0 ? 2 : 0;
+      }
       return;
     }
     var ox = dx >= 0 ? 1 : -1, oy = dy >= 0 ? 1 : -1;
@@ -1759,7 +1819,7 @@
 
   Battle.prototype._tickEnemies = function (dt) {
     var slow = this.warhornT > 0
-      ? ((GS.CONFIG.battle && GS.CONFIG.battle.warhornSlow) || 0.42)
+      ? ((GS.CONFIG.battle && GS.CONFIG.battle.warhornSlow) || 0.55)
       : 1;
     for (var i = 0; i < this._livingEnemies.length; i++) {
       var e = this._livingEnemies[i];
@@ -1771,11 +1831,19 @@
         if (under && (under.type === T.BEACH || under.type === T.ICE)) step *= 0.48;
       }
       e.cooldown -= dt;
+      if (e.role === "hound") {
+        var prey = this._nearestThreat(e, this._livingSoldiers, 18);
+        if (prey && dist(e, prey) <= this._reach(e) + 0.06) {
+          if (e.cooldown <= 0) this._melee(e, prey);
+        } else if (prey) {
+          this._chase(e, prey, step, (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.55);
+        } else if (e.homeX != null && dist(e, { x: e.homeX + 0.5, y: e.homeY + 0.5 }) > 2.4) {
+          this._steer(e, e.homeX + 0.5, e.homeY + 0.5, step);
+        }
+        continue;
+      }
       var foe = this._bestSoldierFor(e);
       var sapper = e.role === "sapper" || (GS.ROLES[e.role] && GS.ROLES[e.role].sapper);
-      if (e.role === "hound") {
-        foe = this._nearestThreat(e, this._livingSoldiers, 18) || foe;
-      }
       if (sapper && !(foe && dist(e, foe) <= e.range + 0.2)) foe = null;
       if (foe && dist(e, foe) <= this._reach(e) + 0.06) {
         if (e.cooldown <= 0) {
@@ -1785,10 +1853,6 @@
             else this._steer(e, foe.x, foe.y, step);
           } else this._melee(e, foe);
         }
-        continue;
-      }
-      if (e.role === "hound" && foe) {
-        this._chase(e, foe, step, (GS.CONFIG.battle && GS.CONFIG.battle.pathRefresh) || 0.55);
         continue;
       }
       var house = this.nearestHouse(e.x, e.y);
@@ -1856,15 +1920,16 @@
       var order = (sq && sq.order) || "hunt";
       var close = this._nearestThreat(e, threats, Math.max(range + 0.4, 2.6));
       var localR = W.local != null ? W.local : 2.15;
-      if (!crisis && sq && (order === "hold" || order === "guard") && close) {
+      if (sq && order === "hold" && close) {
         var post = { x: sq.tx + 0.5, y: sq.ty + 0.5 };
-        if (order === "hold" && dist(close, post) > this._orderRadius(sq)) close = null;
-        else if (order === "guard" && dist(e, close) > localR && !this._isGuardThreat(close)) close = null;
+        if (dist(close, post) > this._orderRadius(sq)) close = null;
+      } else if (!crisis && sq && order === "guard" && close) {
+        if (dist(e, close) > localR && !this._isGuardThreat(close)) close = null;
       }
       if (e.militia) {
         foe = this._pickHuntTarget(e, threats, militiaClaimed);
         if (foe) militiaClaimed[foe.id] = (militiaClaimed[foe.id] || 0) + 1;
-      } else if (order === "hold" && !crisis) {
+      } else if (order === "hold") {
         foe = (sq && sq.huntId) ? this.byId(sq.huntId) : null;
         if (foe && !foe.alive) foe = null;
         if (!foe) foe = close;
@@ -1879,7 +1944,7 @@
         if (foe && !foe.alive) foe = null;
       } else foe = this._pickHuntTarget(e, threats, {});
 
-      if (!foe && crisis && primary && primary.foe && primary.foe.alive) foe = primary.foe;
+      if (!foe && crisis && order !== "hold" && primary && primary.foe && primary.foe.alive) foe = primary.foe;
 
       attack = (close && dist(e, close) <= range + 0.18) ? close : foe;
       e.targetId = (foe && foe.id) || (attack && attack.id) || 0;
@@ -1895,7 +1960,7 @@
         else this._melee(e, attack);
       }
 
-      if ((e.role === "archer" || e.role === "skirmisher") && close && close.range <= 1.8) {
+      if (e.role === "skirmisher" && close && close.range <= 1.8) {
         var kiteR = 2.15 * Math.max(0.75, Math.min(1.45, (close.speed || 2.2) / Math.max(0.6, e.speed || 2)));
         if (dist(e, close) < kiteR) {
           this._steer(e, e.x * 2 - close.x, e.y * 2 - close.y, dt);
@@ -1913,7 +1978,7 @@
         this._chase(e, foe, dt, refresh);
         continue;
       }
-      if (!foe && dist(e, slot) > 0.28 && !crisis) {
+      if (!foe && dist(e, slot) > 0.28 && (order === "hold" || !crisis)) {
         this._goHome(e, slot, dt, refresh);
       }
     }
@@ -2088,10 +2153,11 @@
       }
       if (!cmd) continue;
       cmd.soldiers = sq.soldiers;
-      if (sq.soldiers <= 0) cmd.dead = true;
+      if (sq.soldiers <= 0 || sq.captainFallen) cmd.dead = true;
       if (sq.xp && sq.soldiers > 0) {
         cmd.xp = (cmd.xp || 0) + sq.xp;
-        if (cmd.xp > cmd.level * 12) {
+        var xpNeed = (GS.CONFIG.battle && GS.CONFIG.battle.xpPerLevel) || 12;
+        if (cmd.xp > cmd.level * xpNeed) {
           cmd.level++;
           cmd.maxSoldiers = Math.min(16, cmd.maxSoldiers + 2);
           cmd.soldiers = Math.min(cmd.maxSoldiers, cmd.soldiers + 2);
@@ -2222,6 +2288,8 @@
           soldiers: s.soldiers, maxSoldiers: s.maxSoldiers, facing: s.facing,
           doctrine: s.doctrine || null,
           tx: s.tx, ty: s.ty, placed: s.placed, moveCd: s.moveCd, xp: s.xp || 0,
+          facingLocked: !!s.facingLocked,
+          captainFallen: !!s.captainFallen,
           order: s.order || Battle.defaultOrder(s.role),
         };
       }),
@@ -2230,7 +2298,9 @@
           kind: e.kind, team: e.team, role: e.role, squadId: e.squadId, name: e.name, nameEn: e.nameEn,
           ch: e.ch, fg: e.fg, x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, dmg: e.dmg,
           range: e.range, speed: e.speed, cd: e.cd, acc: e.acc, resist: e.resist || 0,
-          wrath: !!e.wrath, front: e.front || 1, facing: e.facing || 0, cooldown: e.cooldown || 0,
+          wrath: !!e.wrath, front: e.front || 1, facing: e.facing || 0,
+          facingLocked: !!e.facingLocked, cooldown: e.cooldown || 0,
+          homeX: e.homeX, homeY: e.homeY,
           slotX: e.slotX, slotY: e.slotY, commander: !!e.commander,
           dir: e.dir, beachX: e.beachX, beachY: e.beachY, cargo: e.cargo, landing: e.landing,
           militia: !!e.militia, houseId: e.houseId, hexT: e.hexT || 0,
@@ -2239,6 +2309,7 @@
       corpses: (battle.corpses || []).slice(-40),
       log: (battle.log || []).slice(-40),
       armyRef: true,
+      timberStamped: !!battle._timberStamped,
     };
   };
 
@@ -2257,6 +2328,7 @@
     }
     var battle = new Battle(island, army, {
       sandbox: !!snap.sandbox,
+      restore: true,
       battleSeed: (island.seed || 1) ^ 0xabc,
     });
     // clear auto-spawned squad entities from constructor
@@ -2300,10 +2372,11 @@
     battle.slain = snap.slain || 0;
     battle.hornsBlown = snap.hornsBlown || 0;
     battle._worksFolded = false;
-    battle._timberStamped = true;
+    battle._timberStamped = snap.timberStamped !== false;
     if (GS.Meta) {
       battle.mods = GS.Meta.modsFrom((army && army.relics) || [], battle.omen);
       if (GS.Meta.foldWorks) GS.Meta.foldWorks(battle);
+      if (snap.timberStamped === false && GS.Meta.stampHouses) GS.Meta.stampHouses(battle);
     }
     battle.terrainGen = snap.terrainGen || 0;
     battle.log = snap.log || [];
@@ -2317,6 +2390,7 @@
         soldiers: s.soldiers, maxSoldiers: s.maxSoldiers, facing: s.facing || 2,
         doctrine: s.doctrine || null,
         tx: s.tx, ty: s.ty, placed: !!s.placed, entities: [], moveCd: s.moveCd || 0, xp: s.xp || 0,
+        facingLocked: !!s.facingLocked, captainFallen: !!s.captainFallen,
         order: s.order || Battle.defaultOrder(s.role),
       });
     }
@@ -2328,7 +2402,9 @@
         kind: e.kind, team: e.team, role: e.role, squadId: e.squadId, name: e.name, nameEn: e.nameEn,
         ch: e.ch, fg: e.fg, x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, dmg: e.dmg,
         range: e.range, speed: e.speed, cd: e.cd, acc: e.acc, resist: e.resist || 0,
-        wrath: !!e.wrath, front: e.front || 1, facing: e.facing || 0, cooldown: e.cooldown || 0,
+        wrath: !!e.wrath, front: e.front || 1, facing: e.facing || 0,
+        facingLocked: !!e.facingLocked, cooldown: e.cooldown || 0,
+        homeX: e.homeX, homeY: e.homeY,
         slotX: e.slotX, slotY: e.slotY, commander: !!e.commander,
         path: null, targetId: 0, houseId: e.houseId != null ? e.houseId : -1, alive: true,
         militia: !!e.militia, hexT: e.hexT || 0,

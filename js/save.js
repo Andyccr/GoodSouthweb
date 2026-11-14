@@ -64,9 +64,13 @@
     if ((raw.v === 2 || raw.v === 3 || raw.v === 4) && raw.army && raw.campaign) {
       var army = GS.Army.deserialize(raw.army);
       var camp = GS.Campaign.deserialize(raw.campaign);
-      if (camp && camp.islands && camp.islands[0] && GS.Meta && !camp.islands[0].relic) {
+      if (camp && camp.islands && camp.islands.length && GS.Meta && GS.Meta.ensureRelics) {
         var seed = camp.seed || 1;
-        GS.Meta.decorateCampaign(camp, GS.rng(seed));
+        var missing = false;
+        for (var mi = 0; mi < camp.islands.length; mi++) {
+          if (!camp.islands[mi].relic || !camp.islands[mi].omen) missing = true;
+        }
+        if (missing) GS.Meta.ensureRelics(camp, GS.rng(seed));
       }
       return {
         v: 4,
@@ -76,6 +80,7 @@
         army: army,
         campaign: camp,
         battle: raw.battle || null,
+        meta: raw.meta || null,
       };
     }
     if (raw.army && raw.campaign) {
@@ -120,6 +125,7 @@
       army: GS.Army.serialize(army),
       campaign: GS.Campaign.serialize(campaign),
       battle: opts.battle || null,
+      meta: opts.meta || null,
     };
   }
 
@@ -222,7 +228,7 @@
 
   // Compatibility shims used by older call sites
   function has() { return hasAny(); }
-  function write(army, campaign) { return writeSlot("auto", army, campaign, { label: "自动" }); }
+  function write(army, campaign) { return writeSlot("auto", army, campaign, { label: GS.t ? GS.t("autoSlot") : "自动" }); }
   function read() { return readSlot("auto"); }
   function clear() { clearSlot("auto"); }
 

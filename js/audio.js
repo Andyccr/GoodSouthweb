@@ -6,6 +6,7 @@
   var master = 0.12;
   var userVol = 0.7;
   var bedNodes = null;
+  var lastHit = 0;
 
   function ac() {
     if (!ctx) {
@@ -77,6 +78,7 @@
       if (muted) stopBed();
       return muted;
     },
+    supported: function () { return !!(g.AudioContext || g.webkitAudioContext); },
     muted: function () { return muted; },
     setMuted: function (v) {
       muted = !!v;
@@ -94,10 +96,15 @@
       if (on) startBed();
       else stopBed();
     },
-    horn: function () { beep(140, 0.45, "sawtooth", 0.1, 90); setTimeout(function () { beep(180, 0.35, "sawtooth", 0.08); }, 120); },
-    ship: function () { beep(90, 0.4, "triangle", 0.08, 60); },
+    horn: function () { beep(140, 0.45, "sawtooth", 0.16, 90); setTimeout(function () { beep(180, 0.35, "sawtooth", 0.12); }, 120); },
+    ship: function () { beep(90, 0.4, "triangle", 0.14, 60); },
     bow: function () { beep(640, 0.06, "square", 0.05, 320); },
-    hit: function () { beep(180, 0.07, "square", 0.07); },
+    hit: function () {
+      var now = Date.now();
+      if (now - lastHit < 100) return;
+      lastHit = now;
+      beep(180, 0.07, "square", 0.07);
+    },
     die: function () { beep(220, 0.2, "sawtooth", 0.08, 70); },
     fire: function () { beep(120, 0.5, "sawtooth", 0.09, 50); },
     win: function () { beep(523, 0.15, "square", 0.08); setTimeout(function () { beep(659, 0.15, "square", 0.08); }, 140); setTimeout(function () { beep(784, 0.28, "square", 0.09); }, 280); },

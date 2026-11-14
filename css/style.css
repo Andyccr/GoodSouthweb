@@ -12,9 +12,9 @@
   --ink: #1c1812;
   --border: rgba(228, 210, 168, 0.28);
   --border-soft: rgba(231, 225, 212, 0.08);
-  --font: "Source Sans 3", "Avenir Next", "Segoe UI", sans-serif;
-  --display: "Fraunces", "Iowan Old Style", Palatino, "Palatino Linotype", serif;
-  --mono: "IBM Plex Mono", "Source Code Pro", ui-monospace, monospace;
+  --font: "Segoe UI", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif;
+  --display: "Iowan Old Style", Palatino, "Palatino Linotype", "Songti SC", serif;
+  --mono: ui-monospace, "Source Code Pro", "Sarasa Mono SC", monospace;
   --radius: 18px;
   --dock-h: 64px;
   --strip-h: 72px;
@@ -938,9 +938,13 @@ button.danger-outline {
 .is-compact .cmd-btn,
 .is-compact .tb-btn {
   flex: 0 0 auto;
-  min-height: 40px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 8px 10px;
   font-size: 12px;
+}
+@media (pointer: coarse) {
+  button, .cmd-btn, .tb-btn { min-height: 44px; }
 }
 
 .is-compact .toasts {
@@ -1412,8 +1416,34 @@ html[data-mode="result"] #bottom,
 html[data-mode="result"] #dock,
 html[data-mode="voyage"] #topbar,
 html[data-mode="voyage"] #bottom,
-html[data-mode="voyage"] #dock {
+html[data-mode="voyage"] #dock,
+html[data-mode="title"] #left,
+html[data-mode="title"] #right,
+html[data-mode="help"] #left,
+html[data-mode="help"] #right,
+html[data-mode="setup"] #left,
+html[data-mode="setup"] #right,
+html[data-mode="rank"] #left,
+html[data-mode="rank"] #right,
+html[data-mode="preview"] #left,
+html[data-mode="preview"] #right,
+html[data-mode="hire"] #left,
+html[data-mode="hire"] #right,
+html[data-mode="result"] #left,
+html[data-mode="result"] #right,
+html[data-mode="voyage"] #left,
+html[data-mode="voyage"] #right {
   display: none !important;
+}
+html[data-mode="title"] #main,
+html[data-mode="help"] #main,
+html[data-mode="setup"] #main,
+html[data-mode="rank"] #main,
+html[data-mode="preview"] #main,
+html[data-mode="hire"] #main,
+html[data-mode="result"] #main,
+html[data-mode="voyage"] #main {
+  grid-template-columns: minmax(0, 1fr);
 }
 html[data-mode="title"] #stage,
 html[data-mode="help"] #stage,

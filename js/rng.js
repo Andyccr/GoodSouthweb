@@ -38,31 +38,41 @@
     if (seed == null) seed = (Math.random() * 0xffffffff) >>> 0;
     seed = seed >>> 0;
     var rnd = mulberry32(seed);
+    var draws = 0;
+    function pull() {
+      draws++;
+      return rnd();
+    }
     return {
       seed: seed,
-      next: rnd,
+      draws: function () { return draws; },
+      skip: function (n) {
+        n = n | 0;
+        for (var i = 0; i < n; i++) pull();
+      },
+      next: pull,
       float: function (a, b) {
-        if (a == null) return rnd();
-        if (b == null) return rnd() * a;
-        return a + rnd() * (b - a);
+        if (a == null) return pull();
+        if (b == null) return pull() * a;
+        return a + pull() * (b - a);
       },
       int: function (a, b) {
         if (b == null) {
           b = a;
           a = 0;
         }
-        return (a + Math.floor(rnd() * (b - a))) | 0;
+        return (a + Math.floor(pull() * (b - a))) | 0;
       },
       pick: function (arr) {
-        return arr[(rnd() * arr.length) | 0];
+        return arr[(pull() * arr.length) | 0];
       },
       chance: function (p) {
-        return rnd() < p;
+        return pull() < p;
       },
       shuffle: function (arr) {
         var a = arr.slice();
         for (var i = a.length - 1; i > 0; i--) {
-          var j = (rnd() * (i + 1)) | 0;
+          var j = (pull() * (i + 1)) | 0;
           var t = a[i];
           a[i] = a[j];
           a[j] = t;
@@ -72,7 +82,7 @@
       weighted: function (pairs) {
         var sum = 0;
         for (var i = 0; i < pairs.length; i++) sum += pairs[i][1];
-        var r = rnd() * sum;
+        var r = pull() * sum;
         for (var j = 0; j < pairs.length; j++) {
           r -= pairs[j][1];
           if (r <= 0) return pairs[j][0];

@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "3.0.7",
+    version: "3.0.8",
     saveVersion: 4,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
@@ -13,12 +13,13 @@
       islandCount: 16,
       lengths: { short: 8, south: 16, far: 24 },
       threats: {
-        hold: { id: "hold", mul: 0.82, coin: 1, name: "守势" },
-        war: { id: "war", mul: 1, coin: 1, name: "正战" },
-        blood: { id: "blood", mul: 1.22, coin: 1.25, name: "血潮" },
+        hold: { id: "hold", mul: 0.82, coin: 1, pace: 3, flankMul: 0.5, flankAdd: 0, earlyElites: 0, name: "守势" },
+        war: { id: "war", mul: 1, coin: 1, pace: 0, flankMul: 1, flankAdd: 0, earlyElites: 0, name: "正战" },
+        blood: { id: "blood", mul: 1.22, coin: 1.25, pace: 0, flankMul: 1, flankAdd: 0.25, earlyElites: 1, name: "血潮" },
       },
+      voyageChance: 0.48,
       startCoins: 12,
-      recruitHealOnVictory: "full",
+      recruitHealOnVictory: "half",
       coinPerHouse: 1,
       chartW: 88,
       chartH: 48,
@@ -62,8 +63,8 @@
 
     battle: {
       moveCooldown: 3.2,
-      deployHint: "点空地就位。近战默认追击，弓手先占高地；一队接敌则全军一起防反，并护住屋舍。O 切换号令。",
-      deployHintEn: "Place companies on open ground. Melee hunts, bows take a hill; the host rallies together and covers the houses. O cycles orders.",
+      deployHint: "点空地就位。近战默认追击，弓手默认驻守高地。追击会驰援，驻守留在原地。O 切换号令。",
+      deployHintEn: "Place companies on open ground. Melee hunts, bows hold the hill. Hunt rallies; Hold stays. O cycles orders.",
       maxSpeed: 3,
       hudIntervalMs: 120,
       zoomMin: 10,
@@ -75,8 +76,14 @@
       panThreshold: 10,
       panThresholdTouch: 16,
       edgePan: 22,
-      warhornDuration: 6.5,
-      warhornSlow: 0.42,
+      warhornDuration: 4.5,
+      warhornSlow: 0.55,
+      warhornSecondCut: 1,
+      hexDuration: 4.2,
+      xpPerLevel: 12,
+      heightRange: 0.4,
+      heightRangeCap: 0.8,
+      heightDmg: 1.12,
       militiaPerHouse: 2,
       beaconRangeBonus: 1.6,
       beaconDmgBonus: 1.18,
@@ -101,7 +108,7 @@
         rally: 16,
         cluster: 6.5,
         engage: 5.5,
-        cover: 8.5,
+        cover: 4,
         intercept: 8,
       },
       orders: {

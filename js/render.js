@@ -294,13 +294,13 @@
   Renderer.prototype._orderRing = function (tx, ty, radius, color, alpha) {
     if (!radius || radius < 1) return;
     var ctx = this.ctx;
-    var steps = Math.max(16, (radius * 5) | 0);
+    var steps = Math.max(10, (radius * 3) | 0);
     var i, a, p;
     ctx.save();
     ctx.globalAlpha = alpha == null ? 0.45 : alpha;
     ctx.strokeStyle = this.tint(color || "#55ffff");
     ctx.lineWidth = 1.5;
-    ctx.setLineDash([5, 4]);
+    ctx.setLineDash([2, 8]);
     ctx.beginPath();
     for (i = 0; i <= steps; i++) {
       a = (i / steps) * Math.PI * 2;
@@ -595,7 +595,8 @@
     for (i = 0; i < battle.floaters.length; i++) {
       var f = battle.floaters[i];
       this.ctx.globalAlpha = Math.max(0, f.life / 0.85);
-      this.cell(f.x | 0, (f.y - (0.85 - f.life) * 1.2) | 0, f.text, f.color, null);
+      var fy = this.lowFx ? (f.y | 0) : ((f.y - (0.85 - f.life) * 1.2) | 0);
+      this.cell(f.x | 0, fy, f.text, f.color, null);
       this.ctx.globalAlpha = 1;
     }
 
@@ -610,7 +611,7 @@
       if (ratio >= 0.995) {
         if (battle.houseUnderSiege && battle.houseUnderSiege(hh)) {
           var flash = !this.lowFx && ((t * 6) | 0) % 2 === 0;
-          this.cell(hh.x, hh.y, "!", C.LRED, flash ? "#660000" : "#330000");
+          this.cell(hh.x, hh.y, "⌂", C.LRED, flash ? "#660000" : "#330000");
         }
         continue;
       }
@@ -646,8 +647,11 @@
         var sx = Math.round(slots[i].x), sy = Math.round(slots[i].y);
         if (sx >= 0 && sy >= 0 && sx < island.w && sy < island.h) {
           var ok = island.tiles[sy][sx].walk && island.tiles[sy][sx].type !== GS.T.HOUSE;
+          var glyph = this.palette === "ink"
+            ? (ok && can ? "+" : "x")
+            : (sq.role === "archer" ? "}" : sq.role === "pike" ? "↑" : "☻");
           this.cell(sx, sy,
-            sq.role === "archer" ? "}" : sq.role === "pike" ? "↑" : "☻",
+            glyph,
             ok && can ? C.LCYAN : C.LRED,
             ok && can ? "#003333" : "#330000");
         }

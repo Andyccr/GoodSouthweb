@@ -75,7 +75,9 @@
 
 ## 存档
 
-`save.js`：`v4` schema，槽位 `auto|1|2|3`，可选战斗快照；`settingsKey` 存调色/静音。兼容旧键与 v2/v3：读档时若岛上没有 `relic` 则用战役种子 `decorateCampaign`。
+`save.js`：`v4` schema，槽位 `auto|1|2|3`，可选战斗快照，`meta` 记下战役 RNG 抽数和未结算航程。返回海图会丢掉这场快照。战斗中大约每 20 秒或每一波写一次自动档。读档时若快照的岛已经不是当前岛，或该岛已清、已失，则只回海图。兼容旧键与 v2/v3：缺 `relic` 或 `omen` 的岛才用战役种子补上，已有的不重掷。
+
+驻守号令不参加全岛危机池。追击和护屋在接敌或屋舍告急时驰援。枪兵若 `facingLocked`，出刀前不改朝向，伤害用转向前的锥面。
 
 战斗快照由 `Battle.serialize` / `Battle.deserialize` 生成（含 `omen`、`warhornCharges`、`hexT`），读档后可继续同一场。
 
