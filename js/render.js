@@ -54,7 +54,7 @@
     var mixed = hex;
     if (this.palette === "green") mixed = this._mix(hex, "#55ff55", 0.55);
     else if (this.palette === "amber") mixed = this._mix(hex, "#ffb000", 0.55);
-    else if (this.palette === "ink") mixed = this._mix(hex, "#f3efe2", 0.62);
+    else if (this.palette === "ink") mixed = this._mix(hex, "#f4f0e6", 0.28);
     cache[hex] = mixed;
     return mixed;
   };
@@ -463,6 +463,33 @@
     }
   };
 
+  Renderer.prototype._landingMarks = function (island) {
+    var n = island.landings ? island.landings.length : 0;
+    var key = (island.seed || 0) + ":" + island.w + "x" + island.h + ":" + n;
+    if (this._markKey === key && this._marks) return this._marks;
+    var buckets = {};
+    var spots = island.landings || [];
+    var i, s, d, b;
+    for (i = 0; i < spots.length; i++) {
+      s = spots[i];
+      d = s.dir;
+      b = buckets[d];
+      if (!b) buckets[d] = b = { x: 0, y: 0, n: 0, dir: d };
+      b.x += s.x;
+      b.y += s.y;
+      b.n++;
+    }
+    var marks = [];
+    for (d in buckets) {
+      b = buckets[d];
+      if (!b.n) continue;
+      marks.push({ x: (b.x / b.n) | 0, y: (b.y / b.n) | 0, dir: b.dir });
+    }
+    this._markKey = key;
+    this._marks = marks;
+    return marks;
+  };
+
   Renderer.prototype.drawBattle = function (battle, hover, opts) {
     opts = opts || {};
     var island = battle.island;
@@ -485,8 +512,8 @@
     var y0 = Math.max(0, (this.camY | 0) - 1);
     var x1 = Math.min(island.w, ((this.camX + this.cssW / this.tw) | 0) + 2);
     var y1 = Math.min(island.h, ((this.camY + this.cssH / this.th) | 0) + 2);
-    if (!this.lowFx && !this.reduceMotion && this._shores.length) {
-      var phase = (t * 4) | 0;
+    if (!this.lowFx && !this.reduceMotion && this._shores.length && this._shores.length < 900) {
+      var phase = (t * 1.2) | 0;
       var bucket = (this.camX | 0) + ":" + (this.camY | 0) + ":" + phase + ":" + this.cssW + "x" + this.cssH;
       if (bucket !== this._shoreKey) {
         this._shoreKey = bucket;
@@ -498,44 +525,26 @@
     this.ctx.drawImage(this._terrainCanvas, srcX, srcY, this.cssW, this.cssH, 0, 0, this.cssW, this.cssH);
     this._applyFont();
 
-    if (this.showLandings) {
-      var pulseAll = battle.phase === "deploy";
-      var pulseDirs = null;
-      if (!pulseAll && battle.phase === "fight" && GS.Waves && GS.Waves.nextPending) {
+    if (this.showLandings && island.landings && island.landings.length) {
+      var nextDir = null;
+      var extraDir = null;
+      if (battle.phase === "fight" && GS.Waves && GS.Waves.nextPending) {
         var nw = GS.Waves.nextPending(battle.waves);
         if (nw) {
-          pulseDirs = {};
-          pulseDirs[nw.dir] = 1;
-          if (nw.extraDir != null) pulseDirs[nw.extraDir] = 1;
+          nextDir = nw.dir;
+          extraDir = nw.extraDir;
         }
       }
-      if (pulseAll || pulseDirs) {
-        var shownLanding = {};
-        for (i = 0; i < island.landings.length; i++) {
-          var L = island.landings[i];
-          if (L.x < x0 || L.y < y0 || L.x >= x1 || L.y >= y1) continue;
-          if (pulseDirs && !pulseDirs[L.dir]) continue;
-          var lkey = ((L.x / 4) | 0) + "," + ((L.y / 4) | 0) + ":" + L.dir;
-          if (shownLanding[lkey]) continue;
-          shownLanding[lkey] = 1;
-          var bg = pulseAll ? "#3a2a00" : "#4a1800";
-          var lch = island.tiles[L.y][L.x].ch;
-          var lfg = island.tiles[L.y][L.x].fg;
-          if (!this.lowFx && ((t * 3) | 0) % 2 === 0) {
-            lch = GS.DIRS[L.dir].ch;
-            lfg = C.YELLOW;
-          }
-          this.cell(L.x, L.y, lch, lfg, bg);
-        }
-      }
-    }
-
-    if (battle.omen === "fog" && !this.lowFx && !this.reduceMotion) {
-      var fx, fy;
-      for (fy = y0; fy < y1; fy += 5) {
-        for (fx = x0; fx < x1; fx += 6) {
-          if (((fx + fy + ((t * 2) | 0)) & 3) === 0) this.cell(fx, fy, "░", "#9bb", null);
-        }
+      var marks = this._landingMarks(island);
+      var pulse = !this.lowFx && ((t * 2) | 0) % 2 === 0;
+      for (var mi = 0; mi < marks.length; mi++) {
+        var mk = marks[mi];
+        var hot = battle.phase !== "fight" || mk.dir === nextDir || mk.dir === extraDir;
+        if (battle.phase === "fight" && nextDir == null) hot = false;
+        if (!hot) continue;
+        if (mk.x < x0 || mk.y < y0 || mk.x >= x1 || mk.y >= y1) continue;
+        var ldir = GS.DIRS[mk.dir] || GS.DIRS[2];
+        this.cell(mk.x, mk.y, pulse ? ldir.ch : "·", C.YELLOW, "#3a2a00");
       }
     }
 

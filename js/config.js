@@ -3,7 +3,7 @@
   var GS = g.GS || (g.GS = {});
 
   GS.CONFIG = {
-    version: "3.1.0",
+    version: "3.1.1",
     saveVersion: 4,
     saveKey: "goodsouth-save-v2",
     legacySaveKey: "goodsouth-save",
