@@ -1,6 +1,6 @@
 {
   "name": "goodsouthweb",
-  "version": "3.0.8",
+  "version": "3.1.0",
   "description": "GOOD SOUTH — ASCII / Dwarf Fortress style island-defense sandbox inspired by Bad North",
   "private": true,
   "scripts": {

@@ -95,6 +95,11 @@
     });
     this.beacons = (island.beacons || []).slice();
     this.works = {};
+    this.preps = {};
+    var prepSrc = opts.preps || island.preps;
+    if (prepSrc) {
+      for (var pk in prepSrc) if (prepSrc[pk]) this.preps[pk] = true;
+    }
     var workSrc = opts.works || island.works;
     if (workSrc) {
       for (var wk in workSrc) if (workSrc[wk]) this.works[wk] = true;
@@ -239,6 +244,7 @@
         huntId: 0,
         marchFacing: 2,
         order: Battle.defaultOrder(c.cls),
+        sigil: c.sigil || "",
       });
     }
     if (this.squads.length) this.selected = this.squads[0].id;
@@ -2138,7 +2144,11 @@
   Battle.prototype.evacuate = function () {
     if (this.phase !== "fight") return;
     this._end("retreat", t("evacLog"));
-    this.outcome.coins = 0;
+    var standing = 0;
+    for (var i = 0; i < this.houses.length; i++) if (this.houses[i].alive) standing++;
+    var pay = Math.floor(standing / 2);
+    this.outcome.coins = pay;
+    if (pay) this.say("retreatPay", C.YELLOW, function () { return [pay]; });
   };
 
   Battle.prototype.syncArmy = function () {
@@ -2270,6 +2280,7 @@
       sandbox: battle.sandbox,
       omen: battle.omen || "calm",
       works: battle.works || {},
+      preps: battle.preps || {},
       threatMul: battle.threatMul || 1,
       coinMul: battle.coinMul || 1,
       guide: !!battle.guide,
@@ -2291,6 +2302,7 @@
           facingLocked: !!s.facingLocked,
           captainFallen: !!s.captainFallen,
           order: s.order || Battle.defaultOrder(s.role),
+          sigil: s.sigil || "",
         };
       }),
       entities: battle.entities.filter(function (e) { return e.alive; }).map(function (e) {
@@ -2366,6 +2378,8 @@
     battle.warhornT = snap.warhornT || 0;
     battle.omen = snap.omen || island.omen || "calm";
     battle.works = snap.works || battle.works || {};
+    battle.preps = snap.preps || battle.preps || {};
+    battle._prepsFolded = false;
     battle.threatMul = snap.threatMul != null ? snap.threatMul : (battle.threatMul || 1);
     battle.coinMul = snap.coinMul != null ? snap.coinMul : (battle.coinMul || 1);
     battle.guide = snap.guide != null ? !!snap.guide : battle.guide;
@@ -2376,6 +2390,7 @@
     if (GS.Meta) {
       battle.mods = GS.Meta.modsFrom((army && army.relics) || [], battle.omen);
       if (GS.Meta.foldWorks) GS.Meta.foldWorks(battle);
+      if (GS.Meta.foldPreps) GS.Meta.foldPreps(battle);
       if (snap.timberStamped === false && GS.Meta.stampHouses) GS.Meta.stampHouses(battle);
     }
     battle.terrainGen = snap.terrainGen || 0;
@@ -2392,6 +2407,7 @@
         tx: s.tx, ty: s.ty, placed: !!s.placed, entities: [], moveCd: s.moveCd || 0, xp: s.xp || 0,
         facingLocked: !!s.facingLocked, captainFallen: !!s.captainFallen,
         order: s.order || Battle.defaultOrder(s.role),
+        sigil: s.sigil || "",
       });
     }
     if (!battle.selected && battle.squads.length) battle.selected = battle.squads[0].id;

@@ -37,6 +37,8 @@
     return army.stats;
   }
 
+  var SIGILS = ["†", "¶", "§", "¤", "φ", "‡"];
+
   function createCommander(rng, cls) {
     var h = hireTable()[cls];
     if (!h) throw new Error("unknown class " + cls);
@@ -53,6 +55,8 @@
       trait: rng.chance(0.55) ? pickTrait(rng, cls) : null,
       doctrine: null,
       dead: false,
+      sigil: SIGILS[rng.int(0, SIGILS.length)],
+      recalled: false,
     };
   }
 
@@ -72,6 +76,7 @@
       relics: opts.relics ? opts.relics.slice() : [],
       stats: opts.stats || blankStats(),
       pendingRanks: opts.pendingRanks ? opts.pendingRanks.slice() : [],
+      chronicle: opts.chronicle ? opts.chronicle.slice() : [],
     };
   }
 
@@ -123,6 +128,8 @@
           }
         } else c.soldiers = Math.min(c.maxSoldiers, c.soldiers + (cfg.recruitHealOnVictory || 0));
       }
+    } else if (outcome.kind === "retreat" && outcome.coins) {
+      army.coins += outcome.coins;
     }
     GS.bus.emit(GS.EV.ARMY_CHANGED, { army: army, reason: "battle", outcome: outcome });
     return army;
@@ -169,6 +176,19 @@
     return army;
   }
 
+  function noteChronicle(army, entry) {
+    if (!army || !entry) return army;
+    army.chronicle = army.chronicle || [];
+    army.chronicle.push({
+      kind: entry.kind || "",
+      name: entry.name || "",
+      nameEn: entry.nameEn || entry.name || "",
+      coins: entry.coins | 0,
+    });
+    if (army.chronicle.length > 40) army.chronicle.shift();
+    return army;
+  }
+
   function serialize(army) {
     return GS.util.deepClone(army);
   }
@@ -182,6 +202,7 @@
       relics: data.relics ? data.relics.slice() : [],
       stats: data.stats || blankStats(),
       pendingRanks: data.pendingRanks || [],
+      chronicle: data.chronicle || [],
     };
   }
 
@@ -198,6 +219,7 @@
     rankOffer: rankOffer,
     applyDoctrine: applyDoctrine,
     noteBattle: noteBattle,
+    noteChronicle: noteChronicle,
     blankStats: blankStats,
     serialize: serialize,
     deserialize: deserialize,

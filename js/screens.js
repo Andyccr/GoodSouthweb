@@ -198,6 +198,7 @@
       ".</p></details>" +
       this._forecastBlock(island, campaign) +
       this._worksBlock(island, army) +
+      this._prepsBlock(island, army) +
       "</div>"
     );
   };
@@ -209,7 +210,7 @@
       if (c.trait) {
         for (var i = 0; i < GS.TRAITS.length; i++) if (GS.TRAITS[i].id === c.trait) trait = GS.loc(GS.TRAITS[i]);
       }
-      return "<li>" + (c.dead ? "<s>" : "") + role.ch + " " + GS.loc(c) + "  " + GS.loc(role) +
+      return "<li>" + (c.dead ? "<s>" : "") + (c.sigil || role.ch) + " " + GS.loc(c) + "  " + GS.loc(role) +
         "  Lv" + c.level + "  " + GS.t("troopsN") + " " + c.soldiers + "/" + c.maxSoldiers +
         (trait ? "  [" + trait + "]" : "") +
         (c.doctrine ? "  [" + GS.t("doctrine") + " " + this._traitName(c.doctrine) + "]" : "") +
@@ -294,6 +295,28 @@
         '<span class="hint">' + GS.loc(w, "desc") + "</span></button>";
     }).join("");
     return '<h3>' + GS.t("worksHead") + "</h3><p class=\"hint\">" + GS.t("worksHint", army.coins) + "</p>" +
+      '<div class="menu works">' + rows + "</div>";
+  };
+
+  Screens.prototype._prepsBlock = function (island, army) {
+    if (!GS.PREPS) return "";
+    var owned = (island && island.preps) || {};
+    var dead = 0;
+    var commanders = (army && army.commanders) || [];
+    for (var i = 0; i < commanders.length; i++) {
+      if (commanders[i].dead && !commanders[i].recalled) dead++;
+    }
+    var rows = GS.PREPS.map(function (p) {
+      if (p.immediate && !dead) return "";
+      var have = !!owned[p.id];
+      var act = p.immediate ? "buy-prep" : (have ? "refund-prep" : "buy-prep");
+      var price = have ? GS.t("workRefund", p.cost) : GS.t("workCost", p.cost);
+      return '<button data-act="' + act + '" data-arg="' + p.id + '">' +
+        "<b>" + GS.loc(p) + "</b>　" + price +
+        '<span class="hint">' + GS.loc(p, "desc") + "</span></button>";
+    }).join("");
+    if (!rows) return "";
+    return '<h3>' + GS.t("prepsHead") + "</h3><p class=\"hint\">" + GS.t("prepsHint") + "</p>" +
       '<div class="menu works">' + rows + "</div>";
   };
 
@@ -384,7 +407,17 @@
       "<li>" + GS.t("ledgerHorns", s.horns || 0) + "</li>" +
       "<li>" + GS.t("ledgerWorks", s.works || 0) + "</li>" +
       "<li>" + GS.t("ledgerRetreats", s.retreats || 0, s.defeats || 0) + "</li>" +
-      "</ul>";
+      "</ul>" + this._chronicle(army);
+  };
+
+  Screens.prototype._chronicle = function (army) {
+    var list = (army && army.chronicle) || [];
+    if (!list.length) return "";
+    var lines = list.slice(-8).map(function (e) {
+      var label = e.kind === "victory" ? GS.t("victory") : e.kind === "retreat" ? GS.t("retreat") : GS.t("defeat");
+      return "<li>" + GS.t("chronicleLine", label, GS.loc(e), e.coins || 0) + "</li>";
+    }).join("");
+    return "<h3>" + GS.t("chronicleTitle") + "</h3><ul class=\"ledger\">" + lines + "</ul>";
   };
 
   Screens.prototype.finale = function (army, fate) {

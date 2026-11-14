@@ -13,6 +13,7 @@
     wallstone: { id: "wallstone", name: "古墙砖", ch: "█", desc: "盾兵受伤再减 10%。" },
     frostbrand: { id: "frostbrand", name: "霜牙", ch: "=", desc: "北蛮移速 −8%。" },
     pineheart: { id: "pineheart", name: "松心", ch: "♣", desc: "投矛手伤害 +12%。" },
+    keelbone: { id: "keelbone", name: "龙骨", ch: "†", desc: "枪兵正面更稳，全军脚步略快。" },
   };
 
   GS.OMENS = {
@@ -23,6 +24,7 @@
     hightide: { id: "hightide", name: "大潮", desc: "开战不久会多一波偷袭。", kind: "bad" },
     harvest: { id: "harvest", name: "收获月", desc: "乡勇更踊跃。", kind: "ok" },
     crows: { id: "crows", name: "鸦群", desc: "乡勇多一人，但北蛮更准。", kind: "warn" },
+    whitecap: { id: "whitecap", name: "白沫", desc: "长船来得更快，岸上却多冲出乡勇。", kind: "warn" },
   };
 
   GS.VOYAGE = [
@@ -135,6 +137,19 @@
         ctx.army.coins += 3;
       } },
     },
+    {
+      id: "bell",
+      title: "沉钟",
+      titleEn: "The sunk bell",
+      text: "潮下有一口钟。敲响它，下一座岛会起风暴；也可以只捞铜绿。",
+      textEn: "A bell sits under the tide. Ring it and the next isle storms, or just take the verdigris.",
+      a: { label: "敲钟（下一座未攻岛改为风暴）", labelEn: "Ring it (the next isle turns to storm)", apply: function (ctx) {
+        var n = GS.Campaign.nextScouted(ctx.campaign);
+        if (n) n.omen = "storm";
+        else ctx.army.coins += 2;
+      } },
+      b: { label: "捞铜绿  +3 钱币", labelEn: "Take the verdigris  +3 coin", apply: function (ctx) { ctx.army.coins += 3; } },
+    },
   ];
 
   function relicIds() {
@@ -158,6 +173,12 @@
     { id: "stakes", cost: 3, name: "滩头拒马", nameEn: "Beach stakes", desc: "北蛮踏上沙滩时移速减半。", descEn: "Northmen on the sand move at half speed." },
     { id: "levy", cost: 2, name: "征乡勇", nameEn: "Call the levy", desc: "每座屋舍多冲出一名乡勇。", descEn: "Each house sends one more militia." },
     { id: "watch", cost: 2, name: "添薪", nameEn: "Feed the beacons", desc: "烽火更烈；弓手即使不靠烽火也略增射程。", descEn: "Beacons burn hotter. Archers gain a little range even away from them." },
+  ];
+
+  GS.PREPS = [
+    { id: "tideglass", cost: 2, name: "压潮", nameEn: "Press the tide", desc: "本岛北蛮移速 −10%。可退款。", descEn: "Northmen on this isle are 10% slower. Refundable." },
+    { id: "lampoil", cost: 1, name: "灯油", nameEn: "Lamp oil", desc: "本岛弓手射程 +0.5。可退款。", descEn: "Archers on this isle gain +0.5 range. Refundable." },
+    { id: "recall", cost: 4, name: "盐契", nameEn: "Salt oath", desc: "召回一名已死队长，编制缩小，兵法抹去，一生只能一次。", descEn: "Recall one dead captain, smaller, with the doctrine spent. Once each.", immediate: true },
   ];
 
   function workById(id) {
@@ -264,6 +285,7 @@
       fogRange: 0,
       extraWave: false,
       wheatCoins: 0,
+      pikeFront: 0,
     };
     relics = relics || [];
     for (var i = 0; i < relics.length; i++) {
@@ -278,6 +300,7 @@
         case "wallstone": m.infantryResist += 0.1; break;
         case "frostbrand": m.enemySpeed *= 0.92; break;
         case "pineheart": m.skirmishDmg *= 1.12; break;
+        case "keelbone": m.pikeFront += 0.35; m.soldierSpeed *= 1.04; break;
       }
     }
     switch (omenId) {
@@ -287,8 +310,64 @@
       case "hightide": m.extraWave = true; break;
       case "harvest": m.militiaBonus += 1; break;
       case "crows": m.militiaBonus += 1; m.enemyAcc += 0.06; break;
+      case "whitecap": m.shipSpeed *= 1.12; m.militiaBonus += 1; break;
     }
     return m;
+  }
+
+  function foldPreps(battle) {
+    if (!battle || !battle.preps || !battle.mods || battle._prepsFolded) return battle;
+    battle._prepsFolded = true;
+    if (battle.preps.tideglass) battle.mods.enemySpeed *= 0.9;
+    if (battle.preps.lampoil) battle.mods.archerRange += 0.5;
+    return battle;
+  }
+
+  function prepById(id) {
+    for (var i = 0; i < GS.PREPS.length; i++) if (GS.PREPS[i].id === id) return GS.PREPS[i];
+    return null;
+  }
+
+  function buyPrep(army, node, id) {
+    var p = prepById(id);
+    if (!p || !army || !node) return { ok: false, reason: "unknown" };
+    if (p.immediate) return recallCaptain(army);
+    node.preps = node.preps || {};
+    if (node.preps[id]) return { ok: false, reason: "owned" };
+    if (army.coins < p.cost) return { ok: false, reason: "coins" };
+    army.coins -= p.cost;
+    node.preps[id] = true;
+    if (GS.bus && GS.EV) GS.bus.emit(GS.EV.ARMY_CHANGED, { army: army, reason: "prep", prep: id });
+    return { ok: true, prep: p };
+  }
+
+  function refundPrep(army, node, id) {
+    var p = prepById(id);
+    if (!p || p.immediate || !army || !node || !node.preps || !node.preps[id]) return { ok: false, reason: "none" };
+    delete node.preps[id];
+    army.coins += p.cost;
+    if (GS.bus && GS.EV) GS.bus.emit(GS.EV.ARMY_CHANGED, { army: army, reason: "prep-refund", prep: id });
+    return { ok: true, prep: p };
+  }
+
+  function recallCaptain(army) {
+    if (!army || !army.commanders) return { ok: false, reason: "none" };
+    var cost = 4;
+    var c = null;
+    for (var i = 0; i < army.commanders.length; i++) {
+      if (army.commanders[i].dead && !army.commanders[i].recalled) { c = army.commanders[i]; break; }
+    }
+    if (!c) return { ok: false, reason: "none" };
+    if (army.coins < cost) return { ok: false, reason: "coins" };
+    army.coins -= cost;
+    c.dead = false;
+    c.recalled = true;
+    c.doctrine = null;
+    c.maxSoldiers = Math.max(6, (c.maxSoldiers || 8) - 2);
+    c.soldiers = Math.max(4, Math.ceil(c.maxSoldiers / 2));
+    if (c.soldiers > c.maxSoldiers) c.soldiers = c.maxSoldiers;
+    if (GS.bus && GS.EV) GS.bus.emit(GS.EV.ARMY_CHANGED, { army: army, reason: "recall", commander: c });
+    return { ok: true, commander: c, prep: prepById("recall") };
   }
 
   function prepareBattle(battle) {
@@ -297,6 +376,7 @@
     var omenId = battle.omen || (battle.island && battle.island.omen) || "calm";
     battle.omen = omenId;
     battle.mods = modsFrom(army.relics, omenId);
+    foldPreps(battle);
     if (battle.mods.extraHorn) battle.warhornCharges = 1 + battle.mods.extraHorn;
     else battle.warhornCharges = 1;
     var om = omen(omenId);
@@ -328,6 +408,7 @@
     if (e.role === "archer") e.range += mods.archerRange || 0;
     if (e.role === "skirmisher") e.dmg *= mods.skirmishDmg || 1;
     if (e.role === "infantry") e.resist = (e.resist || 0) + (mods.infantryResist || 0);
+    if (e.role === "pike" && mods.pikeFront) e.front = (e.front || 1) + mods.pikeFront;
     if (mods.wrathAll) e.wrath = true;
     if (mods.fogRange && e.range > 1.8) e.range = Math.max(1.9, e.range - mods.fogRange);
     return e;
@@ -416,6 +497,11 @@
     buyWork: buyWork,
     refundWork: refundWork,
     foldWorks: foldWorks,
+    foldPreps: foldPreps,
+    buyPrep: buyPrep,
+    refundPrep: refundPrep,
+    recallCaptain: recallCaptain,
+    prepById: prepById,
     stampHouses: stampHouses,
     coachLine: coachLine,
   };

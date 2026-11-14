@@ -70,6 +70,8 @@
 - `modsFrom` / `applyToSoldier` / `applyToEnemy` — 把圣物+征兆折成战斗修正
 - `prepareBattle` — 开战前写入 `battle.mods`、号角次数、大潮偷袭波
 - `rollVoyage` / `applyVoyage` — 战后航程（约 48%）
+- `GS.PREPS` / `buyPrep` / `foldPreps` — 登岛整备（压潮、灯油、盐契召回），只进 `battle.preps` 再折进 `mods`
+- `Army.noteChronicle` — 每岛一条盐风纪，账册只读它
 
 模拟层只读 `battle.mods`，不引用 DOM。Node 测试直接 `vm` 加载 `content.js`。
 

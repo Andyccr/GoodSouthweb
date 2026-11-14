@@ -258,7 +258,7 @@ ok(GS.Waves.nextPending(waves) === waves[0], "next pending is first unlaunched w
 waves[0].launched = true;
 ok(GS.Waves.nextPending(waves) === waves[1], "next pending skips launched waves");
 ok(GS.t("waveSplit", 1, 3, "南", "北").indexOf("北") >= 0, "waveSplit fills the fourth landing");
-ok(GS.CONFIG.version.indexOf("3.0") === 0, "release version 3.0");
+ok(GS.CONFIG.version.indexOf("3.1") === 0, "release version 3.1");
 
 console.log("Mapgen islands");
 var fps = {};
@@ -629,7 +629,7 @@ ok(restOrd.squads[0].order === "guard", "deserialize order");
 
 bo.setOrder("hold1", "hunt");
 ok(bo.squads[0].order === "hunt", "can return to hunt");
-ok(GS.CONFIG.version.indexOf("3.0") === 0, "release version 3.0");
+ok(GS.CONFIG.version.indexOf("3.1") === 0, "release version 3.1");
 ok(GS.CONFIG.battle.orders.holdMelee >= 4, "hold radius knobs");
 
 console.log("Coordinated defense");
@@ -1042,6 +1042,46 @@ for (var ds = 1; ds <= 12; ds++) {
   dirSum += di.landingDirs.length;
 }
 ok(dirsN === 12 && dirSum / dirsN <= 3.5, "landing directions stay readable, avg " + (dirSum / dirsN).toFixed(2));
+
+console.log("Salt chronicle");
+ok(GS.RELICS.keelbone && GS.Meta.modsFrom(["keelbone"], "calm").pikeFront === 0.35, "keelbone steepens the pike front");
+var cap = GS.Meta.modsFrom([], "whitecap");
+ok(cap.shipSpeed > 1 && cap.militiaBonus >= 1, "whitecaps speed ships and call militia");
+var prepArmy = GS.Army.create(GS.rng(44));
+prepArmy.coins = 6;
+var prepNode = { preps: {} };
+ok(GS.Meta.buyPrep(prepArmy, prepNode, "tideglass").ok && prepNode.preps.tideglass && prepArmy.coins === 4, "tideglass spends 2");
+ok(GS.Meta.buyPrep(prepArmy, prepNode, "lampoil").ok && prepArmy.coins === 3, "lamp oil spends 1");
+var folded = { preps: { tideglass: true, lampoil: true }, mods: { enemySpeed: 1, archerRange: 0 } };
+GS.Meta.foldPreps(folded);
+GS.Meta.foldPreps(folded);
+ok(Math.abs(folded.mods.enemySpeed - 0.9) < 0.001 && folded.mods.archerRange === 0.5, "preps fold once");
+prepArmy.coins = 8;
+prepArmy.commanders[0].dead = true;
+prepArmy.commanders[0].soldiers = 0;
+var recalledMax = prepArmy.commanders[0].maxSoldiers;
+ok(GS.Meta.recallCaptain(prepArmy).ok && !prepArmy.commanders[0].dead && prepArmy.commanders[0].maxSoldiers < recalledMax, "salt oath recalls a smaller company");
+ok(!GS.Meta.recallCaptain(prepArmy).ok, "a captain is recalled only once");
+GS.Army.noteChronicle(prepArmy, { kind: "victory", name: "盐屿", nameEn: "Salt Isle", coins: 3 });
+ok(prepArmy.chronicle.length === 1 && prepArmy.chronicle[0].nameEn === "Salt Isle", "chronicle keeps the isle");
+var evacIsle = GS.mapgen.island(27, { difficulty: 1, size: "small" });
+var evacArmy = GS.Army.create(GS.rng(45));
+var evacBattle = new GS.Battle(evacIsle, evacArmy, { sandbox: true });
+var evacSq = evacBattle.squads[0];
+var evacPlaced = false;
+for (var ey = 0; ey < evacIsle.h && !evacPlaced; ey++) {
+  for (var ex = 0; ex < evacIsle.w && !evacPlaced; ex++) {
+    var et = evacIsle.tiles[ey][ex];
+    if (et.walk && et.type !== GS.T.HOUSE) evacPlaced = evacBattle.placeSquad(evacSq.id, ex, ey, 2);
+  }
+}
+ok(evacPlaced && evacBattle.startFight(), "retreat fixture started");
+var purse = evacArmy.coins;
+evacBattle.evacuate();
+var expectPay = Math.floor(evacBattle.houses.filter(function (h) { return h.alive; }).length / 2);
+ok(evacBattle.outcome.kind === "retreat" && evacBattle.outcome.coins === expectPay && expectPay > 0, "retreat pays for standing houses");
+GS.Army.applyBattleOutcome(evacArmy, evacBattle.outcome);
+ok(evacArmy.coins === purse + expectPay, "retreat coin reaches the purse");
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);
