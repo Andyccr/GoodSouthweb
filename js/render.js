@@ -530,6 +530,15 @@
       }
     }
 
+    if (battle.omen === "fog" && !this.lowFx && !this.reduceMotion) {
+      var fx, fy;
+      for (fy = y0; fy < y1; fy += 5) {
+        for (fx = x0; fx < x1; fx += 6) {
+          if (((fx + fy + ((t * 2) | 0)) & 3) === 0) this.cell(fx, fy, "░", "#9bb", null);
+        }
+      }
+    }
+
     for (i = 0; i < battle.corpses.length; i++) {
       var k = battle.corpses[i];
       this.cell(k.x | 0, k.y | 0, k.ch, k.fg, null);
@@ -771,6 +780,11 @@
       if (is.id === camp.current) this.cell(is.mx, Math.max(0, is.my - 2), "@", C.LCYAN, null);
       if (is.status === "scouted") {
         this.cell(is.mx, Math.min(camp.h - 1, is.my + 2), String(Math.min(9, is.difficulty)), C.BROWN, null);
+        if (is.omen && is.omen !== "calm" && GS.OMENS && GS.OMENS[is.omen]) {
+          var okind = GS.OMENS[is.omen].kind;
+          var omark = okind === "bad" ? "!" : okind === "warn" ? "?" : "+";
+          this.cell(Math.min(camp.w - 1, is.mx + 2), is.my, omark, okind === "bad" ? C.LRED : C.YELLOW, null);
+        }
       }
       this._islandLabel(is.mx, is.my, GS.loc ? GS.loc(is) : is.name, selected ? C.YELLOW : C.WHITE);
     }

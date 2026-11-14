@@ -408,7 +408,7 @@
       html += '<div class="squad-item' + (s.id === b.selected ? " sel" : "") +
         '" data-act="select-squad" data-arg="' + s.id + '">' +
         '<span class="idx">' + idx + "</span>" +
-        "<span>" + role.ch + " " + GS.loc(s) + "</span>" +
+        "<span>" + (s.sigil || role.ch) + " " + GS.loc(s) + "</span>" +
         "<span class=\"hint\">" + (GS.DIRS[s.facing] ? GS.DIRS[s.facing].ch + " " : "") +
         GS.Battle.orderMark(s.order) + " " + s.soldiers + (s.placed ? "" : " ·") + "</span></div>";
     }

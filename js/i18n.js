@@ -424,6 +424,16 @@
       coachGo: "向导：朝向和号令都看过了。按 G 开战。",
       coachFight: "向导：追击会驰援，驻守的弓手留在高地。O 切换号令。",
       coachHorn: "向导：长船靠岸时按 U。号角会让整波北蛮变慢。",
+      prepsHead: "盐风整备",
+      prepsHint: "只对本岛生效。5 压潮，6 灯油，7 盐契。",
+      toastPrep: "整备：{0}",
+      toastPrepOwned: "这项整备已经做了。",
+      toastNoRecall: "没有还能召回的队长。",
+      toastRecall: "{0} 循盐契归来，编制已缩小。",
+      slotPrep: "整备",
+      chronicleTitle: "盐风纪",
+      chronicleLine: "{0} · {1} · {2} 钱",
+      retreatPay: "撤滩时还剩屋舍，带回 {0} 钱。",
       ledgerTitle: "航程账册",
       ledgerSlain: "击退北蛮 {0}",
       ledgerHouses: "守住屋舍 {0}　焚毁 {1}",
@@ -803,6 +813,16 @@
       coachGo: "Guide: facing and orders are set. Press G to start.",
       coachFight: "Guide: Hunt rallies. Bows on Hold stay on the hill. O cycles orders.",
       coachHorn: "Guide: press U as the longships beach. The horn slows the whole wave.",
+      prepsHead: "Salt preparations",
+      prepsHint: "This isle only. 5 press the tide, 6 lamp oil, 7 salt oath.",
+      toastPrep: "Prepared: {0}",
+      toastPrepOwned: "That preparation is already made.",
+      toastNoRecall: "No captain left to recall.",
+      toastRecall: "{0} returns by the salt oath, with a smaller company.",
+      slotPrep: "preparation",
+      chronicleTitle: "Salt chronicle",
+      chronicleLine: "{0} · {1} · {2} coin",
+      retreatPay: "Houses still stood. You carry off {0} coin.",
       ledgerTitle: "Voyage ledger",
       ledgerSlain: "Northmen broken {0}",
       ledgerHouses: "Houses held {0}  burned {1}",
@@ -1025,6 +1045,7 @@
       wallstone: ["Old brick", "Shields take 10% less."],
       frostbrand: ["Frost-fang", "Northmen −8% speed."],
       pineheart: ["Pine-heart", "Skirmisher damage +12%."],
+      keelbone: ["Keel-bone", "Pikes hold a truer front. The host steps a little faster."],
     };
     for (id in relics) {
       if (GS.RELICS && GS.RELICS[id]) {
@@ -1040,6 +1061,7 @@
       hightide: ["High tide", "A sneak wave soon after the horn."],
       harvest: ["Harvest moon", "Militia turn out thicker."],
       crows: ["Crows", "One extra militia, but northmen aim truer."],
+      whitecap: ["Whitecaps", "Longships come faster, and more militia rush the shore."],
     };
     for (id in omens) {
       if (GS.OMENS && GS.OMENS[id]) {
@@ -1096,6 +1118,12 @@
         a: "Swing wide (next open isle becomes Fair tide)",
         b: "Sail in (next isle Crows, +3 coin)",
       },
+      bell: {
+        title: "The sunk bell",
+        text: "A bell sits under the tide. Ring it and the next isle storms, or just take the verdigris.",
+        a: "Ring it (the next isle turns to storm)",
+        b: "Take the verdigris  +3 coin",
+      },
     };
     if (GS.VOYAGE) {
       for (i = 0; i < GS.VOYAGE.length; i++) {
@@ -1117,7 +1145,7 @@
       GS.CONFIG.ui.paletteNamesEn = { df: "Classic DF", green: "Phosphor", amber: "Amber", ink: "Ink paper" };
     }
     if (GS.CONFIG && GS.CONFIG.battle) {
-      GS.CONFIG.battle.deployHintEn = "Tap open ground to place. After the horn they hunt and rally together.";
+      GS.CONFIG.battle.deployHintEn = "Place companies on open ground. Melee hunts, bows hold the hill. Hunt rallies; Hold stays. O cycles orders.";
     }
   };
 

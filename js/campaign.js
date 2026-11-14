@@ -76,6 +76,8 @@
     island.relic = node.relic || null;
     node.works = node.works || {};
     island.works = node.works;
+    node.preps = node.preps || {};
+    island.preps = node.preps;
     return island;
   }
 

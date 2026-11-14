@@ -534,6 +534,8 @@
       case "launch-campaign": return this._startCampaignNow();
       case "buy-work": return this.buyWork(arg);
       case "refund-work": return this.refundWork(arg);
+      case "buy-prep": return this.buyPrep(arg);
+      case "refund-prep": return this.refundPrep(arg);
       case "form-up": return this.formUp();
       case "rank-pick": return this._pickRank(arg);
       case "settings":
@@ -1132,6 +1134,15 @@
       GS.Army.applyBattleOutcome(this.army, o);
     }
     if (GS.Army.noteBattle) GS.Army.noteBattle(this.army, o);
+    var told = GS.Campaign.getNode(this.campaign, id);
+    if (GS.Army.noteChronicle) {
+      GS.Army.noteChronicle(this.army, {
+        kind: o.kind,
+        name: told && told.name,
+        nameEn: told && (told.nameEn || told.name),
+        coins: o.coins || 0,
+      });
+    }
     GS.Save.writeSlot("auto", this.army, this.campaign, { label: GS.t("slotAfter"), battle: null, meta: this._saveMeta() });
     this.setMode("result", o);
   };
@@ -1212,6 +1223,35 @@
       this.island.works = node.works;
       if (GS.audio) GS.audio.coin();
       this.ui.toast(GS.t("toastRefund", GS.loc(res.work), res.work.cost), "ok");
+    }
+    this.screens.preview(this.island, this.army, this.campaign);
+  };
+
+  Game.prototype.buyPrep = function (id) {
+    if (!this.campaign || !this.island || !GS.Meta || !GS.Meta.buyPrep) return;
+    var node = GS.Campaign.getNode(this.campaign, this.campaign.current);
+    var res = GS.Meta.buyPrep(this.army, node, id);
+    if (!res.ok) {
+      var why = res.reason === "owned" ? "toastPrepOwned" : res.reason === "none" ? "toastNoRecall" : "toastNoCoins";
+      this.ui.toast(GS.t(why), "bad");
+    } else {
+      this.island.preps = node.preps;
+      if (GS.audio) GS.audio.coin();
+      this.ui.toast(res.commander ? GS.t("toastRecall", GS.loc(res.commander)) : GS.t("toastPrep", GS.loc(res.prep)), "ok");
+      this.autosave(GS.t("slotPrep"));
+    }
+    this.screens.preview(this.island, this.army, this.campaign);
+  };
+
+  Game.prototype.refundPrep = function (id) {
+    if (!this.campaign || !this.island || !GS.Meta || !GS.Meta.refundPrep) return;
+    var node = GS.Campaign.getNode(this.campaign, this.campaign.current);
+    var res = GS.Meta.refundPrep(this.army, node, id);
+    if (!res.ok) this.ui.toast(GS.t("toastNoRefund"), "warn");
+    else {
+      this.island.preps = node.preps;
+      if (GS.audio) GS.audio.coin();
+      this.ui.toast(GS.t("toastRefund", GS.loc(res.prep), res.prep.cost), "ok");
     }
     this.screens.preview(this.island, this.army, this.campaign);
   };

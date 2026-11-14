@@ -169,6 +169,9 @@
       if (k === "2") game.dispatch("buy-work", "stakes");
       if (k === "3") game.dispatch("buy-work", "levy");
       if (k === "4") game.dispatch("buy-work", "watch");
+      if (k === "5") game.dispatch("buy-prep", "tideglass");
+      if (k === "6") game.dispatch("buy-prep", "lampoil");
+      if (k === "7") game.dispatch("buy-prep", "recall");
       return;
     }
     if (game.mode === "hire") {
