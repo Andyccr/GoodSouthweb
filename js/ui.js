@@ -145,13 +145,16 @@
     }
     this.commands.classList.remove("hidden");
     var html = items.map(function (it) {
-      var cls = "cmd-btn" + (it.active ? " active" : "");
+      var cls = "cmd-btn" + (it.glyph ? " medallion" : "") + (it.active ? " active" : "");
+      var body = it.glyph
+        ? '<span class="medal">' + it.glyph + "</span><span class=\"medal-name\">" + it.name + "</span>"
+        : it.label;
       return '<button type="button" class="' + cls + '" data-act="' + it.act + '"' +
         (it.arg != null ? ' data-arg="' + GS.util.escapeAttr(it.arg) + '"' : "") +
         (it.title ? ' title="' + GS.util.escapeAttr(it.title) + '"' : "") +
         (it.active ? ' aria-pressed="true"' : "") +
         (it.disabled ? " disabled" : "") + ">" +
-        (it.kbd ? "<kbd>" + it.kbd + "</kbd> " : "") + it.label + "</button>";
+        (it.kbd ? "<kbd>" + it.kbd + "</kbd>" : "") + body + "</button>";
     }).join("");
     if (GS.util.setHtml(this.commands, html)) this.bindClicks(this.commands);
     if (app) app.classList.add("has-cmd-strip");

@@ -65,32 +65,25 @@
     if (latest && latest.summary) {
       var s = latest.summary;
       cont =
-        '<button data-act="continue"><kbd>D</kbd> ' + GS.t("continueAs", latest.name) +
-        "　" + s.time + "　" + GS.t("cleared") + " " + s.cleared + "　" + GS.t("coins") + " " + s.coins +
-        (s.inBattle ? "　" + GS.t("inBattleMark") : "") + "</button>";
+        '<button class="primary continue-card" data-act="continue"><kbd>D</kbd>' +
+        '<span class="act-name">' + GS.t("continueAs", latest.name) + "</span>" +
+        '<span class="hint">' + s.time + " · " + GS.t("cleared") + " " + s.cleared + " · " + GS.t("coins") + " " + s.coins +
+        (s.inBattle ? " · " + GS.t("inBattleMark") : "") + "</span></button>";
     }
     this.show(
-      '<div class="panel title-panel">' +
-      "<pre class=\"ascii-logo\">" +
-      "  ██████╗  ██████╗  ██████╗ ██████╗     ███████╗ ██████╗ ██╗   ██╗████████╗██╗  ██╗\n" +
-      " ██╔════╝ ██╔═══██╗██╔═══██╗██╔══██╗    ██╔════╝██╔═══██╗██║   ██║╚══██╔══╝██║  ██║\n" +
-      " ██║  ███╗██║   ██║██║   ██║██║  ██║    ███████╗██║   ██║██║   ██║   ██║   ███████║\n" +
-      " ██║   ██║██║   ██║██║   ██║██║  ██║    ╚════██║██║   ██║██║   ██║   ██║   ██╔══██║\n" +
-      " ╚██████╔╝╚██████╔╝╚██████╔╝██████╔╝    ███████║╚██████╔╝╚██████╔╝   ██║   ██║  ██║\n" +
-      "  ╚═════╝  ╚═════╝  ╚═════╝ ╚═════╝     ╚══════╝ ╚═════╝  ╚═════╝    ╚═╝   ╚═╝  ╚═╝\n" +
-      "</pre>" +
-      '<div class="sub">' + GS.t("subtitle") + "</div>" +
-      '<div class="flavor">' + GS.t("flavor") + "</div>" +
+      '<div class="panel title-panel scene-title">' +
+      '<p class="eyebrow">' + GS.t("subtitle") + "</p>" +
+      '<h1 class="wordmark">Good South</h1>' +
+      '<p class="flavor">' + GS.t("flavor") + "</p>" +
       '<div class="menu">' +
       cont +
+      '<button data-act="campaign"' + (cont ? "" : ' class="primary"') + "><kbd>A</kbd> " + GS.t("newCampaign") + "</button>" +
       '<button data-act="load-menu"><kbd>L</kbd> ' + GS.t("loadSlots") + "</button>" +
-      '<button data-act="campaign"><kbd>A</kbd> ' + GS.t("newCampaign") + "</button>" +
       '<button data-act="sandbox"><kbd>B</kbd> ' + GS.t("sandbox") + "</button>" +
-      '<button data-act="help"><kbd>C</kbd> / <kbd>F1</kbd> ' + GS.t("handbook") + "</button>" +
+      '<button data-act="help"><kbd>C</kbd> ' + GS.t("handbook") + "</button>" +
       '<button data-act="lang"><kbd>I</kbd> ' + GS.t("langToggle") + "</button>" +
       "</div>" +
-      '<div class="hint">' + GS.t("titleHint") + "</div>" +
-      '<div class="hint">' + GS.t("versionLine", GS.CONFIG.version) + "</div>" +
+      '<p class="hint">' + GS.t("versionLine", GS.CONFIG.version) + "</p>" +
       "</div>"
     );
   };
@@ -100,7 +93,7 @@
     var inBattle = ctx.inBattle;
     var canSave = !!ctx.canSave;
     this.show(
-      '<div class="panel pause-panel">' +
+      '<div class="panel pause-panel scene-quiet">' +
       "<h2>" + GS.t("pause") + "</h2>" +
       '<p class="flavor">' + (inBattle ? GS.t("pauseBattle") : GS.t("pauseChart")) + "</p>" +
       '<div class="menu">' +
@@ -125,7 +118,7 @@
 
   Screens.prototype.saveMenu = function () {
     this.show(
-      '<div class="panel save-panel">' +
+      '<div class="panel save-panel scene-slots">' +
       "<h2>" + GS.t("saveProgress") + "</h2>" +
       '<p class="hint">' + GS.t("saveHint") + "</p>" +
       '<div class="slot-list">' + this._slotRows("save") + "</div>" +
@@ -135,7 +128,7 @@
 
   Screens.prototype.loadMenu = function () {
     this.show(
-      '<div class="panel save-panel">' +
+      '<div class="panel save-panel scene-slots">' +
       "<h2>" + GS.t("loadSave") + "</h2>" +
       '<p class="hint">' + GS.t("loadHint") + "</p>" +
       '<div class="slot-list">' + this._slotRows("load") + "</div>" +
@@ -146,7 +139,7 @@
   Screens.prototype.confirm = function (opts) {
     opts = opts || {};
     this.show(
-      '<div class="panel confirm-panel">' +
+      '<div class="panel confirm-panel scene-quiet">' +
       "<h2>" + (opts.title || GS.t("confirm")) + "</h2>" +
       "<p>" + (opts.msg || "") + "</p>" +
       '<div class="menu row">' +
@@ -179,7 +172,7 @@
     var relic = island.relic && GS.Meta ? GS.Meta.relic(island.relic) : null;
     var biome = GS.BIOMES[island.biome] || {};
     this.show(
-      '<div class="panel preview-panel">' +
+      '<div class="panel preview-panel scene-brief">' +
       "<h2>" + GS.t("arrivingIsle", GS.loc(island)) + "</h2>" +
       '<div class="flavor">' + GS.t("previewMeta", GS.loc(biome, "flavor") || island.flavor, GS.loc(biome), "▲".repeat(island.difficulty)) + "</div>" +
       "<pre class=\"mini\">" + GS.util.asciiMini(island) + "</pre>" +
@@ -214,7 +207,7 @@
     }).join("");
     var H = GS.CONFIG.hire;
     this.show(
-      '<div class="panel">' +
+      '<div class="panel scene-hall">' +
       "<h2>" + GS.t("hireHall", army.coins) + "</h2>" +
       "<ul class=\"roster\">" + list + "</ul>" +
       '<div class="menu">' +
@@ -243,8 +236,9 @@
       ? (outcome.msgKey === "heldIsle" ? GS.t("heldIsle", GS.loc(island)) : GS.t(outcome.msgKey))
       : outcome.msg;
     this.show(
-      '<div class="panel">' +
-      "<h2>" + GS.t("resultHead", kindLabel, GS.loc(island)) + "</h2>" +
+      '<div class="panel scene-epitaph">' +
+      '<p class="eyebrow">' + GS.loc(island) + "</p>" +
+      "<h2>" + kindLabel + "</h2>" +
       "<p>" + resultMsg + "</p>" +
       "<p>" + GS.t("resultStats", outcome.housesLeft, outcome.housesTotal, outcome.coins, army.coins) + "</p>" +
       extra +
@@ -264,7 +258,7 @@
       return;
     }
     this.show(
-      '<div class="panel voyage-panel">' +
+      '<div class="panel voyage-panel scene-fork">' +
       "<h2>" + GS.t("voyageHead", GS.loc(ev, "title") || ev.title) + "</h2>" +
       "<p>" + (GS.loc(ev, "text") || ev.text) + "</p>" +
       '<div class="menu">' +
@@ -300,7 +294,7 @@
         "<b>" + title + "</b><span class=\"hint\">" + desc + "</span></button>";
     }
     this.show(
-      '<div class="panel setup-panel">' +
+      '<div class="panel setup-panel scene-pact">' +
       "<h2>" + GS.t("setupTitle") + "</h2>" +
       '<p class="flavor">' + GS.t("setupFlavor") + "</p>" +
       "<h3>" + GS.t("setupLength") + "</h3>" +
@@ -335,7 +329,7 @@
         self._traitName(id) + (desc ? " — " + desc : "") + "</button>";
     }).join("");
     this.show(
-      '<div class="panel rank-panel">' +
+      '<div class="panel rank-panel scene-rank">' +
       "<h2>" + GS.t("rankTitle") + "</h2>" +
       "<p>" + GS.t("rankBody", GS.loc(offer)) + "</p>" +
       '<div class="menu">' + buttons + "</div></div>"
@@ -345,7 +339,7 @@
   Screens.prototype.settings = function (game) {
     var vol = Math.round((game.volume != null ? game.volume : 0.7) * 100);
     this.show(
-      '<div class="panel settings-panel">' +
+      '<div class="panel settings-panel scene-quiet">' +
       "<h2>" + GS.t("settings") + "</h2>" +
       "<p>" + GS.t("volume") + " <b>" + vol + "</b></p>" +
       '<div class="menu row">' +
@@ -380,7 +374,7 @@
       return r ? GS.loc(r) : id;
     });
     this.show(
-      '<div class="panel finale-panel"><h2>' + GS.t("voyageEnd") + "</h2><p>" + GS.t("voyageEndBody", army.islandsCleared) +
+      '<div class="panel finale-panel scene-epitaph"><h2>' + GS.t("voyageEnd") + "</h2><p>" + GS.t("voyageEndBody", army.islandsCleared) +
       " " + GS.t("coins") + " " + army.coins +
       (relics.length ? GS.t("finaleRelics") + GS.joinList(relics) : "") + ".</p>" +
       "<h3>" + GS.t("ledgerTitle") + "</h3>" + this._ledger(army) +

@@ -69,6 +69,9 @@
     this.closeMenu(true);
     this.toggleSheet("close");
     this.mode = mode;
+    if (typeof document !== "undefined" && document.documentElement) {
+      document.documentElement.setAttribute("data-mode", mode);
+    }
     if (GS.audio && GS.audio.bed && mode !== "rank") {
       GS.audio.bed(mode === "battle" || mode === "sandbox" || mode === "campaign");
     }
