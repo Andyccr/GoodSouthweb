@@ -145,7 +145,7 @@
     }
     this.commands.classList.remove("hidden");
     var html = items.map(function (it) {
-      var cls = "cmd-btn" + (it.glyph ? " medallion" : "") + (it.active ? " active" : "");
+      var cls = "cmd-btn" + (it.glyph ? " medallion" : "") + (it.primary ? " primary" : "") + (it.active ? " active" : "");
       var body = it.glyph
         ? '<span class="medal">' + it.glyph + "</span><span class=\"medal-name\">" + it.name + "</span>"
         : it.label;

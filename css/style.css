@@ -1355,7 +1355,10 @@ kbd, .menu button kbd, .panel kbd {
   justify-content: center;
 }
 .scene-brief { max-width: 680px; }
-.scene-brief .mini { max-height: 160px; border-radius: 12px; background: rgba(0, 0, 0, 0.28); }
+.scene-brief .mini { max-height: 120px; border-radius: 12px; background: rgba(0, 0, 0, 0.28); }
+.scene-brief .brief-actions { flex-direction: row; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
+.scene-brief .brief-actions button { width: auto; font-family: var(--display); font-size: 18px; }
+.scene-brief .brief-actions button.primary { background: var(--hi); color: var(--ink); }
 .scene-fork .menu { display: grid; grid-template-columns: 1fr 1fr; }
 .scene-fork .menu button { align-items: flex-start; font-family: var(--display); font-size: 18px; }
 .scene-hall .menu { display: grid; grid-template-columns: 1fr 1fr; }
@@ -1480,3 +1483,49 @@ html[data-mode="voyage"] .toasts {
 }
 .low-fx #stage::before { display: block; opacity: 0.7; }
 .low-fx #overlay { backdrop-filter: none; }
+
+/* The island stays the picture: one verb row, companies along the foot. */
+#topbar { flex-direction: row; align-items: center; }
+.topbar-main { flex: 1 1 auto; }
+#toolbar-host { flex: 0 0 auto; width: auto; }
+.toolbar {
+  background: transparent;
+  border: none;
+  width: auto;
+  margin-left: auto;
+  padding: 0 4px 6px;
+  justify-content: flex-end;
+}
+#app.has-cmd-strip #bottom {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  background: linear-gradient(0deg, rgba(14, 18, 20, 0.92), rgba(14, 18, 20, 0));
+  border-top: none;
+}
+#app.has-cmd-strip .hint-line { display: none; }
+.cmd-btn.primary {
+  background: var(--hi);
+  color: var(--ink);
+  min-height: 40px;
+  padding: 0 22px;
+  font-family: var(--display);
+  font-size: 18px;
+}
+.cmd-btn.primary kbd { display: none; }
+#sandbox-fold { display: none; margin-bottom: 12px; }
+#sandbox-fold:has(#sandbox-tools.visible) { display: block; }
+#sandbox-tools.visible {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: auto;
+  background: transparent;
+  border: none;
+  padding: 8px 0 0;
+  overflow: visible;
+}
+#sandbox-tools label { width: 100%; }
+#sandbox-tools input,
+#sandbox-tools select { flex: 1; min-width: 0; }
+#sandbox-tools #genbtn { width: 100%; }
+.is-compact #sandbox-fold { display: none !important; }

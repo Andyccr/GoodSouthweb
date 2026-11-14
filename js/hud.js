@@ -47,7 +47,7 @@
 
     var mode = game.mode;
     var ui = game.ui;
-    var left = $("left");
+    var left = $("left-body") || $("left");
     var right = $("right");
     var tools = $("sandbox-tools");
     var banner = $("phase-banner");
@@ -111,28 +111,9 @@
     GS.util.setHtml(left, this.campLeft(game, node));
     GS.util.setHtml(right, this.roster(game.army) + this.relicList(game.army) + this.islandList(game) + this.legend());
     this._setHint(game.touch ? GS.t("hintChartTouch") : GS.t("hintChart"));
-    if (game.compact) {
-      ui.setToolbar([]);
-    } else {
-      ui.setToolbar([
-        { act: "pause-menu", label: GS.t("menu"), kbd: "Esc" },
-        { act: "save-menu", label: GS.t("save"), kbd: "F5" },
-        { act: "hire", label: GS.t("hireTitle"), kbd: "N" },
-        { act: "pal", label: GS.t("palette"), kbd: "P" },
-        { act: "mute", label: GS.audio.muted() ? GS.t("muteOn") : GS.t("muteOff"), kbd: "-" },
-        { act: "lang", label: GS.t("langToggle"), kbd: "I" },
-        { act: "help", label: GS.t("handbook"), kbd: "?" },
-        { sep: true },
-        { act: "zoom", arg: "1", label: "+", kbd: ".", title: GS.t("zoomIn") },
-        { act: "zoom", arg: "-1", label: "−", kbd: ",", title: GS.t("zoomOut") },
-        { act: "center-cam", label: GS.t("center"), kbd: "F" },
-        { act: "fit-cam", label: GS.t("fit"), kbd: "0" },
-        { sep: true },
-        { act: "title", label: GS.t("title") },
-      ]);
-    }
+    ui.setToolbar([]);
     var campCmds = node && node.status === "scouted" ? [
-      { act: "open-island", arg: String(node.id), label: GS.t("landThisName", GS.loc(node)), kbd: "G" },
+      { act: "open-island", arg: String(node.id), label: GS.t("landThisName", GS.loc(node)), primary: true },
     ] : [];
     if (game.compact) {
       campCmds = campCmds.concat([
@@ -213,53 +194,24 @@
     var ui = game.ui;
     var items = [];
     if (b.phase === "deploy") {
-      items.push({ act: "start", label: GS.t("startFight"), kbd: "G", primary: true });
-      if (game.mode === "battle") items.push({ act: "form-up", label: GS.t("formUp"), kbd: "V" });
-      items.push({ act: "rotate", label: GS.t("rotate"), kbd: "R" });
-      items.push({ act: "cycle-order", label: GS.t("orderCycle"), kbd: "O" });
-      items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: GS.t("zoomIn") });
-      items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: GS.t("zoomOut") });
-      items.push({ act: "center-cam", label: GS.t("center"), kbd: "F" });
-      items.push({ act: "look", label: b.look ? GS.t("looking") : GS.t("look"), kbd: "'", active: b.look });
+      items.push({ act: "start", label: GS.t("startFight"), primary: true });
+      if (game.mode === "battle") items.push({ act: "form-up", label: GS.t("formUp") });
     } else if (b.phase === "fight") {
-      items.push({ act: "pause", label: b.speed ? GS.t("pause") : GS.t("resume"), kbd: "␣", active: !b.speed });
+      items.push({ act: "pause", label: b.speed ? GS.t("pause") : GS.t("resume"), active: !b.speed });
       items.push({ act: "spd", arg: "1", label: "1×", active: b.speed === 1 });
       items.push({ act: "spd", arg: "2", label: "2×", active: b.speed === 2 });
       items.push({ act: "spd", arg: "3", label: "3×", active: b.speed === 3 });
-      items.push({ sep: true });
-      items.push({ act: "rotate", label: GS.t("rotate"), kbd: "R" });
-      items.push({ act: "cycle-order", label: GS.t("orderCycle"), kbd: "O" });
-      items.push({ act: "zoom", arg: "1", label: "+", kbd: ".", title: GS.t("zoomIn") });
-      items.push({ act: "zoom", arg: "-1", label: "−", kbd: ",", title: GS.t("zoomOut") });
-      items.push({ act: "center-cam", label: GS.t("center"), kbd: "F" });
       if (game.mode === "battle") {
         items.push({
           act: "warhorn",
           label: b.warhornReady ? (b.warhornCharges > 1 ? GS.t("warhornN", b.warhornCharges) : GS.t("warhorn")) : GS.t("hornUsed"),
-          kbd: "U",
           active: b.warhornT > 0,
           disabled: !b.warhornReady && b.warhornT <= 0,
         });
-        items.push({ act: "evac", label: GS.t("evacShort"), kbd: "E", danger: true });
+        items.push({ act: "evac", label: GS.t("evacShort"), danger: true });
       }
     }
-    if (game.mode === "sandbox") {
-      items.push({ sep: true });
-      items.push({ act: "tool-place", label: GS.t("place"), kbd: "Z", active: game.sandboxTool === "place" });
-      items.push({ act: "tool-paint", label: GS.t("paint"), kbd: "T", active: game.sandboxTool === "paint" });
-      items.push({ act: "brush-next", label: GS.loc(GS.tileDef(game.sandboxBrush)) });
-      items.push({ act: "spawn-enemy", label: GS.t("raiders"), kbd: "N" });
-      items.push({ act: "spawn-ship", label: GS.t("longship"), kbd: "B" });
-      items.push({ act: "spawn-ally", label: GS.t("allies"), kbd: "C" });
-      items.push({ act: "spawn-shaman", label: GS.t("shaman"), kbd: "Y" });
-      items.push({ act: "spawn-hound", label: GS.t("hound"), kbd: "I" });
-      items.push({ act: "gen", label: GS.t("newIsle") });
-    }
-    items.push({ sep: true });
-    if (game.army && game.campaign) items.push({ act: "quicksave", label: GS.t("qsave"), kbd: "F5" });
-    items.push({ act: "mute", label: GS.audio.muted() ? GS.t("muteOn") : GS.t("muteOff"), kbd: "-" });
-    items.push({ act: "lang", label: GS.t("langToggle"), kbd: "I" });
-    items.push({ act: "pause-menu", label: GS.t("menu"), kbd: "Esc" });
+    items.push({ act: "pause-menu", label: GS.t("menu") });
     ui.setToolbar(game.compact ? [] : items);
 
     var cmds = [];
@@ -372,10 +324,7 @@
     var tile = b.island.tiles[b.cursor.y] && b.island.tiles[b.cursor.y][b.cursor.x];
     var def = tile ? GS.tileDef(tile.type) : null;
     var sq = b.getSquad(b.selected);
-    var html = "<h3>" + GS.t("observe") + "</h3>";
-    html += "<p>" + GS.t("cursorAt", b.cursor.x, b.cursor.y, def ? def.ch + " " + GS.loc(def) : "") + "</p>";
-    if (game.lookText) html += "<pre class=\"look\">" + GS.util.escapeHtml(game.lookText) + "</pre>";
-    else if (def) html += "<p class=\"look\">" + (GS.loc(def, "look") || def.look) + "</p>";
+    var html = "";
     if (sq) {
       var role = GS.ROLES[sq.role];
       var trait = "";
@@ -396,40 +345,53 @@
         "<button type=\"button\" data-act=\"cycle-order\">" + GS.t("orderCycle") + "</button></p>" +
         "<p class=\"hint\">" + (GS.loc(role, "desc") || role.desc) + "</p>";
     }
-    html += "<h3>" + GS.t("houses") + "</h3><ul>";
+    if (game.lookText) html += "<pre class=\"look\">" + GS.util.escapeHtml(game.lookText) + "</pre>";
+    html += "<details class=\"legend-fold\"><summary>" + GS.t("observe") + "</summary>" +
+      "<p>" + GS.t("cursorAt", b.cursor.x, b.cursor.y, def ? def.ch + " " + GS.loc(def) : "") + "</p>" +
+      (def && !game.lookText ? "<p class=\"look\">" + (GS.loc(def, "look") || def.look) + "</p>" : "") +
+      "</details>";
+    html += "<h3>" + GS.t("houses") + "</h3>";
     var houseList = b.houses.slice().sort(function (a, c) {
       var ra = a.alive ? a.hp / Math.max(1, a.maxHp) : -1;
       var rc = c.alive ? c.hp / Math.max(1, c.maxHp) : -1;
       return ra - rc;
     });
+    var hurt = [];
     for (i = 0; i < houseList.length; i++) {
       var h = houseList[i];
-      html += "<li>" + (h.alive ? "⌂" : "%") + " " + GS.houseName(h, b) + " " + game.ui.hpBar(h.hp, h.maxHp) +
-        (h.alive && b.houseUnderSiege && b.houseUnderSiege(h) ? " <span class='warn'>" + GS.t("siegeMark") + "</span>" : "") +
-        "</li>";
+      var pressed = h.alive && b.houseUnderSiege && b.houseUnderSiege(h);
+      if (!h.alive || h.hp < h.maxHp || pressed) hurt.push(h);
     }
-    html += "</ul>";
-    if (game.mode === "sandbox") {
-      html += "<h3>" + GS.t("sandboxMode") + "</h3>";
-      if (game.compact) {
-        html += '<p class="hint">' + GS.t("sheetSandboxHint") + "</p>" +
-          '<p class="sheet-actions">' +
-          '<button type="button" data-act="tool-place"' + (game.sandboxTool === "place" ? ' class="primary"' : "") + ">" + GS.t("place") + "</button>" +
-          '<button type="button" data-act="tool-paint"' + (game.sandboxTool === "paint" ? ' class="primary"' : "") + ">" + GS.t("paint") + "</button>" +
-          '<button type="button" data-act="brush-next">' + GS.loc(GS.tileDef(game.sandboxBrush)) + "</button>" +
-          "</p><p class=\"sheet-actions\">" +
-          '<button type="button" data-act="spawn-enemy">' + GS.t("raiders") + "</button>" +
-          '<button type="button" data-act="spawn-ship">' + GS.t("longship") + "</button>" +
-          '<button type="button" data-act="spawn-ally">' + GS.t("allies") + "</button>" +
-          '<button type="button" data-act="gen">' + GS.t("newIsle") + "</button>" +
-          "</p><p class=\"sheet-actions\">" +
-          '<button type="button" data-act="spawn-shaman">' + GS.t("shaman") + "</button>" +
-          '<button type="button" data-act="spawn-hound">' + GS.t("hound") + "</button>" +
-          "</p>";
-      } else {
-        html += "<p>" + GS.t("tool") + " <b>" + (game.sandboxTool === "paint" ? GS.t("paint") + " / " + GS.loc(GS.tileDef(game.sandboxBrush)) : GS.t("place")) +
-          "</b></p>";
+    if (!hurt.length) html += "<p class=\"hint\">" + GS.t("housesSound") + "</p>";
+    else {
+      html += "<ul>";
+      for (i = 0; i < hurt.length; i++) {
+        h = hurt[i];
+        html += "<li>" + (h.alive ? "⌂" : "%") + " " + GS.houseName(h, b) + " " + game.ui.hpBar(h.hp, h.maxHp) +
+          (h.alive && b.houseUnderSiege && b.houseUnderSiege(h) ? " <span class='warn'>" + GS.t("siegeMark") + "</span>" : "") +
+          "</li>";
       }
+      html += "</ul>";
+    }
+    if (game.mode === "sandbox") {
+      var workshop =
+        '<p class="hint">' + GS.t("sheetSandboxHint") + "</p>" +
+        '<p class="sheet-actions">' +
+        '<button type="button" data-act="tool-place"' + (game.sandboxTool === "place" ? ' class="primary"' : "") + ">" + GS.t("place") + "</button>" +
+        '<button type="button" data-act="tool-paint"' + (game.sandboxTool === "paint" ? ' class="primary"' : "") + ">" + GS.t("paint") + "</button>" +
+        '<button type="button" data-act="brush-next">' + GS.loc(GS.tileDef(game.sandboxBrush)) + "</button>" +
+        "</p><p class=\"sheet-actions\">" +
+        '<button type="button" data-act="spawn-enemy">' + GS.t("raiders") + "</button>" +
+        '<button type="button" data-act="spawn-ship">' + GS.t("longship") + "</button>" +
+        '<button type="button" data-act="spawn-ally">' + GS.t("allies") + "</button>" +
+        '<button type="button" data-act="gen">' + GS.t("newIsle") + "</button>" +
+        "</p><p class=\"sheet-actions\">" +
+        '<button type="button" data-act="spawn-shaman">' + GS.t("shaman") + "</button>" +
+        '<button type="button" data-act="spawn-hound">' + GS.t("hound") + "</button>" +
+        "</p>";
+      html += game.compact
+        ? "<h3>" + GS.t("sandboxMode") + "</h3>" + workshop
+        : "<details class=\"legend-fold\"><summary>" + GS.t("sandboxMode") + "</summary>" + workshop + "</details>";
     }
     return html;
   };
@@ -453,13 +415,13 @@
   };
 
   Hud.prototype.logHtml = function (b) {
-    var html = "<h3>" + GS.t("log") + "</h3><ul class='log'>";
-    var logs = b.log.slice(-12);
-    if (!logs.length) html += "<li class=\"hint\">" + GS.t("logEmpty") + "</li>";
+    var logs = b.log.slice(-8);
+    if (!logs.length) return "<p class=\"hint\">" + GS.t("logEmpty") + "</p>";
+    var html = "<details class=\"legend-fold\"><summary>" + GS.t("log") + "</summary><ul class='log'>";
     for (var i = 0; i < logs.length; i++) {
       html += "<li style='color:" + logs[i].color + "'>" + GS.util.escapeHtml(GS.logText ? GS.logText(logs[i]) : logs[i].msg) + "</li>";
     }
-    return html + "</ul>";
+    return html + "</ul></details>";
   };
 
   Hud.prototype.roster = function (army) {

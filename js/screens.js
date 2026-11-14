@@ -97,7 +97,7 @@
       "<h2>" + GS.t("pause") + "</h2>" +
       '<p class="flavor">' + (inBattle ? GS.t("pauseBattle") : GS.t("pauseChart")) + "</p>" +
       '<div class="menu">' +
-      '<button data-act="resume"><kbd>Esc</kbd> ' + GS.t("resume") + "</button>" +
+      '<button class="primary" data-act="resume"><kbd>Esc</kbd> ' + GS.t("resume") + "</button>" +
       (canSave ? '<button data-act="save-menu"><kbd>F5</kbd> ' + GS.t("saveProgress") + "</button>" : "") +
       '<button data-act="load-menu"><kbd>F9</kbd> ' + GS.t("loadSave") + "</button>" +
       '<button data-act="settings">' + GS.t("settings") + "</button>" +
@@ -175,20 +175,23 @@
       '<div class="panel preview-panel scene-brief">' +
       "<h2>" + GS.t("arrivingIsle", GS.loc(island)) + "</h2>" +
       '<div class="flavor">' + GS.t("previewMeta", GS.loc(biome, "flavor") || island.flavor, GS.loc(biome), "▲".repeat(island.difficulty)) + "</div>" +
+      '<div class="menu brief-actions">' +
+      '<button class="primary" data-act="fight"><kbd>G</kbd> ' + GS.t("deployG") + "</button>" +
+      '<button data-act="hire"><kbd>N</kbd> ' + GS.t("hireNCoins", army.coins) + "</button>" +
+      '<button data-act="back-camp"><kbd>Q</kbd> ' + GS.t("backChart") + "</button>" +
+      "</div>" +
       "<pre class=\"mini\">" + GS.util.asciiMini(island) + "</pre>" +
       "<p>" + GS.t("previewCounts", island.houses.length, island.w, island.h) +
       (island.beacons && island.beacons.length ? GS.t("previewBeacons", island.beacons.length) : "") +
       GS.t("previewLand") + "<b>" + landings + "</b></p>" +
       (om && om.id !== "calm" ? "<p class=\"omen\">" + GS.t("omenP", GS.loc(om), GS.loc(om, "desc")) + "</p>" : "") +
       (relic ? "<p class=\"relic-line\">" + GS.t("relicP", relic.ch, GS.loc(relic), GS.loc(relic, "desc")) + "</p>" : "") +
-      "<p>" + GS.t("previewHomes") + GS.joinList(island.houses.map(function (h) { return GS.houseName ? GS.houseName(h, { island: island }) : GS.loc(h); })) + ".</p>" +
+      "<details class=\"legend-fold\"><summary>" + GS.t("houses") + "</summary><p>" +
+      GS.t("previewHomes") + GS.joinList(island.houses.map(function (h) { return GS.houseName ? GS.houseName(h, { island: island }) : GS.loc(h); })) +
+      ".</p></details>" +
       this._forecastBlock(island, campaign) +
       this._worksBlock(island, army) +
-      '<div class="menu">' +
-      '<button data-act="fight"><kbd>G</kbd> ' + GS.t("deployG") + "</button>" +
-      '<button data-act="hire"><kbd>N</kbd> ' + GS.t("hireNCoins", army.coins) + "</button>" +
-      '<button data-act="back-camp"><kbd>Q</kbd> ' + GS.t("backChart") + "</button>" +
-      "</div></div>"
+      "</div>"
     );
   };
 

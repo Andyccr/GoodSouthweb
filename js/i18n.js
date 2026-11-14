@@ -107,6 +107,7 @@
       arriving: "将至",
       threat: "威胁",
       houses: "屋舍",
+      housesSound: "屋舍都还在",
       mapSize: "版图",
       beacons: "烽火台",
       landFrom: "登陆方向",
@@ -476,6 +477,7 @@
       arriving: "Approaching",
       threat: "threat",
       houses: "houses",
+      housesSound: "Every house still stands",
       mapSize: "map",
       beacons: "beacons",
       landFrom: "landings",
@@ -1117,6 +1119,8 @@
     if (legend) legend.textContent = t("legendBody");
     var canvas = document.getElementById("view");
     if (canvas) canvas.setAttribute("aria-label", GS.LANG === "en" ? "Game view" : "游戏画面");
+    var fold = document.getElementById("sandbox-fold");
+    if (fold && fold.querySelector("summary")) fold.querySelector("summary").textContent = t("newIsle");
     var tools = document.getElementById("sandbox-tools");
     if (tools) {
       var labels = tools.querySelectorAll("label");
