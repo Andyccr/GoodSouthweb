@@ -226,14 +226,17 @@
       for (var i = 0; i < battle.squads.length; i++) {
         if (battle.squads[i].soldiers > 0 && !battle.squads[i].placed) return "coachPlace";
       }
-      return "coachFace";
+      if (!battle._guideReady) return "coachFace";
+      return "coachGo";
     }
     if (battle.phase === "fight") {
       if (battle.t < 8) return "coachFight";
-      var launched = false;
+      if ((battle.hornsBlown || 0) > 0) return null;
+      if ((battle.warhornCharges || 0) <= 0) return null;
       var waves = battle.waves || [];
-      for (var w = 0; w < waves.length; w++) if (waves[w].launched) launched = true;
-      if (launched && battle.warhornCharges > 0 && battle.t < 38) return "coachHorn";
+      var first = waves[0];
+      if (first && first.launched && battle.t > first.t + 12) return null;
+      return "coachHorn";
     }
     return null;
   }
@@ -338,6 +341,23 @@
     return e;
   }
 
+  function ensureRelics(camp, rng) {
+    if (!camp || !camp.islands) return camp;
+    var ids = relicIds().slice();
+    rng.shuffle(ids);
+    var omens = omenIds().filter(function (id) { return id !== "calm"; });
+    var cursor = 0;
+    for (var i = 0; i < camp.islands.length; i++) {
+      var isle = camp.islands[i];
+      if (!isle.relic) {
+        isle.relic = ids[cursor % ids.length];
+        cursor++;
+      }
+      if (!isle.omen) isle.omen = i === 0 ? "calm" : rng.pick(omens);
+    }
+    return camp;
+  }
+
   function decorateCampaign(camp, rng) {
     if (!camp || !camp.islands) return camp;
     var ids = relicIds().slice();
@@ -352,7 +372,8 @@
 
   function rollVoyage(rng, army, camp) {
     if (!army || !camp) return null;
-    if (!rng.chance(0.48)) return null;
+    var p = (GS.CONFIG.campaign && GS.CONFIG.campaign.voyageChance) || 0.48;
+    if (!rng.chance(p)) return null;
     var ev = rng.pick(GS.VOYAGE);
     return {
       id: ev.id,
@@ -385,6 +406,7 @@
     applyToSoldier: applyToSoldier,
     applyToEnemy: applyToEnemy,
     decorateCampaign: decorateCampaign,
+    ensureRelics: ensureRelics,
     rollVoyage: rollVoyage,
     applyVoyage: applyVoyage,
     healArmy: healArmy,

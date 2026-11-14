@@ -115,7 +115,13 @@
         var c = army.commanders[i];
         if (c.dead || c.soldiers <= 0) continue;
         if (cfg.recruitHealOnVictory === "full") c.soldiers = c.maxSoldiers;
-        else c.soldiers = Math.min(c.maxSoldiers, c.soldiers + (cfg.recruitHealOnVictory || 0));
+        else if (cfg.recruitHealOnVictory === "half") {
+          var missing = c.maxSoldiers - c.soldiers;
+          if (missing > 0) {
+            var heal = Math.ceil(missing / 2) + 1;
+            c.soldiers = Math.min(c.maxSoldiers, c.soldiers + heal);
+          }
+        } else c.soldiers = Math.min(c.maxSoldiers, c.soldiers + (cfg.recruitHealOnVictory || 0));
       }
     }
     GS.bus.emit(GS.EV.ARMY_CHANGED, { army: army, reason: "battle", outcome: outcome });

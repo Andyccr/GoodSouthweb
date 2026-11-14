@@ -100,6 +100,7 @@
       '<button class="primary" data-act="resume"><kbd>Esc</kbd> ' + GS.t("resume") + "</button>" +
       (canSave ? '<button data-act="save-menu"><kbd>F5</kbd> ' + GS.t("saveProgress") + "</button>" : "") +
       '<button data-act="load-menu"><kbd>F9</kbd> ' + GS.t("loadSave") + "</button>" +
+      (ctx.canLedger ? '<button data-act="ledger">' + GS.t("ledgerTitle") + "</button>" : "") +
       '<button data-act="settings">' + GS.t("settings") + "</button>" +
       '<button data-act="pal">' + GS.t("palette") + "</button>" +
       '<button data-act="mute">' + (GS.audio.muted() ? GS.t("muteOn") : GS.t("muteOff")) + "</button>" +
@@ -156,7 +157,13 @@
   Screens.prototype._forecastBlock = function (island, campaign) {
     if (!GS.Waves || !GS.Waves.forecast) return "";
     var mul = campaign && campaign.threatMul != null ? campaign.threatMul : 1;
-    var sum = GS.Waves.forecast(island, mul, island.omen);
+    var sum = GS.Waves.forecast(island, mul, island.omen, {
+      pace: campaign && campaign.wavePace,
+      flankMul: campaign && campaign.waveFlankMul,
+      flankAdd: campaign && campaign.waveFlankAdd,
+      earlyElites: campaign && campaign.earlyElites,
+      crowd: false,
+    });
     var lines = (sum.lines || []).map(function (line, i) {
       return "<li><span class=\"hint\">" + (i + 1) + "</span> " + GS.util.escapeHtml(line) + "</li>";
     }).join("");
@@ -313,7 +320,7 @@
       choice("pact-threat", "blood", draft.threat === "blood", GS.t("threatBlood"), GS.t("threatBloodDesc")) +
       "</div>" +
       '<div class="menu">' +
-      '<button data-act="pact-guide">' + (draft.guide ? GS.t("setupGuideOn") : GS.t("setupGuideOff")) + "</button>" +
+      '<button data-act="pact-guide"><kbd>H</kbd> ' + (draft.guide ? GS.t("setupGuideOn") : GS.t("setupGuideOff")) + "</button>" +
       '<button data-act="launch-campaign" class="primary"><kbd>Enter</kbd> ' + GS.t("launchCampaign") + "</button>" +
       '<button data-act="title"><kbd>Esc</kbd> ' + GS.t("backTitle") + "</button>" +
       "</div></div>"
@@ -339,21 +346,30 @@
     );
   };
 
+  Screens.prototype.ledger = function (army) {
+    this.show(
+      '<div class="panel finale-panel scene-epitaph"><h2>' + GS.t("ledgerTitle") + "</h2>" +
+      this._ledger(army) +
+      '<div class="menu"><button class="primary" data-act="resume"><kbd>Esc</kbd> ' + GS.t("back") + "</button></div></div>"
+    );
+  };
+
   Screens.prototype.settings = function (game) {
     var vol = Math.round((game.volume != null ? game.volume : 0.7) * 100);
+    var canHear = !GS.audio || !GS.audio.supported || GS.audio.supported();
     this.show(
       '<div class="panel settings-panel scene-quiet">' +
       "<h2>" + GS.t("settings") + "</h2>" +
-      "<p>" + GS.t("volume") + " <b>" + vol + "</b></p>" +
+      (canHear ? "<p>" + GS.t("volume") + " <b>" + vol + "</b></p>" +
       '<div class="menu row">' +
       '<button data-act="vol-down">−</button>' +
       '<button data-act="vol-up">+</button>' +
-      "</div>" +
+      "</div>" : "<p class=\"hint\">" + GS.t("noWebAudio") + "</p>") +
       '<div class="menu">' +
       '<button data-act="shake-toggle">' + (game.shakeOn ? GS.t("shakeOn") : GS.t("shakeOff")) + "</button>" +
       '<button data-act="motion-toggle">' + (game.reduceMotion ? GS.t("motionOn") : GS.t("motionOff")) + "</button>" +
       '<button data-act="pal">' + GS.t("palette") + "</button>" +
-      '<button data-act="mute">' + (GS.audio.muted() ? GS.t("muteOn") : GS.t("muteOff")) + "</button>" +
+      (canHear ? '<button data-act="mute">' + (GS.audio.muted() ? GS.t("muteOn") : GS.t("muteOff")) + "</button>" : "") +
       '<button data-act="lang">' + GS.t("langToggle") + "</button>" +
       '<button data-act="resume"><kbd>Esc</kbd> ' + GS.t("back") + "</button>" +
       "</div></div>"
@@ -371,13 +387,14 @@
       "</ul>";
   };
 
-  Screens.prototype.finale = function (army) {
+  Screens.prototype.finale = function (army, fate) {
     var relics = (army.relics || []).map(function (id) {
       var r = GS.Meta && GS.Meta.relic(id);
       return r ? GS.loc(r) : id;
     });
+    var lost = fate === "lost";
     this.show(
-      '<div class="panel finale-panel scene-epitaph"><h2>' + GS.t("voyageEnd") + "</h2><p>" + GS.t("voyageEndBody", army.islandsCleared) +
+      '<div class="panel finale-panel scene-epitaph"><h2>' + GS.t(lost ? "voyageEndLost" : "voyageEnd") + "</h2><p>" + GS.t(lost ? "voyageEndLostBody" : "voyageEndBody", army.islandsCleared) +
       " " + GS.t("coins") + " " + army.coins +
       (relics.length ? GS.t("finaleRelics") + GS.joinList(relics) : "") + ".</p>" +
       "<h3>" + GS.t("ledgerTitle") + "</h3>" + this._ledger(army) +

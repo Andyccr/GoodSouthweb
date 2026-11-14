@@ -363,6 +363,7 @@
     var nameEn = opts.nameEn || nm.nameEn || name;
     var landCount = 0;
     for (y = 0; y < h; y++) for (x = 0; x < w; x++) if (tiles[y][x].walk) landCount++;
+    landings = commitLandings(landings, shape.kind);
 
     return {
       w: w,
@@ -854,6 +855,29 @@
     }
   }
 
+  function commitLandings(landings, shape) {
+    var counts = [0, 0, 0, 0];
+    var spots = (landings && landings.spots) || [];
+    var i;
+    for (i = 0; i < spots.length; i++) {
+      var d = spots[i].dir;
+      if (d >= 0 && d < 4) counts[d]++;
+    }
+    var ranked = [0, 1, 2, 3].filter(function (dir) { return counts[dir] > 0; });
+    ranked.sort(function (a, b) { return counts[b] - counts[a]; });
+    var total = spots.length || 1;
+    function strong(dir) { return counts[dir] >= 6 && counts[dir] / total >= 0.18; }
+    var keep = ranked.slice(0, Math.min(2, ranked.length));
+    if (ranked.length > 2 && strong(ranked[2])) keep.push(ranked[2]);
+    var allow4 = shape === "isthmus" || shape === "split" || shape === "bay";
+    if (allow4 && ranked.length > 3 && strong(ranked[3])) keep.push(ranked[3]);
+    if (!keep.length) keep = (landings.dirs && landings.dirs.length) ? landings.dirs.slice(0, 2) : [2];
+    var filtered = [];
+    for (i = 0; i < spots.length; i++) if (keep.indexOf(spots[i].dir) >= 0) filtered.push(spots[i]);
+    if (filtered.length < 3) filtered = spots;
+    return { spots: filtered, dirs: keep };
+  }
+
   function findLandings(tiles, w, h) {
     var spots = [];
     var dirSet = {};
@@ -948,10 +972,15 @@
     var houses = placeHouses(tiles, w, h, rng, 3, 12);
     if (!houses.length) {
       tiles[(h / 2) | 0][(w / 2) | 0] = makeTile(T.HOUSE, 2);
-      houses = [{ id: 0, x: (w / 2) | 0, y: (h / 2) | 0, name: "厅堂", nameEn: "Hall", hp: 100, maxHp: 100, coins: 1, alive: true, villagers: 4 }];
+      houses = [{
+        id: 0, x: (w / 2) | 0, y: (h / 2) | 0,
+        name: (GS.I18N && GS.I18N.zh && GS.I18N.zh.fallbackHall) || "厅堂",
+        nameEn: (GS.I18N && GS.I18N.en && GS.I18N.en.fallbackHall) || "Hall",
+        hp: 100, maxHp: 100, coins: 1, alive: true, villagers: 4,
+      }];
       tiles[(h / 2) | 0][(w / 2) | 0].houseId = 0;
     }
-    var landings = findLandings(tiles, w, h);
+    var landings = commitLandings(findLandings(tiles, w, h), "blob");
     var beacons = placeBeacons(tiles, w, h, rng, houses, difficulty);
     var fnm = GS.names.islandPair ? GS.names.islandPair(rng) : { name: GS.names.island(rng) };
     return {

@@ -248,8 +248,8 @@
       { act: "toggle-sheet", arg: "right", label: GS.t("troops"), on: game.sheet === "right" },
     ];
     if (b.phase === "deploy") {
-      if (game.mode === "battle") dockItems.push({ act: "form-up", label: GS.t("formUp") });
       dockItems.push({ act: "start", label: GS.t("startFight"), primary: true });
+      if (game.mode === "battle") dockItems.push({ act: "form-up", label: GS.t("formUp") });
     } else if (b.phase === "fight") {
       dockItems.push({
         act: "pause",
@@ -388,6 +388,7 @@
         "</p><p class=\"sheet-actions\">" +
         '<button type="button" data-act="spawn-shaman">' + GS.t("shaman") + "</button>" +
         '<button type="button" data-act="spawn-hound">' + GS.t("hound") + "</button>" +
+        '<button type="button" data-act="lang">' + GS.t("langToggle") + "</button>" +
         "</p>";
       html += game.compact
         ? "<h3>" + GS.t("sandboxMode") + "</h3>" + workshop

@@ -138,6 +138,8 @@
       wheatBonus: "麦仓印额外 +{0} 钱币。",
       voyageEnd: "群岛纪事终章",
       voyageEndBody: "南境的岛链或守或弃，潮水暂时平了。收复 {0} 座岛。",
+      voyageEndLost: "南境失守",
+      voyageEndLostBody: "收复的岛不够一半。潮水把其余的名字抹掉了。收复 {0} 座岛。",
       title: "标题",
       menu: "菜单",
       save: "保存",
@@ -212,7 +214,7 @@
       hintBattle: "点空地就位 · O 号令（追击/驻守/护屋） · R转向 · G开战",
       hintSandbox: "点空地就位 · O 号令 · 拖/WASD平移 · 滚轮缩放 · 右键转向",
       hintBattleTouch: "点空地就位 · 号令在底栏 · 拖平移 · 点同一兵团转向",
-      bannerDeploy: "就位 — 点空地放下。弓手先占高地，一队接敌则全军防反。O 切换号令 · G 开战",
+      bannerDeploy: "就位 — 点空地放下。弓手驻守高地，追击才会驰援。O 切换号令 · G 开战",
       bannerDeployTouch: "点空地放下 · 号令在底栏 · 转向看箭头 · 拖动画布",
       bannerDeployCount: "未就位 {0} 队 · 登陆 {1} · G 开战",
       bannerDeployReady: "全部就位 · 登陆 {0} · G 开战",
@@ -226,6 +228,8 @@
       slotLand: "登岛",
       slotHire: "招募",
       slotAfter: "战后",
+      slotFight: "战中",
+      slotChart: "海图",
       slotVoyage: "航程",
       slotQuick: "快速",
       orderHunt: "追击",
@@ -289,11 +293,14 @@
       hoverLandTouch: "再点一次登陆 · 长按立刻登",
       autoSlot: "自动",
       manualSlot: "手动 {0}",
-      slotMetaTime: "",
+      fallbackHall: "厅堂",
+      soldierSuffix: "之卒",
+      militiaSuffix: "乡勇",
+      noWebAudio: "这个浏览器没有声音。",
       palDf: "经典 DF",
       palGreen: "绿磷",
       palAmber: "琥珀",
-      deployHint: "点空地就位。弓手先占高地；一队接敌则全军一起防反，并护住屋舍。O 切换号令。",
+      deployHint: "点空地就位。弓手驻守高地；追击会驰援，驻守留在原地。O 切换号令。",
       shipName: "北境长船",
       wreck: "搁浅的龙骨",
       miss: "空",
@@ -305,6 +312,7 @@
       beaconLine: "岛上有 {0} 座烽火台——弓手靠近可加强。",
       placedLine: "{0} 在 ({1},{2}) 就位，面朝{3}。",
       needPlace: "至少布置一个兵团才能开战。",
+      needAll: "还有兵团没就位。放齐再开战。",
       hornStartLog: "角声响起。北境的船帆出现在海平线上。",
       hornBlast: "号角震天！北蛮脚步乱了片刻。",
       militiaUp: "{0}的乡勇拿起了农具！",
@@ -390,7 +398,7 @@
       lengthFar: "远航 · 24 岛",
       lengthShortDesc: "一个晚上能打完的岛链。",
       lengthSouthDesc: "完整南境。圣物、航程与晋升都走得完。",
-      lengthFarDesc: "更长的海图。重复的圣物会改付钱币。",
+      lengthFarDesc: "更长的海图。已经拿过的圣物，任何航程都改付 2 钱。",
       threatHold: "守势",
       threatWar: "正战",
       threatBlood: "血潮",
@@ -405,15 +413,16 @@
       workOwned: "已筑",
       toastWork: "工事完成：{0}",
       toastWorkOwned: "这座岛已经有这道工事。",
-      relicDupe: "这件圣物已在手，神龛改付 2 钱币。",
+      relicDupe: "这件圣物已在手，改付 2 钱币。",
       resultSlain: "本场击退北蛮 {0}",
       doctrine: "兵法",
       rankTitle: "炉边兵法",
       rankBody: "{0} 升了级。为这支兵团选一门兵法，下一战生效。",
       toastRank: "{0} 领悟「{1}」",
       coachPlace: "向导：点空地，或按 V 列阵。弓手放高地，盾兵朝海滩。",
-      coachFace: "向导：右键或 R 让枪兵正面朝向登陆方向，然后按 G。",
-      coachFight: "向导：近战追击，弓手先占高地；一队接敌则全军一起防反。O 切换号令。",
+      coachFace: "向导：右键或 R 让枪兵正面朝向登陆。按 O 切一次号令，或按 V 列阵。",
+      coachGo: "向导：朝向和号令都看过了。按 G 开战。",
+      coachFight: "向导：追击会驰援，驻守的弓手留在高地。O 切换号令。",
       coachHorn: "向导：长船靠岸时按 U。号角会让整波北蛮变慢。",
       ledgerTitle: "航程账册",
       ledgerSlain: "击退北蛮 {0}",
@@ -508,6 +517,8 @@
       wheatBonus: "Wheat-seal +{0} extra coin.",
       voyageEnd: "End of the voyage",
       voyageEndBody: "The chain of isles is held or lost; the tide rests. {0} isles recovered.",
+      voyageEndLost: "The south is lost",
+      voyageEndLostBody: "Fewer than half the isles were held. The tide takes the rest of the names. {0} recovered.",
       title: "Title",
       menu: "Menu",
       save: "Save",
@@ -582,7 +593,7 @@
       hintBattle: "tap ground to place · O orders (hunt/hold/guard) · R turn · G fight",
       hintSandbox: "tap to place · O orders · drag/WASD pan · wheel zoom · RMB turn",
       hintBattleTouch: "tap ground · orders on the dock · drag pan · re-tap company to turn",
-      bannerDeploy: "Place companies. Bows take a hill; the host rallies when one is engaged. O cycles orders · G fight",
+      bannerDeploy: "Place companies. Bows hold the hill; only Hunt rallies. O cycles orders · G fight",
       bannerDeployTouch: "Tap ground to place · orders on the dock · turn by the arrow",
       bannerDeployCount: "{0} companies unplaced · landings {1} · G to fight",
       bannerDeployReady: "All formed up · landings {0} · G to fight",
@@ -596,6 +607,8 @@
       slotLand: "landed",
       slotHire: "hired",
       slotAfter: "aftermath",
+      slotFight: "in the fight",
+      slotChart: "chart",
       slotVoyage: "voyage",
       slotQuick: "quick",
       orderHunt: "Hunt",
@@ -659,10 +672,14 @@
       hoverLandTouch: "tap again to land · hold to land now",
       autoSlot: "auto",
       manualSlot: "slot {0}",
+      fallbackHall: "Hall",
+      soldierSuffix: "'s man",
+      militiaSuffix: " militia",
+      noWebAudio: "This browser has no sound.",
       palDf: "Classic DF",
       palGreen: "Phosphor",
       palAmber: "Amber",
-      deployHint: "Tap open ground to place. Bows take a hill; the host rallies together and covers the houses. O cycles orders.",
+      deployHint: "Tap open ground to place. Bows hold the hill. Hunt rallies; Hold stays. O cycles orders.",
       shipName: "North longship",
       wreck: "beached keel",
       miss: "miss",
@@ -674,6 +691,7 @@
       beaconLine: "{0} beacon(s) on this isle — archers nearby shoot farther.",
       placedLine: "{0} formed at ({1},{2}), facing {3}.",
       needPlace: "Place at least one company before the fight.",
+      needAll: "A company is still unplaced. Form them all, then start.",
       hornStartLog: "The horn sounds. North sails lift on the horizon.",
       hornBlast: "Warhorn! The northmen stumble.",
       militiaUp: "{0}'s militia take up tools!",
@@ -759,7 +777,7 @@
       lengthFar: "Far voyage · 24 isles",
       lengthShortDesc: "An island chain you can finish in a sitting.",
       lengthSouthDesc: "The full South. Relics, voyages, and promotions all have room.",
-      lengthFarDesc: "A longer chart. A relic you already hold pays coin instead.",
+      lengthFarDesc: "A longer chart. A relic you already hold pays 2 coin, on every length.",
       threatHold: "Hold",
       threatWar: "War",
       threatBlood: "Blood tide",
@@ -774,15 +792,16 @@
       workOwned: "built",
       toastWork: "Work finished: {0}",
       toastWorkOwned: "That work is already built here.",
-      relicDupe: "You already hold this relic. The shrine pays 2 coin.",
+      relicDupe: "You already hold this relic. It pays 2 coin.",
       resultSlain: "Northmen broken this fight: {0}",
       doctrine: "Doctrine",
       rankTitle: "Doctrine by the hearth",
       rankBody: "{0} has gained a level. Choose a doctrine. It takes effect next fight.",
       toastRank: "{0} learns {1}",
       coachPlace: "Guide: tap ground, or press V to form up. Bows on the hill, shields toward the beach.",
-      coachFace: "Guide: right-click or R so the pikes face the landing, then press G.",
-      coachFight: "Guide: melee hunts, bows take a hill; the host rallies when one is engaged. O cycles orders.",
+      coachFace: "Guide: right-click or R so the pikes face the landing. Press O once, or V to form up.",
+      coachGo: "Guide: facing and orders are set. Press G to start.",
+      coachFight: "Guide: Hunt rallies. Bows on Hold stay on the hill. O cycles orders.",
       coachHorn: "Guide: press U as the longships beach. The horn slows the whole wave.",
       ledgerTitle: "Voyage ledger",
       ledgerSlain: "Northmen broken {0}",
@@ -814,14 +833,14 @@
       return '<div class="panel help-panel scene-quiet"><h2>' + GS.t("helpTitle") + "</h2>" +
         "<h3>Save and pause</h3><ul>" +
         "<li><b>Esc</b> opens the pause menu (chart, battle, sandbox).</li>" +
-        "<li><b>Space</b> soft-pauses a fight; on the chart it lands the selected isle.</li>" +
+        "<li><b>Space</b> soft-pauses a fight. On the chart the first space focuses the isle; the second lands.</li>" +
         "<li><b>F5</b> quicksaves to autosave; the pause menu writes manual slots 1–3.</li>" +
         "<li><b>F9</b> loads the latest save, or pick a slot in the load menu.</li>" +
         "<li>A battle save restores the same engagement.</li>" +
         "<li>Switching browser tabs auto-pauses a fight.</li>" +
         "<li><b>I</b> toggles Chinese / English (pause menu has a button too).</li>" +
         "</ul><h3>Fieldcraft</h3><ul>" +
-        "<li>Deploy is a <strong>form-up point</strong>. After the horn, melee companies <strong>hunt</strong> (houses first); bows <strong>hold</strong> the hill. When one company is engaged, the whole host <strong>rallies</strong> to defend and counter, still covering the houses. <b>O</b> cycles Hunt / Hold / Guard. Re-placing mid-fight sets Hold. Facing arrows sit on the form-up tile. RMB / R / Turn / Shift+wheel rotate.</li>" +
+        "<li>Deploy is a <strong>form-up point</strong>. Melee <strong>hunts</strong> and will rally. Bows <strong>hold</strong> the hill and stay there until the enemy enters their ring. <b>O</b> cycles Hunt / Hold / Guard. Re-placing mid-fight sets Hold. Pike facing is the cone of the thrust: a locked pike does not turn before it strikes. RMB / R / Turn / Shift+wheel rotate.</li>" +
         "<li>Default four companies (two shields, one bow, one pike). You can hire <strong>skirmishers ‡</strong>. Companies share a field picture: melee intercepts paths to houses, bows/javelins kite and support the same fight.</li>" +
         "<li><b>U horn</b>: once per battle (twice with Horn-stone), briefly slows all northmen — including longships.</li>" +
         "<li><b>Beacons ¥</b>: nearby archers gain range and bite.</li>" +
@@ -844,10 +863,11 @@
         "WASD             hold to pan    Shift faster\n" +
         "Arrows / HJKL    move cursor (keyboard place)\n" +
         ", . or =         zoom    F / Home focus selected company\n" +
-        "[  ]             speed    G fight    E evacuate    U horn    O orders\n" +
-        "I                Chinese / English\n" +
+        "[  ]             speed (does not start the fight)    G fight    V form up\n" +
+        "E evacuate    U horn    O orders    H toggles the guide on the pact\n" +
+        "I                Chinese / English (in the sandbox I spawns a hound)\n" +
         "Chart            drag/wheel/WASD pan zoom    tap isle, tap again to land\n" +
-        "                 RMB lands now    Tab cycle isles    Enter / Space land\n" +
+        "                 RMB or hold lands now    Tab cycle    Enter lands    Space focuses, then lands\n" +
         "                 F focus    0 / End fit all    Q / Esc pause\n" +
         "</pre><h3>Relics and omens</h3><ul>" +
         "<li>Each chart isle hides a relic. Hold it and it stays with the host (South-lamp, Salt-wind, Eyrie-stone, Horn-stone, …).</li>" +
@@ -859,14 +879,14 @@
     return '<div class="panel help-panel scene-quiet"><h2>' + GS.t("helpTitle") + "</h2>" +
       "<h3>保存与暂停</h3><ul>" +
       "<li><b>Esc</b> 打开/关闭暂停菜单（战役、战斗、沙盒）。</li>" +
-      "<li><b>空格</b> 战斗中软暂停；海图上空格登陆当前岛。</li>" +
+      "<li><b>空格</b> 战斗中软暂停。海图上第一次对准当前岛，第二次才登陆。</li>" +
       "<li><b>F5</b> 快速写入自动档；暂停菜单可写入 1–3 号手动档。</li>" +
       "<li><b>F9</b> 快速读取最近存档；亦可在读档界面选槽。</li>" +
       "<li>战斗中存档会保存岛屿战局，读档后可继续同一场。</li>" +
       "<li>切换浏览器标签会自动暂停战斗。</li>" +
       "<li><b>I</b> 切换中文 / English（暂停菜单也有按钮）。</li>" +
       "</ul><h3>战地技巧</h3><ul>" +
-      "<li>布置是<strong>就位点</strong>。开战近战兵团默认<strong>追击</strong>（先保屋），弓手默认<strong>驻守</strong>高地。任一兵团接敌后全军一起<strong>防御和反击</strong>，并优先护住屋舍。<b>O</b> 在追击 / 驻守 / 护屋间切换。战斗中换阵会改为驻守。朝向用箭头画在就位点上，右键 / R / 转向 / Shift+滚轮旋转。</li>" +
+      "<li>布置是<strong>就位点</strong>。近战默认<strong>追击</strong>，会驰援。弓手默认<strong>驻守</strong>高地，敌人不进圈就留在原地。<b>O</b> 在追击 / 驻守 / 护屋间切换。战斗中换阵会改为驻守。枪兵朝向是出刀的锥面，锁住的枪不会先转身。右键 / R / 转向 / Shift+滚轮旋转。</li>" +
       "<li>每局默认四支部队（两盾、一弓、一枪）。可再招募<strong>投矛手 ‡</strong>。兵团共享全局战场：盾兵/枪兵截断通往屋舍的路，弓手/投矛拉开身位并支援同一场战斗。</li>" +
       "<li><b>U 号角</b>：每场一次（持有号角石可两次），短时减缓全部北蛮（含长船）。</li>" +
       "<li><b>烽火台 ¥</b>：弓手靠近可提升射程与伤害。</li>" +
@@ -918,7 +938,7 @@
     looks[T.SHALLOW] = ["Shoal", "Shallow water. Ships slow as they beach."];
     looks[T.BEACH] = ["Beach", "Sand and shells. Raiders land here."];
     looks[T.GRASS] = ["Grass", "Salt-wind grass of the South. Firm footing."];
-    looks[T.HILL] = ["Hill", "High ground. Archers shoot farther and harder."];
+    looks[T.HILL] = ["Hill", "High ground. Archers shoot a little farther and a little harder."];
     looks[T.ROCK] = ["Rock", "Bare stone. Impassable."];
     looks[T.CLIFF] = ["Cliff", "A steep break. Blocks march and sight."];
     looks[T.RAMP] = ["Ramp", "A slope up to the heights."];

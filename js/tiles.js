@@ -68,14 +68,14 @@
   };
   GS.TILE[GS.T.HILL] = {
     id: GS.T.HILL, ch: "n", fg: C.GREEN, bg: "#254015", walk: true, cost: 1.28, height: 3,
-    name: "丘陵", look: "高地。弓手在此射程更远，俯射更狠。",
+    name: "丘陵", look: "高地。弓手在此射得稍远，俯射稍狠。",
   };
   GS.TILE[GS.T.ROCK] = {
     id: GS.T.ROCK, ch: "#", fg: C.LGRAY, bg: C.DGRAY, walk: false, cost: 9, height: 3,
     name: "岩石", look: "裸露的灰岩。无法通行。",
   };
   GS.TILE[GS.T.CLIFF] = {
-    id: GS.T.CLIFF, ch: "▲", fg: C.WHITE, bg: C.DGRAY, walk: false, cost: 9, height: 4,
+    id: GS.T.CLIFF, ch: "▲", fg: C.WHITE, bg: C.DGRAY, walk: false, cost: 9, height: 4, los: true,
     name: "悬崖", look: "陡峭的断崖。阻挡行军与视线。",
   };
   GS.TILE[GS.T.RAMP] = {
@@ -119,7 +119,7 @@
     name: "熔岩", look: "灼热的岩流。谁掉进去谁就完了。",
   };
   GS.TILE[GS.T.HOUSE] = {
-    id: GS.T.HOUSE, ch: "⌂", fg: C.YELLOW, bg: C.BROWN, walk: true, cost: 1.25, height: 2, house: true,
+    id: GS.T.HOUSE, ch: "⌂", fg: C.YELLOW, bg: C.BROWN, walk: false, cost: 9, height: 2, house: true,
     name: "屋舍", look: "一座南境民居。必须守住。",
   };
   GS.TILE[GS.T.RUIN] = {

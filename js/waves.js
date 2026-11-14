@@ -2,13 +2,14 @@
 (function (g) {
   var GS = g.GS || (g.GS = {});
 
-  function rosterFor(difficulty) {
+  function rosterFor(difficulty, shift) {
+    var d = difficulty + (shift || 0);
     var roster = ["raider"];
-    if (difficulty >= 2) roster.push("thrower");
-    if (difficulty >= 3) roster.push("shield", "hound");
-    if (difficulty >= 4) roster.push("brute", "sapper");
-    if (difficulty >= 5) roster.push("shaman");
-    if (difficulty >= 6) roster.push("berserk");
+    if (d >= 2) roster.push("thrower");
+    if (d >= 3) roster.push("shield", "hound");
+    if (d >= 4) roster.push("brute", "sapper");
+    if (d >= 5) roster.push("shaman");
+    if (d >= 6) roster.push("berserk");
     return roster;
   }
 
@@ -19,30 +20,31 @@
     if (mul > 1.8) mul = 1.8;
     var dirs = island.landingDirs && island.landingDirs.length ? island.landingDirs.slice() : [2];
     var waves = [];
+    var elite = difficulty + (opts.earlyElites || 0);
     var n = 3 + Math.min(5, difficulty);
-    // larger islands: one extra wave
-    if (island.w * island.h >= 2400) n += 1;
+    // wide isles add a wave only once the chain has teeth
+    if (island.w * island.h >= 2400 && difficulty >= 4) n += 1;
     var t = 6;
-    var roster = rosterFor(difficulty);
+    var roster = rosterFor(difficulty, opts.earlyElites || 0);
+    var sapperP = difficulty >= 6 ? 0.14 : 0.07;
     for (var i = 0; i < n; i++) {
       var dir = dirs[i % dirs.length];
-      if (rng.chance(0.35)) dir = rng.pick(dirs);
       var count = Math.max(3, Math.round((5 + i * 2 + difficulty + rng.int(0, 3)) * mul));
-      if (island.landCount > 400) count += 1 + ((island.landCount - 400) / 220) | 0;
+      if (opts.crowd && island.landCount > 1800) count += 1 + ((island.landCount - 1800) / 400) | 0;
       var units = [];
       for (var k = 0; k < count; k++) {
         var role = "raider";
         if (i > 0) role = rng.pick(roster);
-        if (i === n - 1 && k > count - 3 && difficulty >= 3) {
+        if (i === n - 1 && k > count - 3 && elite >= 3) {
           role = rng.chance(0.5) ? "brute" : role;
         }
-        if (difficulty >= 5 && rng.chance(0.08)) role = "shaman";
-        if (difficulty >= 3 && rng.chance(0.1)) role = "hound";
-        if (difficulty >= 4 && i > 0 && rng.chance(0.14)) role = "sapper";
+        if (elite >= 5 && rng.chance(0.08)) role = "shaman";
+        if (elite >= 3 && rng.chance(0.1)) role = "hound";
+        if (elite >= 4 && i > 0 && rng.chance(sapperP)) role = "sapper";
         units.push(role);
       }
-      if (i >= 2 && difficulty >= 5 && units.length) units[units.length - 1] = "sapper";
-      if (i === n - 1 && difficulty >= 7) units.push("jarl");
+      if (i >= 2 && elite >= 5 && units.length) units[units.length - 1] = "sapper";
+      if (i === n - 1 && elite >= 7) units.push("jarl");
 
       var wave = {
         id: i,
@@ -55,7 +57,10 @@
       };
 
       // high threat: split assault from a second landing
-      if (difficulty >= 5 && dirs.length > 1 && rng.chance(0.45 + difficulty * 0.04)) {
+      var flankMul = opts.flankMul != null ? opts.flankMul : 1;
+      var flankAdd = opts.flankAdd || 0;
+      var splitP = (0.45 + difficulty * 0.04) * flankMul + flankAdd;
+      if (difficulty >= 5 && dirs.length > 1 && rng.chance(splitP)) {
         var others = dirs.filter(function (d) { return d !== dir; });
         if (others.length) {
           wave.extraDir = rng.pick(others);
@@ -65,7 +70,7 @@
       }
 
       waves.push(wave);
-      t += 14 + Math.max(0, 8 - difficulty) + rng.int(0, 5);
+      t += 14 + Math.max(0, 8 - difficulty) + rng.int(0, 5) + (opts.pace || 0);
     }
     return waves;
   }
@@ -147,9 +152,17 @@
     return { waves: waves.length, total: total, roles: roles, splits: splits, lines: lines };
   }
 
-  function forecast(island, mul, omenId) {
+  function forecast(island, mul, omenId, opts) {
+    opts = opts || {};
     var rng = GS.rng(battleSeed(island));
-    var waves = makeWaves(island, rng, (island && island.difficulty) || 1, { mul: mul == null ? 1 : mul });
+    var waves = makeWaves(island, rng, (island && island.difficulty) || 1, {
+      mul: mul == null ? 1 : mul,
+      pace: opts.pace || 0,
+      flankMul: opts.flankMul,
+      flankAdd: opts.flankAdd,
+      earlyElites: opts.earlyElites || 0,
+      crowd: !!opts.crowd,
+    });
     if (omenId === "hightide") {
       var dirs = island.landingDirs && island.landingDirs.length ? island.landingDirs : [2];
       waves.push({
